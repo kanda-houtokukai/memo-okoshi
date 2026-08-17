@@ -1,0 +1,18 @@
+# 秘匿情報（APIキー）— 絶対にコミットしない
+.env
+.env.*
+!.env.example
+
+# Next.js / Node（P1以降のスキャフォールド用に先置き）
+node_modules/
+.next/
+out/
+build/
+*.tsbuildinfo
+next-env.d.ts
+
+# OS
+.DS_Store
+
+# Vercel
+.vercel
