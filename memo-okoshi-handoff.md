@@ -10,9 +10,9 @@
 
 ## 現在地
 
-- **P2（取り込み・黒塗り）完了**（2026-09-07）: 取り込み→黒塗り→変換→確認→出力→新しい変換の
-  一連が本物の画面で通る。黒塗りは画像に焼き込んでから送信（画素で機械確認済み）。
-- **P4（Vercelデプロイ）実施中**。P3・P3追補は完了済み。テスト26件・本番ビルド通過。
+- **P4（Vercelデプロイ）完了**（2026-09-07）: 本番 **https://memo-okoshi.vercel.app**（合言葉ゲート付き）。
+  本番URLで 取り込み→黒塗り→変換→確認→出力 の一連を確認済み（Vercel側のAPIキーで変換成功）。
+- P2（取り込み・黒塗り）・P3（確認・出力）も完了。テスト26件・本番ビルド通過。
 
 ## 直近の決定
 
@@ -20,8 +20,9 @@
 
 ## 次の一手
 
-- **P4: Vercelデプロイ**（自走中）→ 本番URLで一連の流れを確認・公開範囲の判断。
-- **P1-b: 実物の走り書きでの読み取り検証**。本番URLで実機（iPhone）から撮影して実施できる。
+- **P1-b: 実物の走り書きでの読み取り検証**。本番URLに iPhone からアクセスし、カメラ経路で撮影→
+  黒塗り→変換で実施できる（ダミー・伏せ字のメモで）。
+- **実機調整**: 「実機で調整が必要な値（P2）」の表を iPhone/iPad で当たる。
 - P5: 現場試用の判断・規程整理（Gemini有料設定の切り替えはここで）。
 
 ## 生きている注意事項
@@ -89,6 +90,22 @@
 | アイコンのみの道具 | ●○↶✕ | — | 職員に伝わるか（ツールチップはPCのみ） |
 | カメラ経路 | Intake `capture="environment"` | — | iPhone/Android で直接カメラが開くか |
 
+### 本番（Vercel）の運用
+
+- 本番URL: **https://memo-okoshi.vercel.app**（Hobby・アカウント kanda-houtokukai）。
+- **デプロイはCLIから**: `cd ~/memo-okoshi && npx -y vercel@latest deploy --prod --yes`。
+  GitHub連携はしていないので **push しただけでは本番に反映されない**（commit→push→deploy の順）。
+- Vercel側の環境変数: `GEMINI_API_KEY`（Production/Preview）、`ACCESS_CODE`（Production）。
+  値はすべて Vercel 側にだけある。`npx vercel env ls` で一覧。
+- [DECISION 2026-09-07] **合言葉ゲート**（middleware.ts）。理由: Hobby では本番ドメインを
+  Deployment Protection で守れない（Standard Protection はプレビューのみ・本番保護は Pro の有料枠）。
+  `ACCESS_CODE` を設定したときだけ働き、未設定なら素通し。Cookie は SHA-256・30日・HttpOnly。
+  未認証の `/api/*` は 401。**合言葉は台帳・リポジトリに書かない**（公開リポジトリ。チャットで伝達済み）。
+  変更: `npx vercel env rm ACCESS_CODE production` → `env add` → 再デプロイ。外す: 変数を消して再デプロイ。
+- チーム配下の生URL（`*-kanda-houtokukais-projects.vercel.app`）は Vercel 認証で保護されている。
+  外から到達できるのは本番 alias だけ。
+- `vercel link` は `.env.local` に `VERCEL_OIDC_TOKEN` 行を追記する（無害・git管理外）。
+
 - **devサーバー稼働中に `npm run build` を実行すると `.next` が壊れて500になる**
   （`Cannot find module './xxx.js'`）。ビルド確認はdevを止めてから行うこと。
   壊れたら `rm -rf .next` して起動し直す。
@@ -119,6 +136,8 @@
 | lib/pages.ts | 取り込み（画像/PDF→ImageBitmap・EXIF向き反映）と焼き込み書き出し `exportMasked` |
 | tests/mask.test.mts | 「取り消せない状態にしない」の機械テスト |
 | app/robots.ts | 検索回避（noindex） |
+| middleware.ts / lib/gate.ts | 合言葉ゲート（ACCESS_CODE 設定時のみ・Cookie照合） |
+| app/gate/page.tsx / app/api/gate/route.ts | 合言葉の入口と照合API |
 | tests/invariants.test.mts | 不変条件2点の機械テスト（`npm test`） |
 | public/dev-fixture.json | `?fixture=1` 用の開発データ（モックv6の内容を再現） |
 | lib/prompt.ts | 変換プロンプト生成（項目構成を実行時差し込み） |
@@ -136,7 +155,7 @@
 - **P1: 変換の核** ✅（2026-08-18 完了）ダミー画像→構造化JSON（動的スキーマ・黄青赤スパン・気づき・こぼれ）の疎通
 - **P2: 取り込み＋黒塗りUI** ✅（2026-09-07 完了）3経路・複数・PDFページ化・焼き込み送信
 - **P3: 確認・出力UI** ✅（2026-09-07 完了）モックv6の本実装移植
-- **P4: Vercelデプロイ・実機確認**
+- **P4: Vercelデプロイ** ✅（2026-09-07 完了）https://memo-okoshi.vercel.app ・実機確認は次の一手
 - **P5: 現場試用の判断・規程整理**
 - 将来枠: 記録タイプ拡張／自由項目／部分再変換オプション
 
@@ -275,6 +294,18 @@
 - 実データでの初の青マーカー: 「R6.5.24」→「令和6年（推定）」。
 - 検証はダミー画像2枚（docs/samples）を一時的に public に置いて JS から投入し、終了後に除去。
 - テスト 20→26件（mask.test.mts）。`npm run build` 通過（devを止めてから実行）。
+
+## 2026-09-07 P4: Vercelデプロイ（自走）
+
+- Vercel CLI（既存ログイン kanda-houtokukai）で `vercel link` → env 登録 → `deploy --prod`。
+  本番 alias https://memo-okoshi.vercel.app。GitHub連携なし（CLIデプロイ）。
+- 公開範囲: 公式ドキュメントで Hobby の制約を確認（本番ドメインは Vercel 機能で守れない）。
+  代替として合言葉ゲートをアプリ側に実装（ACCESS_CODE 未設定なら無効）。
+- 本番検証（curl）: /gate 200・robots Disallow・未認証 /api/convert 401・誤入力→/gate?e=1・
+  正解→HttpOnly Cookie→/ 200。
+- 本番検証（ブラウザ）: 合言葉→取り込み（GitHub raw のダミー2枚）→黒塗り→変換（Vercel上の
+  Gemini キー）→確認画面。元メモの黒塗り位置は [0,0,0]。
+- 台帳に本番の運用手順を追記。合言葉は台帳に書かずチャットで伝達。
 
 ---
 
