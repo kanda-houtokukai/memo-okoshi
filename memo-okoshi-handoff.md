@@ -126,9 +126,14 @@
 - チーム配下の生URL（`*-kanda-houtokukais-projects.vercel.app`）は Vercel 認証で保護されている。
   外から到達できるのは本番 alias だけ。
 - `vercel link` は `.env.local` に `VERCEL_OIDC_TOKEN` 行を追記する（無害・git管理外）。
-- **合言葉は 2026-09-07 に入れ替え済み**（旧値が設計チャットに平文で残ったため）。新しい値は
-  Vercel ダッシュボード（Settings → Environment Variables → ACCESS_CODE）でだけ確認できる。
+- **合言葉は 2026-09-07 に入れ替え済み**（旧値が設計チャットに平文で残ったため）。
   台帳・リポジトリ・チャットには書かない。
+- ⚠️ **Vercel CLI の `env add` で作成した環境変数は Secret 型になり、ダッシュボードでも
+  `vercel env pull` でも値を後から読み出せない**（取得できるのは伏せ字のみ。`env pull` は
+  全変数に同じダミー文字列が入る）。`ACCESS_CODE` も `GEMINI_API_KEY` も同じ。
+  → **設定した時点で控えるのが唯一の方法**。失った場合は入れ替えるしかない。
+  → 合言葉を入れ替えるときは **「新値を設定 → Terminalに表示 → ユーザーが控えたことを確認
+    → 再デプロイ」の順**で行うこと（控える前にデプロイして値を失わないため）。
 
 ### 独自ドメイン memookoshi.fknd.jp
 
