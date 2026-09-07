@@ -3,6 +3,7 @@
 // 元メモペイン。モックは手書きを .m-line で擬似再現しているが、
 // 本実装は黒塗り済みの実画像を表示する（カード・ページ切替の構造は正本どおり）。
 // lines を持つページは開発用フィクスチャ（?fixture=1）専用の再現表示。
+// ? の説明は位置連動が未実装のため「黒塗り済みの画像を表示」まで。連動実装時に正本の文言へ戻す。
 
 export type MemoSeg = { s: string; m?: boolean };
 export type MemoPage = { src?: string; lines?: MemoSeg[][] };
@@ -18,7 +19,7 @@ export default function MemoPane({ pages, page, onPage }: Props) {
     <>
       <div className="pane-h">
         <h2>元メモ</h2>
-        <span className="info" data-tip="黒塗り済みの画像を表示。マーカーを押すと該当行が光ります" tabIndex={0}>
+        <span className="info" data-tip="黒塗り済みの画像を表示" tabIndex={0}>
           ?
         </span>
       </div>
