@@ -1,164 +1,108 @@
 "use client";
 
-// P1 検証ページ（素朴でよい・デザイン移植はP3）
-// 画像を選ぶ → 項目を選ぶ → 送信 → 整形表示＋生JSON
+// 入口。画像を投入して変換し、確認・出力画面（Review）へ渡す。
+//
+// ここの入力UIはモックの範囲外＝P1検証ページ相当の暫定。取り込み・黒塗りはP2で作る。
+// ?fixture=1 で開くと、モックv6の内容を再現したフィクスチャを読み込む（API課金なしで
+// 移植の見た目を正本と突き合わせるための開発用の入口）。
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { ITEM_LIBRARY } from "@/lib/items";
+import { fromApi, type ApiData, type RecordState } from "@/lib/record";
+import Review from "./components/Review";
+import type { MemoPage } from "./components/MemoPane";
 
-type Token = { t: "p" | "y" | "b" | "r"; s: string; cands?: string[]; note?: string };
-type ApiResult = {
-  ok: boolean;
-  error?: string;
-  model?: string;
-  tried?: string[];
-  raw?: string;
-  data?: {
-    record_type: string;
-    sections: { id: string; tokens: Token[] }[];
-    spill: { text: string; suggest: string | null }[];
-    insights: { text: string; why: string; refs: string[] }[];
-  };
-};
+const SETTINGS_KEY = "memo-okoshi:items";
 
-const TOKEN_STYLE: Record<Token["t"], React.CSSProperties> = {
-  p: {},
-  y: { background: "#fff3b0", borderBottom: "2px solid #e0a800" },
-  b: { background: "#d7e8ff", borderBottom: "2px solid #4a90d9" },
-  r: { background: "#ffd6d6", borderBottom: "2px solid #d64545", fontWeight: "bold" },
-};
+type Settings = { enabled: Record<string, boolean>; order: string[] };
+
+function defaultSettings(): Settings {
+  const enabled: Record<string, boolean> = {};
+  ITEM_LIBRARY.forEach((l) => (enabled[l.id] = l.defaultOn));
+  return { enabled, order: ITEM_LIBRARY.map((l) => l.id) };
+}
+
+function loadSettings(): Settings {
+  const def = defaultSettings();
+  try {
+    const raw = localStorage.getItem(SETTINGS_KEY);
+    if (!raw) return def;
+    const saved = JSON.parse(raw) as { enabled?: string[]; order?: string[] };
+    const enabled: Record<string, boolean> = {};
+    ITEM_LIBRARY.forEach((l) => (enabled[l.id] = (saved.enabled ?? []).includes(l.id)));
+    // 保存後に項目が増えても落ちないよう、未知/欠落は定義順で補う
+    const order = [
+      ...(saved.order ?? []).filter((id) => ITEM_LIBRARY.some((l) => l.id === id)),
+      ...ITEM_LIBRARY.map((l) => l.id).filter((id) => !(saved.order ?? []).includes(id)),
+    ];
+    return { enabled, order };
+  } catch {
+    return def;
+  }
+}
 
 export default function Page() {
+  const [settings, setSettings] = useState<Settings | null>(null);
   const [files, setFiles] = useState<File[]>([]);
-  const [checked, setChecked] = useState<string[]>(
-    ITEM_LIBRARY.filter((d) => d.basic).map((d) => d.id)
-  );
   const [busy, setBusy] = useState(false);
-  const [result, setResult] = useState<ApiResult | null>(null);
+  const [error, setError] = useState("");
+  const [rec, setRec] = useState<RecordState | null>(null);
+  const [pages, setPages] = useState<MemoPage[]>([]);
 
-  const toggle = (id: string) =>
-    setChecked((c) => (c.includes(id) ? c.filter((x) => x !== id) : [...c, id]));
+  useEffect(() => {
+    const s = loadSettings();
+    setSettings(s);
+    if (new URLSearchParams(window.location.search).get("fixture") !== "1") return;
+    fetch("/dev-fixture.json")
+      .then((r) => r.json())
+      .then((f: ApiData & { pages?: MemoPage[] }) => {
+        setRec(fromApi(f, ITEM_LIBRARY, s.enabled, s.order));
+        setPages(f.pages ?? []);
+      })
+      .catch((e) => setError(String(e)));
+  }, []);
 
-  const submit = async () => {
+  const convert = async () => {
+    if (!settings) return;
     setBusy(true);
-    setResult(null);
+    setError("");
     try {
       const fd = new FormData();
       files.forEach((f) => fd.append("images", f));
-      fd.append("items", JSON.stringify(checked));
+      fd.append("items", JSON.stringify(settings.order.filter((id) => settings.enabled[id])));
       const res = await fetch("/api/convert", { method: "POST", body: fd });
-      setResult((await res.json()) as ApiResult);
+      const json = await res.json();
+      if (!json.ok) {
+        setError(json.error + (json.raw ? "\n\n" + json.raw : ""));
+        return;
+      }
+      setRec(fromApi(json.data as ApiData, ITEM_LIBRARY, settings.enabled, settings.order));
+      setPages(files.map((f) => ({ src: URL.createObjectURL(f) })));
     } catch (e) {
-      setResult({ ok: false, error: String(e) });
+      setError(String(e));
     } finally {
       setBusy(false);
     }
   };
 
-  const labelOf = (id: string) => ITEM_LIBRARY.find((d) => d.id === id)?.label ?? id;
+  if (rec) return <Review initial={rec} pages={pages} />;
 
   return (
-    <main>
-      <h1>メモおこし P1 疎通検証</h1>
-
-      <section>
-        <h2>1. 画像（複数可・1件の記録に統合）</h2>
+    <div className="intake">
+      <h1>メモおこし</h1>
+      <div className="box">
         <input
           type="file"
           accept="image/*"
           multiple
           onChange={(e) => setFiles(Array.from(e.target.files ?? []))}
         />
-        <p>{files.map((f) => f.name).join(" / ") || "未選択"}</p>
-      </section>
-
-      <section>
-        <h2>2. 項目構成</h2>
-        {ITEM_LIBRARY.map((d) => (
-          <label key={d.id} style={{ display: "inline-block", marginRight: "1em" }}>
-            <input type="checkbox" checked={checked.includes(d.id)} onChange={() => toggle(d.id)} />
-            {d.label}
-          </label>
-        ))}
-      </section>
-
-      <p>
-        <button onClick={submit} disabled={busy || files.length === 0}>
+        <div className="files">{files.map((f) => f.name).join(" / ") || "　"}</div>
+        <button onClick={convert} disabled={busy || files.length === 0 || !settings}>
           {busy ? "変換中…" : "変換する"}
         </button>
-      </p>
-
-      {result && !result.ok && (
-        <section style={{ color: "#b00" }}>
-          <h2>エラー</h2>
-          <pre style={{ whiteSpace: "pre-wrap" }}>{result.error}</pre>
-          {result.raw && <pre style={{ whiteSpace: "pre-wrap", color: "#555" }}>{result.raw}</pre>}
-        </section>
-      )}
-
-      {result?.ok && result.data && (
-        <>
-          <p>
-            使用モデル: <code>{result.model}</code>（試行: {result.tried?.join(" → ")}）
-          </p>
-          <section>
-            <h2>記録（黄=低確信 / 青=推定 / 赤=人名）</h2>
-            {result.data.sections.map((s) => (
-              <div key={s.id} style={{ margin: "0.6em 0" }}>
-                <strong>【{labelOf(s.id)}】</strong>{" "}
-                {s.tokens.length === 0 ? (
-                  <span style={{ color: "#999" }}>（記載なし）</span>
-                ) : (
-                  s.tokens.map((t, i) => (
-                    <span key={i} style={TOKEN_STYLE[t.t] ?? {}} title={t.note ?? t.cands?.join(" / ")}>
-                      {t.s}
-                    </span>
-                  ))
-                )}
-              </div>
-            ))}
-          </section>
-
-          <section>
-            <h2>拾いきれなかった内容（こぼれ）</h2>
-            {result.data.spill.length === 0 ? (
-              <p style={{ color: "#999" }}>なし</p>
-            ) : (
-              <ul>
-                {result.data.spill.map((sp, i) => (
-                  <li key={i}>
-                    {sp.text} {sp.suggest && <em>（→ {labelOf(sp.suggest)}?）</em>}
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <section>
-            <h2>AIの気づき（記録とは別枠）</h2>
-            {result.data.insights.length === 0 ? (
-              <p style={{ color: "#999" }}>なし</p>
-            ) : (
-              <ul>
-                {result.data.insights.map((ins, i) => (
-                  <li key={i}>
-                    {ins.text}
-                    <br />
-                    <small>なぜ: {ins.why} ／ 関連: {ins.refs.map(labelOf).join("・") || "—"}</small>
-                  </li>
-                ))}
-              </ul>
-            )}
-          </section>
-
-          <details>
-            <summary>生JSON</summary>
-            <pre style={{ whiteSpace: "pre-wrap", fontSize: 12 }}>
-              {JSON.stringify(result.data, null, 2)}
-            </pre>
-          </details>
-        </>
-      )}
-    </main>
+        {error && <div className="err">{error}</div>}
+      </div>
+    </div>
   );
 }
