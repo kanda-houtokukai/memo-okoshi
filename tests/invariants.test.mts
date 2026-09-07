@@ -17,6 +17,7 @@ import {
   fromApi,
   isDoneBlocked,
   isSectionCopyBlocked,
+  moveSpillTo,
   outputWarnings,
   resolveToken,
   sectionCopyText,
@@ -154,6 +155,75 @@ test("不変条件2: 表示していない（オフの）項目に残る赤は�
   const { state } = toggleItem(s, "moushiokuri", ITEM_LIBRARY);
   assert.equal(counts(state).r, 0);
   assert.equal(isDoneBlocked(state), false);
+});
+
+/* ============ こぼれの拾い上げ（suggest が null の場合を含む） ============ */
+
+function nullSpillState(): RecordState {
+  const enabled: Record<string, boolean> = {};
+  ITEM_LIBRARY.forEach((l) => (enabled[l.id] = l.defaultOn));
+  return {
+    tokens: { gaiyou: [{ t: "p", s: "8月17日、自宅にてモニタリング面談を実施。" }], shokan: [] },
+    enabled,
+    order: ITEM_LIBRARY.map((l) => l.id),
+    spill: [{ text: "受け皿のない内容。", sug: null }],
+    insights: [{ s: INSIGHT_CANARY, why: WHY_CANARY, refs: [] }],
+  };
+}
+
+test("こぼれ: suggest が null でも任意の項目へ移せる", () => {
+  const s = nullSpillState();
+  const moved = moveSpillTo(s, 0, "shokan", ITEM_LIBRARY);
+  assert.equal(moved.spill.length, 0, "移動後はこぼれ枠から消えるはず");
+  assert.equal(moved.enabled.shokan, true);
+  assert.equal(moved.tokens.shokan.map((t) => t.s).join(""), "受け皿のない内容。");
+});
+
+test("こぼれ: 移動後は転記テキストに含まれ、気づきは混入しない", () => {
+  const moved = moveSpillTo(nullSpillState(), 0, "shokan", ITEM_LIBRARY);
+  const out = buildOutputText(moved, ITEM_LIBRARY);
+  assert.ok(out.includes("受け皿のない内容。"), "移動先の項目に記録として出るはず");
+  assert.ok(!out.includes(INSIGHT_CANARY));
+  assert.ok(!out.includes(WHY_CANARY));
+});
+
+test("こぼれ: 内容のある項目へ移しても既存の記録を上書きしない", () => {
+  const s = nullSpillState();
+  const moved = moveSpillTo(s, 0, "gaiyou", ITEM_LIBRARY);
+  const text = moved.tokens.gaiyou.map((t) => t.s).join("");
+  assert.ok(text.startsWith("8月17日、自宅にてモニタリング面談を実施。"), "既存の記録が消えた");
+  assert.ok(text.endsWith("受け皿のない内容。"), "移した内容が末尾に足されていない");
+});
+
+test("こぼれ: オフの項目へ移すと、その項目がオンになり締めの手前に入る", () => {
+  const moved = moveSpillTo(nullSpillState(), 0, "kenko", ITEM_LIBRARY);
+  const act = moved.order.filter((id) => moved.enabled[id]);
+  assert.ok(act.includes("kenko"));
+  assert.ok(act.indexOf("kenko") < act.indexOf("moushiokuri"), "締め（申し送り）より後ろに入った");
+});
+
+test("こぼれ: 降格分を別の項目へ移すと元項目に二重で残らない", () => {
+  const base = baseState();
+  const { state } = toggleItem(base, "kadai", ITEM_LIBRARY); // 内容ごと降格
+  const idx = state.spill.findIndex((sp) => sp.sug === "kadai");
+  const moved = moveSpillTo(state, idx, "shokan", ITEM_LIBRARY);
+  assert.equal(moved.tokens.kadai.length, 0, "元項目にトークンが残っている（復帰時に二重化する）");
+  const out = buildOutputText(moved, ITEM_LIBRARY);
+  const hits = out.split("昼食を食べられていない日がある。").length - 1;
+  assert.equal(hits, 1, "転記テキストに同じ内容が二重に出た");
+});
+
+test("こぼれ: 移動しても不変条件2（赤のブロック）は変わらない", () => {
+  const base = baseState();
+  const moved = moveSpillTo(base, 0, "shokan", ITEM_LIBRARY);
+  assert.equal(isDoneBlocked(moved), true, "赤が残る限り完成はブロックされ続ける");
+  assert.equal(sectionCopyText(moved, "moushiokuri"), null);
+});
+
+test("こぼれ: 存在しない項目へは移さない（状態を壊さない）", () => {
+  const s = nullSpillState();
+  assert.equal(moveSpillTo(s, 0, "存在しないid", ITEM_LIBRARY), s);
+  assert.equal(moveSpillTo(s, 99, "shokan", ITEM_LIBRARY), s);
 });
 
 /* ============ API応答からの取り込み（実データ形状の担保） ============ */

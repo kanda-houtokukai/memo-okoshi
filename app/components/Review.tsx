@@ -11,6 +11,7 @@ import {
   buildOutputText,
   counts,
   moveSection,
+  moveSpillTo,
   outputWarnings,
   resolveToken,
   saveEdit,
@@ -51,6 +52,7 @@ export default function Review({ initial, pages }: Props) {
   const [rec, setRec] = useState<RecordState>(initial);
   const [editing, setEditing] = useState<string | null>(null);
   const [pop, setPop] = useState<{ sid: string; ti: number; left: number; top: number } | null>(null);
+  const [picker, setPicker] = useState<{ index: number; left: number; top: number } | null>(null);
   const [page, setPage] = useState(0);
   const [mobileTab, setMobileTab] = useState<"memo" | "rec">("rec");
   const [drawerOpen, setDrawerOpen] = useState(false);
@@ -96,8 +98,9 @@ export default function Review({ initial, pages }: Props) {
   useEffect(() => {
     const h = (e: MouseEvent) => {
       const t = e.target as HTMLElement;
-      if (t.closest(".pop") || t.classList.contains("mk")) return;
+      if (t.closest(".pop") || t.classList.contains("mk") || t.closest(".mv")) return;
       setPop(null);
+      setPicker(null);
     };
     document.addEventListener("click", h);
     return () => document.removeEventListener("click", h);
@@ -123,10 +126,17 @@ export default function Review({ initial, pages }: Props) {
 
   const acts = activeIds(rec);
 
-  const onTokenClick = (sid: string, ti: number, el: HTMLElement) => {
+  const popPos = (el: HTMLElement) => {
     const r = el.getBoundingClientRect();
-    const left = Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + window.innerWidth - 320));
-    setPop({ sid, ti, left, top: r.bottom + window.scrollY + 8 });
+    return {
+      left: Math.max(8, Math.min(r.left + window.scrollX, window.scrollX + window.innerWidth - 320)),
+      top: r.bottom + window.scrollY + 8,
+    };
+  };
+
+  const onTokenClick = (sid: string, ti: number, el: HTMLElement) => {
+    setPicker(null);
+    setPop({ sid, ti, ...popPos(el) });
   };
 
   const doResolve = (val: string | null) => {
@@ -198,6 +208,26 @@ export default function Review({ initial, pages }: Props) {
     setRec((s) => acceptSpill(s, index, ITEM_LIBRARY));
     toast(`「${def.label}」に移しました`);
     setTimeout(() => flashCard(def.id), 150);
+  };
+
+  /** suggest のないこぼれ: 表示中の項目から移動先を選ばせる */
+  const onOpenSpillPicker = (index: number, el: HTMLElement) => {
+    if (acts.length === 0) {
+      toast("項目を追加すると移せます");
+      return;
+    }
+    setPop(null);
+    setPicker({ index, ...popPos(el) });
+  };
+
+  const onPickSpillTarget = (targetId: string) => {
+    if (!picker) return;
+    const def = itemById(targetId);
+    if (!def) return;
+    setRec((s) => moveSpillTo(s, picker.index, targetId, ITEM_LIBRARY));
+    setPicker(null);
+    toast(`「${def.label}」に移しました`);
+    setTimeout(() => flashCard(targetId), 150);
   };
 
   const doneReady = c.r === 0;
@@ -317,9 +347,17 @@ export default function Review({ initial, pages }: Props) {
                         ) : (
                           <div className="tx">{it.text}</div>
                         )}
-                        {def && (
+                        {def ? (
                           <button className="mv" onClick={() => onAcceptSpill(idx)}>
                             ＋ 「{def.label}」へ
+                          </button>
+                        ) : (
+                          <button
+                            className="mv"
+                            data-tip="項目へ移す"
+                            onClick={(e) => onOpenSpillPicker(idx, e.currentTarget)}
+                          >
+                            ＋
                           </button>
                         )}
                       </div>
@@ -388,6 +426,16 @@ export default function Review({ initial, pages }: Props) {
           pos={{ left: pop.left, top: pop.top }}
           onResolve={doResolve}
           onClose={() => setPop(null)}
+        />
+      )}
+
+      {picker && (
+        <Popover
+          mode="picker"
+          options={acts.map((id) => ({ id, label: itemById(id)!.label }))}
+          pos={{ left: picker.left, top: picker.top }}
+          onPick={onPickSpillTarget}
+          onClose={() => setPicker(null)}
         />
       )}
 

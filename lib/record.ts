@@ -134,16 +134,46 @@ export function toggleItem(
   return { state: { ...state, enabled, order, spill }, demoted: false };
 }
 
-/** こぼれ枠から項目へ移す（再変換なし・端末内操作） */
+/** こぼれ枠から項目へ移す（再変換なし・端末内操作）。移動先は既定で suggest の項目 */
 export function acceptSpill(state: RecordState, index: number, lib: ItemDef[]): RecordState {
   const it = state.spill[index];
   if (!it || !it.sug) return state;
-  const enabled = { ...state.enabled, [it.sug]: true };
-  const order = placeInOrder(state.order, enabled, lib, it.sug);
-  const tokens = it.keepTokens
-    ? state.tokens
-    : { ...state.tokens, [it.sug]: [{ t: "p" as TokenKind, s: it.text }] };
-  return { ...state, enabled, order, tokens, spill: state.spill.filter((_, n) => n !== index) };
+  return moveSpillTo(state, index, it.sug, lib);
+}
+
+/**
+ * こぼれ枠の1件を任意の項目へ移す。
+ * [DECISION] suggest が null のこぼれにも拾い上げ導線を用意するための一般化。
+ * - 移動先が空: そのまま入れる（モックの挙動）
+ * - 移動先に内容あり: **上書きせず末尾に足す**（黙って捨てない原則。既存の記録を壊さない）
+ * - 降格（項目オフ）由来の分を別項目へ移すときは、元項目のトークンを空にして二重化を防ぐ
+ */
+export function moveSpillTo(
+  state: RecordState,
+  index: number,
+  targetId: string,
+  lib: ItemDef[]
+): RecordState {
+  const it = state.spill[index];
+  if (!it || !lib.some((l) => l.id === targetId)) return state;
+
+  const enabled = { ...state.enabled, [targetId]: true };
+  const order = placeInOrder(state.order, enabled, lib, targetId);
+  const spill = state.spill.filter((_, n) => n !== index);
+
+  // 元の項目へ戻すだけの復帰（降格分）は、保持してあるトークンをそのまま生かす
+  if (it.keepTokens && it.sug === targetId) {
+    return { ...state, enabled, order, spill };
+  }
+
+  const tokens = { ...state.tokens };
+  if (it.keepTokens && it.sug && it.sug !== targetId) tokens[it.sug] = [];
+  const cur = tokens[targetId] ?? [];
+  tokens[targetId] = flatten(cur).trim()
+    ? [...cur, { t: "p" as TokenKind, s: it.text }]
+    : [{ t: "p" as TokenKind, s: it.text }];
+
+  return { ...state, enabled, order, tokens, spill };
 }
 
 /* ---------- マーカーの解消・編集 ---------- */

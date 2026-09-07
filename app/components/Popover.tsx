@@ -1,21 +1,38 @@
 "use client";
 
 // マーカーのポップオーバー。中身・文言・並びは正本（モックv6の openPop）どおり。
-// 唯一の一般化: 赤の「イニシャル」候補はモックが 田中→"T" と決め打ちしていたため、
-// 検知語の先頭1文字から作る（報告に明記して確認を仰ぐ箇所）。
+// 一般化した点:
+//  - 赤の「イニシャル」候補はモックが 田中→"T" と決め打ちだったため、検知語の先頭1文字から作る
+//  - picker モード: こぼれの移動先を選ぶ一覧。モックにない導線だが、部品は作らず .pop を流用する
 
 import { useState } from "react";
 import type { Token } from "@/lib/record";
 
-type Props = {
-  token: Token;
-  pos: { left: number; top: number };
-  onResolve: (val: string | null) => void;
-  onClose: () => void;
-};
+type Pos = { left: number; top: number };
 
-export default function Popover({ token, pos, onResolve, onClose }: Props) {
+type Props =
+  | { mode?: "token"; token: Token; pos: Pos; onResolve: (val: string | null) => void; onClose: () => void }
+  | { mode: "picker"; options: { id: string; label: string }[]; pos: Pos; onPick: (id: string) => void; onClose: () => void };
+
+export default function Popover(props: Props) {
   const [val, setVal] = useState("");
+
+  if (props.mode === "picker") {
+    return (
+      <div className="pop on" style={{ left: props.pos.left, top: props.pos.top }}>
+        <button className="close" onClick={props.onClose}>
+          ×
+        </button>
+        {props.options.map((o) => (
+          <button key={o.id} onClick={() => props.onPick(o.id)}>
+            {o.label}
+          </button>
+        ))}
+      </div>
+    );
+  }
+
+  const { token, pos, onResolve, onClose } = props;
   const submit = () => {
     const v = val.trim();
     if (!v) return;
