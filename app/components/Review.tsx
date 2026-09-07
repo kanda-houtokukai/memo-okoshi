@@ -46,9 +46,9 @@ function copyText(txt: string, ok: () => void) {
   else fb();
 }
 
-type Props = { initial: RecordState; pages: MemoPage[] };
+type Props = { initial: RecordState; pages: MemoPage[]; onRestart?: () => void };
 
-export default function Review({ initial, pages }: Props) {
+export default function Review({ initial, pages, onRestart }: Props) {
   const [rec, setRec] = useState<RecordState>(initial);
   const [editing, setEditing] = useState<string | null>(null);
   const [pop, setPop] = useState<{ sid: string; ti: number; left: number; top: number } | null>(null);
@@ -456,6 +456,7 @@ export default function Review({ initial, pages }: Props) {
           setOutOpen(false);
           setOutCopied(false);
         }}
+        onRestart={onRestart}
       />
 
       <div className={"toast" + (toastOn ? " on" : "")}>{toastMsg}</div>
