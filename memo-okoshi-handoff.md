@@ -12,8 +12,8 @@
 
 - **P5（組織語彙の辞書＋独自ドメイン）実施**（2026-09-07）: 辞書（端末内・プロンプト差し込み・
   黄マーカーからの学習導線）を実装。合言葉は入れ替え済み。独自ドメイン memookoshi.fknd.jp は
-  Vercel側に追加済みで **DNS設定（ユーザー作業）待ち**。
-- 本番: **https://memo-okoshi.vercel.app**（合言葉ゲート付き）。P0〜P4 完了。
+  **https://memookoshi.fknd.jp で疎通確認済み**（証明書発行・ゲート・noindex・既存サブドメイン無傷）。
+- 本番: **https://memookoshi.fknd.jp**（配布用。memo-okoshi.vercel.app も有効・合言葉ゲート付き）。P0〜P5 完了。
 
 ## 直近の決定
 
@@ -21,8 +21,6 @@
 
 ## 次の一手
 
-- **DNS設定後の疎通確認**（memookoshi.fknd.jp）: 下記「独自ドメイン」の手順をユーザーが実施したら
-  `dig +short memookoshi.fknd.jp` と `curl -sI https://memookoshi.fknd.jp/` で確認し台帳へ記録。
 - **AI委員会での試用開始**（合言葉は別経路で配布）。規程整理と並行。
 - **P1-b: 実物の走り書きでの読み取り検証**。本番URLに iPhone からアクセスし、カメラ経路で撮影→
   黒塗り→変換で実施できる（ダミー・伏せ字のメモで）。辞書に事業所の略語を数語入れてから試すと効果が見える。
@@ -147,7 +145,19 @@
 - 反映後の確認: `dig +short memookoshi.fknd.jp`（cname.vercel-dns.com が返る）→
   `curl -sI https://memookoshi.fknd.jp/`（307 → /gate なら合言葉ゲートが効いている）→
   `curl -s https://memookoshi.fknd.jp/robots.txt`（Disallow: /）。ゲート・noindex は host に依存しない実装。
-- 状態: **DNS未設定（ユーザー作業待ち）**。設定されたら上記を実行して結果をここに追記すること。
+- **疎通確認 2026-09-07（DNS設定後）— すべて合格**:
+  - `dig +short CNAME memookoshi.fknd.jp` → `cname.vercel-dns.com.`（権威 ns1.xdomain でも同じ）
+  - Vercel `domains verify` → verified: true。証明書は自動発行（Let's Encrypt・発行まで検証後 約2分・
+    期限 2026-12-06 GMT・以後 Vercel が自動更新）
+  - `https://memookoshi.fknd.jp/` → 307 → `/gate`（合言葉ゲート有効・ssl_verify=0）／`/gate` 200
+  - 未認証 `POST /api/convert` → 401（ゲートがAPIも守っている）
+  - `/robots.txt` → `Disallow: /`、`/gate` に `<meta name="robots" content="noindex, nofollow">`
+  - **既存 `fukushi-watch.fknd.jp` は無傷**: CNAME → `kanda-houtokukai.github.io.` のまま・https 200
+  - 注意: `vercel domains inspect` は CNAME 構成でも「not configured」と警告を出すことがある（A 76.76.21.21
+    との比較による既知の見かけ上の警告）。`domains verify` の verified と実際の https 応答を正とする。
+  - 注意: 作業した Mac の DNS キャッシュに「レコード無し」が最大1時間残り、ローカルからだけ繋がらない
+    ことがある（公開リゾルバ @1.1.1.1 や `curl --resolve` で切り分ける）。
+- 本番URL（配布用）: **https://memookoshi.fknd.jp**（memo-okoshi.vercel.app も引き続き有効）
 
 - **devサーバー稼働中に `npm run build` を実行すると `.next` が壊れて500になる**
   （`Cannot find module './xxx.js'`）。ビルド確認はdevを止めてから行うこと。
@@ -201,7 +211,7 @@
 - **P2: 取り込み＋黒塗りUI** ✅（2026-09-07 完了）3経路・複数・PDFページ化・焼き込み送信
 - **P3: 確認・出力UI** ✅（2026-09-07 完了）モックv6の本実装移植
 - **P4: Vercelデプロイ** ✅（2026-09-07 完了）https://memo-okoshi.vercel.app ・実機確認は次の一手
-- **P5: 組織語彙の辞書＋独自ドメイン** ✅（2026-09-07 実装完了・DNSはユーザー作業待ち）
+- **P5: 組織語彙の辞書＋独自ドメイン** ✅（2026-09-07 完了・memookoshi.fknd.jp 疎通確認済み）
 - **P6: 現場試用（AI委員会）・規程整理**（Gemini有料設定の切り替えはここで判断）
 - 将来枠（設計意図と原則との関係。**原則を知らずに実装しないための記録**）:
   - **訂正の学習**（次の有力候補）: 黄マーカーの修正内容を端末内に蓄積し、同じ誤読を次回候補の先頭に
@@ -370,7 +380,8 @@
 - 合言葉を入れ替え（`vercel env rm/add ACCESS_CODE production` → 再デプロイ）。旧値は本番で
   差し戻されることを curl で確認。新値はチャット・台帳に書かず Vercel 側にのみ。
 - 独自ドメイン: `vercel domains add memookoshi.fknd.jp` 済み。DNS はエックスドメイン管理
-  （fukushi-watch の CNAME と同居）。手順を台帳「独自ドメイン」節に記載。疎通はDNS設定待ち。
+  （fukushi-watch の CNAME と同居）。ユーザーが CNAME を追加後、証明書発行〜https・ゲート・noindex・
+  既存サブドメイン無傷まで確認（結果は「独自ドメイン」節）。
 - 辞書: lib/vocab.ts（純関数＋localStorage）、VocabDrawer（項目ドロワーと同じ器）、
   Popover の黄に「辞書に追加」チェック、page.tsx が変換時に同送、API が sanitize してプロンプトへ。
   入口は取り込み画面ヘッダーと確認画面の「辞書」ボタン（件数バッジ付き）。
