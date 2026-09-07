@@ -13,6 +13,7 @@ import { ITEM_LIBRARY } from "@/lib/items";
 import { fromApi, type ApiData, type RecordState } from "@/lib/record";
 import { exportMasked, filesToPages, releasePage, type PageItem } from "@/lib/pages";
 import type { MaskState } from "@/lib/mask";
+import { loadVocab } from "@/lib/vocab";
 import Review from "./components/Review";
 import Intake from "./components/Intake";
 import Redact from "./components/Redact";
@@ -117,6 +118,7 @@ export default function Page() {
       const fd = new FormData();
       blobs.forEach((b, i) => fd.append("images", b, `page-${i + 1}.jpg`));
       fd.append("items", JSON.stringify(s.order.filter((id) => s.enabled[id])));
+      fd.append("vocab", JSON.stringify(loadVocab())); // 端末内の辞書。サーバーは保存しない
       const res = await fetch("/api/convert", { method: "POST", body: fd });
       const json = await res.json();
       if (!json.ok) {
@@ -183,6 +185,7 @@ export default function Page() {
           setIndex(0);
           setMode("mask");
         }}
+        toast={toast}
       />
       {error && mode === "intake" && !pages.length && <div className="wrap single"><div className="errline">{error}</div></div>}
       <Toast msg={msg} on={on} />

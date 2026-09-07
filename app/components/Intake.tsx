@@ -7,6 +7,8 @@
 import { useEffect, useRef, useState } from "react";
 import type { PageItem } from "@/lib/pages";
 import StepHeader from "./StepHeader";
+import VocabDrawer from "./VocabDrawer";
+import { loadVocab } from "@/lib/vocab";
 
 type Props = {
   pages: PageItem[];
@@ -15,10 +17,14 @@ type Props = {
   onRemove: (id: string) => void;
   onMove: (id: string, dir: -1 | 1) => void;
   onNext: () => void;
+  toast: (m: string) => void;
 };
 
-export default function Intake({ pages, busy, onAdd, onRemove, onMove, onNext }: Props) {
+export default function Intake({ pages, busy, onAdd, onRemove, onMove, onNext, toast }: Props) {
   const [menu, setMenu] = useState<{ left: number; top: number } | null>(null);
+  const [vocabOpen, setVocabOpen] = useState(false);
+  const [vocabN, setVocabN] = useState(0);
+  useEffect(() => setVocabN(loadVocab().length), [vocabOpen]);
   const camRef = useRef<HTMLInputElement>(null);
   const libRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
@@ -57,15 +63,22 @@ export default function Intake({ pages, busy, onAdd, onRemove, onMove, onNext }:
       <StepHeader
         step="intake"
         right={
-          <button
-            className={"done-btn" + (pages.length > 0 && !busy ? " ready" : "")}
-            disabled={pages.length === 0 || busy}
-            onClick={onNext}
-          >
-            黒塗りへ
-          </button>
+          <>
+            <button className="tool-btn" onClick={() => setVocabOpen(true)}>
+              辞書{vocabN > 0 && <span className="ins-count">{vocabN}</span>}
+            </button>
+            <button
+              className={"done-btn" + (pages.length > 0 && !busy ? " ready" : "")}
+              disabled={pages.length === 0 || busy}
+              onClick={onNext}
+            >
+              黒塗りへ
+            </button>
+          </>
         }
       />
+
+      <VocabDrawer open={vocabOpen} onClose={() => setVocabOpen(false)} toast={toast} />
 
       <div className="wrap single">
         <div className="pages">

@@ -1,4 +1,5 @@
-import { ItemDef } from "./items";
+import type { ItemDef } from "./items";
+import type { VocabEntry } from "./vocab";
 
 // 変換プロンプト。項目構成を実行時に差し込み、sections を動的に決める。
 // 要件（P1指示書）:
@@ -9,7 +10,17 @@ import { ItemDef } from "./items";
 // - 複数画像は1件の記録として統合
 // - JSON以外は一切出力しない
 
-export function buildPrompt(items: ItemDef[]): string {
+export function buildPrompt(items: ItemDef[], vocab: VocabEntry[] = []): string {
+  // 組織の語彙（端末内の辞書）。あるときだけ節を足す。人名は含まれない前提（lib/vocab.ts が弾く）
+  const vocabSection = vocab.length
+    ? `
+# 組織の語彙（この事業所で使われる略語・固有語。人名は含まれていない）
+${vocab.map((v) => `- 「${v.term}」${v.gloss ? "＝ " + v.gloss : ""}`).join("\n")}
+手書きの読み取りで迷う箇所は、上の語に該当しそうならその表記を優先して採用する。
+ただし、メモに書かれていない語をこの一覧から補ってはいけない（書かれていないことは書かない）。
+語彙で確定できた語は "p" でよい。それでも自信がなければ "y" にし、cands にこの表記を含める。
+`
+    : "";
   const itemList = items
     .map((it) => `- id:"${it.id}" 名称「${it.label}」= ${it.hint}`)
     .join("\n");
@@ -42,6 +53,7 @@ ${itemList}
 7. spill の suggest には、その内容が本来収まりそうな項目 id を入れる
    （上記の項目構成以外の一般的な項目が適切なら、"kenko" "seikatsu" "nicchu" "kinsen" "risk" "kikan" "kibou" から選んでよい。適切なものがなければ null）。
 
+${vocabSection}
 # 出力形式
 次の JSON のみを出力する。前置き・説明・コードフェンス・末尾コメントは一切禁止。
 {

@@ -4,6 +4,8 @@
 // 一般化した点:
 //  - 赤の「イニシャル」候補はモックが 田中→"T" と決め打ちだったため、検知語の先頭1文字から作る
 //  - picker モード: こぼれの移動先を選ぶ一覧。モックにない導線だが、部品は作らず .pop を流用する
+//  - 黄（読取に自信なし）に「辞書に追加」のチェック: 確定した語を組織語彙へ入れる学習導線。
+//    赤（人名）には出さない（人名を辞書に入れさせない配慮）。
 
 import { useState } from "react";
 import type { Token } from "@/lib/record";
@@ -11,11 +13,12 @@ import type { Token } from "@/lib/record";
 type Pos = { left: number; top: number };
 
 type Props =
-  | { mode?: "token"; token: Token; pos: Pos; onResolve: (val: string | null) => void; onClose: () => void }
+  | { mode?: "token"; token: Token; pos: Pos; onResolve: (val: string | null, learn?: boolean) => void; onClose: () => void }
   | { mode: "picker"; options: { id: string; label: string }[]; pos: Pos; onPick: (id: string) => void; onClose: () => void };
 
 export default function Popover(props: Props) {
   const [val, setVal] = useState("");
+  const [learn, setLearn] = useState(false);
 
   if (props.mode === "picker") {
     return (
@@ -36,7 +39,7 @@ export default function Popover(props: Props) {
   const submit = () => {
     const v = val.trim();
     if (!v) return;
-    onResolve(v);
+    onResolve(v, token.t === "y" ? learn : undefined);
   };
 
   return (
@@ -49,7 +52,7 @@ export default function Popover(props: Props) {
         <>
           <div className="pt y">読み取りに自信なし</div>
           {(token.cands ?? []).map((c, i) => (
-            <button key={i} onClick={() => onResolve(c)}>
+            <button key={i} onClick={() => onResolve(c, learn)}>
               {c}
             </button>
           ))}
@@ -61,6 +64,10 @@ export default function Popover(props: Props) {
           <button className="pri" onClick={submit}>
             この内容で確定
           </button>
+          <label className="pop-chk">
+            <input type="checkbox" checked={learn} onChange={(e) => setLearn(e.target.checked)} />
+            辞書に追加
+          </label>
         </>
       )}
 

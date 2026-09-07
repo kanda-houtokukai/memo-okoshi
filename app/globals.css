@@ -342,3 +342,16 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 .gate-form input{font:inherit;font-size:1rem;border:1px solid var(--line);border-radius:9px;padding:9px 13px;background:var(--surface);width:200px}
 .gate-form input:focus{outline:none;border-color:var(--accent)}
 .gate-err{font-size:.8rem;color:var(--r-ink)}
+
+/* ---------- 組織の語彙（辞書ドロワー） ---------- */
+.vc-add,.vc-row{display:flex;align-items:center;gap:6px;padding:7px 4px;border-bottom:1px dashed var(--line)}
+.vc-add{padding-bottom:12px;margin-bottom:6px;border-bottom:1px solid var(--line)}
+.vc-add input,.vc-row.editing input{font:inherit;font-size:.86rem;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--faint);min-width:0}
+.vc-add input:first-child,.vc-row.editing input:first-child{flex:0 0 38%}
+.vc-add input:nth-child(2),.vc-row.editing input:nth-child(2){flex:1}
+.vc-add input:focus,.vc-row.editing input:focus{outline:none;border-color:var(--accent);background:var(--surface)}
+.vc-term{font-size:.9rem;font-weight:700;flex:0 0 38%;overflow-wrap:anywhere}
+.vc-gloss{font-size:.78rem;color:var(--sub);flex:1;overflow-wrap:anywhere}
+.vc-row .mini{flex-shrink:0}
+.pop-chk{display:flex;align-items:center;gap:7px;font-size:.78rem;color:var(--sub);padding:4px 2px 0;cursor:pointer;user-select:none}
+.pop-chk input{width:auto;margin:0;accent-color:var(--accent)}

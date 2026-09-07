@@ -25,6 +25,8 @@ import Popover from "./Popover";
 import Drawer from "./Drawer";
 import OutputOverlay from "./OutputOverlay";
 import MemoPane, { type MemoPage } from "./MemoPane";
+import VocabDrawer from "./VocabDrawer";
+import { addEntry, loadVocab, REASON_TEXT, saveVocab } from "@/lib/vocab";
 
 const SETTINGS_KEY = "memo-okoshi:items";
 
@@ -56,6 +58,9 @@ export default function Review({ initial, pages, onRestart }: Props) {
   const [page, setPage] = useState(0);
   const [mobileTab, setMobileTab] = useState<"memo" | "rec">("rec");
   const [drawerOpen, setDrawerOpen] = useState(false);
+  const [vocabOpen, setVocabOpen] = useState(false);
+  const [vocabN, setVocabN] = useState(0);
+  useEffect(() => setVocabN(loadVocab().length), [vocabOpen]);
   const [insClosed, setInsClosed] = useState(false);
   const [outOpen, setOutOpen] = useState(false);
   const [outText, setOutText] = useState("");
@@ -139,11 +144,23 @@ export default function Review({ initial, pages, onRestart }: Props) {
     setPop({ sid, ti, ...popPos(el) });
   };
 
-  const doResolve = (val: string | null) => {
+  const doResolve = (val: string | null, learn?: boolean) => {
     if (!pop) return;
     const tk = rec.tokens[pop.sid]?.[pop.ti];
     setRec((s) => resolveToken(s, pop.sid, pop.ti, val));
     setPop(null);
+    // 黄マーカーからの学習: 確定した語を組織語彙へ（赤には出ない導線）
+    if (learn && tk?.t === "y") {
+      const r = addEntry(loadVocab(), { term: val ?? tk.s });
+      if (r.ok) {
+        saveVocab(r.list);
+        setVocabN(r.list.length);
+        toast("確定しました — 辞書に追加");
+        return;
+      }
+      toast(r.reason === "dup" ? "確定しました（辞書にあります）" : REASON_TEXT[r.reason!]);
+      return;
+    }
     toast(tk?.t === "r" ? "人名を置き換えました" : "確定しました");
   };
 
@@ -289,6 +306,9 @@ export default function Review({ initial, pages, onRestart }: Props) {
               ?
             </span>
             <div className="rec-tools">
+              <button className="tool-btn" onClick={() => setVocabOpen(true)}>
+                辞書{vocabN > 0 && <span className="ins-count">{vocabN}</span>}
+              </button>
               <button className="tool-btn" onClick={() => setDrawerOpen(true)}>
                 ☰ 項目
               </button>
@@ -438,6 +458,8 @@ export default function Review({ initial, pages, onRestart }: Props) {
           onClose={() => setPicker(null)}
         />
       )}
+
+      <VocabDrawer open={vocabOpen} onClose={() => setVocabOpen(false)} toast={toast} />
 
       <Drawer
         open={drawerOpen}

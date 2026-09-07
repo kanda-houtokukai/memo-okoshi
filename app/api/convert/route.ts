@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { itemsByIds } from "@/lib/items";
 import { buildPrompt } from "@/lib/prompt";
 import { generateWithFallback, ImagePart } from "@/lib/gemini";
+import { sanitizeForPrompt } from "@/lib/vocab";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -9,6 +10,7 @@ export const maxDuration = 120;
 // 受け取り: multipart/form-data
 //   images: File（複数可・1件の記録として統合）
 //   items:  JSON文字列（選択された項目idの配列・表示順）
+//   vocab:  JSON文字列（端末内の組織語彙。プロンプトに差し込むだけで保存しない）
 // 返却: { ok, model, tried, data } または { ok:false, error, raw? }
 
 type Token = { t: "p" | "y" | "b" | "r"; s: string; cands?: string[]; note?: string };
@@ -72,7 +74,14 @@ export async function POST(req: NextRequest) {
       images.push({ mimeType: f.type || "image/png", base64: buf.toString("base64") });
     }
 
-    const result = await generateWithFallback(buildPrompt(items), images);
+    let vocab: ReturnType<typeof sanitizeForPrompt> = [];
+    try {
+      vocab = sanitizeForPrompt(JSON.parse(String(form.get("vocab") ?? "[]")));
+    } catch {
+      vocab = [];
+    }
+
+    const result = await generateWithFallback(buildPrompt(items, vocab), images);
     if (!result.ok) {
       return NextResponse.json({ ok: false, error: result.error, tried: result.tried }, { status: 502 });
     }
