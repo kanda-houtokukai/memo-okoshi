@@ -289,30 +289,110 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 .memo-page.img-page{padding:0;background:none;min-height:0}
 .errline{color:var(--r-ink);background:var(--r-bg);border-radius:9px;padding:9px 13px;font-size:.8rem;margin-top:14px;white-space:pre-wrap}
 
-/* ---------- 取り込み ---------- */
-.wrap.single{grid-template-columns:1fr;max-width:900px}
-.pages{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:16px 14px}
-.page-card{
-  position:relative;background:var(--surface);border:1px solid var(--line);border-radius:10px;
-  padding:8px 8px 6px;box-shadow:0 1px 3px rgba(43,42,37,.05);animation:cardin .4s ease-out backwards;
+/* ---------- 取り込み（P6-cで作り直し。正本: docs/mock/torikomi-mock-v1.html） ----------
+   画面全体が机。ページは机に並べた白い紙。操作は載せたときだけ出す（引き算原則）。
+   ※ --desk はモックv6の逐語コピー部分を汚さないようここで足す（モックと同じ値）。 */
+:root{--desk:#eeebe3}
+.ik-root{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg)}
+.ik-root header{position:static;flex:0 0 auto}
+.desk{flex:1 1 auto;position:relative;overflow:auto;background:var(--desk);transition:background .25s}
+.desk::before{ /* 木目のようなごく淡い横筋 */
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;
+  background-image:repeating-linear-gradient(92deg,
+    rgba(150,138,118,.028) 0 2px, transparent 2px 7px,
+    rgba(150,138,118,.018) 7px 8px, transparent 8px 19px);
 }
-.page-card:nth-child(odd){transform:rotate(-.5deg)}
-.page-card:nth-child(even){transform:rotate(.45deg)}
-.page-card img{display:block;width:100%;aspect-ratio:3/4;object-fit:cover;border-radius:6px;background:var(--faint)}
-.page-no{
-  position:absolute;top:-8px;left:-6px;font-family:var(--head);font-size:.68rem;font-weight:700;
-  background:var(--accent);color:#fff;border-radius:99px;padding:1px 9px;letter-spacing:.06em;
+.desk.over{background:#e7e3d8}
+.desk.over::after{content:"";position:absolute;inset:12px;border:2px dashed #b9b1a0;border-radius:16px;pointer-events:none}
+.sheets{position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:26px 30px;padding:38px 34px 60px;align-content:flex-start}
+.desk-err{position:absolute;left:16px;right:16px;bottom:16px;margin:0;z-index:6}
+
+/* 空のとき: 中央に紙の輪郭がひとつ、ゆっくり浮き沈みする */
+.empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1}
+.slot{
+  width:190px;height:262px;border-radius:4px;border:1.5px dashed #c8c1b2;background:rgba(255,255,255,.5);
+  display:flex;align-items:center;justify-content:center;transform:rotate(-1.2deg);
+  animation:float 4.2s ease-in-out infinite;transition:transform .25s, background .25s, border-color .25s;
 }
-.page-acts{display:flex;gap:6px;justify-content:flex-end;margin-top:7px}
-.mini:disabled{opacity:.35;cursor:default}
-.mini:disabled:hover{border-color:var(--line);color:var(--sub)}
-.page-add{
-  aspect-ratio:3/4;border:1.5px dashed #cfc9bc;border-radius:10px;background:rgba(255,255,255,.55);
-  font-size:2rem;color:var(--accent);display:flex;align-items:center;justify-content:center;
-  transition:border-color .15s,background .15s;
+@keyframes float{0%,100%{transform:rotate(-1.2deg) translateY(0)}50%{transform:rotate(-1.2deg) translateY(-5px)}}
+.slot:hover{background:rgba(255,255,255,.85);border-color:var(--accent)}
+.slot .plus{font-size:2.1rem;color:#a49d8e;line-height:1;font-weight:300}
+.slot:hover .plus{color:var(--accent)}
+.slot:disabled{cursor:default}
+.desk.over .slot{background:#fff;border-color:var(--accent);animation:none;transform:rotate(-1.2deg) scale(1.04)}
+
+/* 紙 */
+.sheet{
+  width:190px;flex:0 0 auto;position:relative;background:var(--surface);border-radius:3px;
+  box-shadow:0 2px 5px rgba(43,42,37,.10), 0 8px 18px rgba(43,42,37,.06);
+  transition:transform .22s cubic-bezier(.2,.8,.3,1), box-shadow .22s;
+  user-select:none;-webkit-user-select:none;
 }
-.page-add:hover{border-color:var(--accent);background:#eef2f4}
-.page-add:disabled{opacity:.5;cursor:default}
+/* 上から置かれる動きは「取り込んだ回」だけ（並べ替えではDOMが動くので付け直さない） */
+.sheet.lay{animation:lay .42s cubic-bezier(.2,.8,.3,1) backwards}
+@keyframes lay{from{opacity:0;transform:translateY(-14px) rotate(0deg) scale(1.03)}to{opacity:1}}
+.sheet:nth-child(odd){transform:rotate(-.8deg)}
+.sheet:nth-child(even){transform:rotate(.7deg)}
+.sheet:nth-child(3n){transform:rotate(-.3deg)}
+.sheet:hover{
+  transform:rotate(0deg) translateY(-4px);
+  box-shadow:0 4px 9px rgba(43,42,37,.13), 0 14px 30px rgba(43,42,37,.10);z-index:5;
+}
+.sheet img{display:block;width:100%;height:246px;object-fit:cover;border-radius:3px 3px 0 0;background:#f6f4ee;-webkit-user-drag:none}
+.sheet .foot{display:flex;align-items:center;gap:7px;padding:7px 9px;border-top:1px solid #f0ede5}
+.sheet .no{font-family:var(--head);font-size:.66rem;font-weight:700;color:#fff;background:var(--nc,var(--t1));border-radius:3px;padding:1px 7px;letter-spacing:.05em}
+.sheet .nm{font-size:.66rem;color:#b0aa9e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+.sheet::before{ /* 左肩のインデックスタブ（記録カードと同じモチーフ） */
+  content:"";position:absolute;left:-1px;top:16px;width:6px;height:34px;border-radius:0 3px 3px 0;background:var(--nc,var(--t1));
+}
+/* 操作は載せたときだけ */
+.sheet .tools{position:absolute;top:7px;right:7px;display:flex;gap:4px;opacity:0;transition:opacity .18s}
+.sheet:hover .tools,.sheet:focus-within .tools{opacity:1}
+.sheet .tools button{
+  width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,.94);border:1px solid var(--line);
+  color:var(--sub);font-size:.8rem;line-height:1;display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 3px rgba(43,42,37,.10);
+}
+.sheet .tools button:hover{border-color:var(--accent);color:var(--accent)}
+.sheet .tools button.del:hover{border-color:#d98a80;color:#9c352b}
+.sheet .tools button:disabled{opacity:.3;cursor:default}
+.sheet .tools .grip{cursor:grab;touch-action:none;font-size:.9rem;letter-spacing:-.02em}
+.sheet .tools .grip:active{cursor:grabbing}
+
+/* 掴んでいる紙・落ちる位置 */
+.desk.lifting .sheet{transition:none}
+.desk.lifting .sheet:hover{transform:none;box-shadow:0 2px 5px rgba(43,42,37,.10), 0 8px 18px rgba(43,42,37,.06)}
+.sheet.lifted{
+  z-index:60;pointer-events:none;opacity:.94;
+  box-shadow:0 10px 22px rgba(43,42,37,.20), 0 26px 50px rgba(43,42,37,.16);
+}
+.sheet.lifted .tools{opacity:0}
+.sheet.drop-here::after,.add.drop-here::after{
+  content:"";position:absolute;left:-18px;top:-10px;bottom:-10px;width:6px;border-radius:99px;
+  background:var(--accent);box-shadow:0 0 0 5px rgba(51,86,107,.13);animation:dropin .16s ease-out;z-index:8;
+}
+@keyframes dropin{from{opacity:0;transform:scaleY(.7)}to{opacity:1}}
+.add{position:relative}
+
+/* 末尾の空きスロット */
+.add{
+  width:190px;height:288px;flex:0 0 auto;border-radius:4px;border:1.5px dashed #cbc4b5;
+  background:rgba(255,255,255,.42);display:flex;align-items:center;justify-content:center;
+  color:#a49d8e;font-size:1.9rem;font-weight:300;transform:rotate(.5deg);
+  transition:background .2s,border-color .2s,color .2s;
+}
+.add:hover{background:rgba(255,255,255,.9);border-color:var(--accent);color:var(--accent)}
+.add:disabled{opacity:.55;cursor:default}
+
+@media (max-width:720px){
+  .sheets{gap:20px;padding:24px 18px 60px}
+  .sheet,.add,.slot{width:calc(50% - 10px)}
+  .sheet img{height:auto;aspect-ratio:.72}
+  .add{height:auto;aspect-ratio:.66}
+  .slot{height:auto;aspect-ratio:.72;max-width:200px}
+  .sheet .tools{opacity:1}
+  .sheet.drop-here::after,.add.drop-here::after{left:-11px}
+}
 
 /* ---------- 黒塗り ---------- */
 .redact-card{position:static}
@@ -461,10 +541,6 @@ html.lock,html.lock body{height:100%;overflow:hidden;overscroll-behavior:none}
 .memo-zoom{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--line);justify-content:flex-end}
 @media (max-width:900px){.memo-stage{height:56vh}}
 
-/* ---------- 取り込み: ドラッグ＆ドロップ（PC） ---------- */
-.wrap.drop{min-height:60vh;border-radius:12px;transition:background .15s}
-.wrap.drop.over{background:#eef2f4;outline:2px dashed var(--accent);outline-offset:-8px}
-
 /* ---------- カードのアイコン整理: コピーを主に、並べ替えは控えめに ---------- */
 .mini.ic.copy{border-color:var(--accent);color:var(--accent);background:var(--surface);width:34px;font-size:.9rem}
 .mini.ic.copy.copied{border-color:var(--ok);color:var(--ok);background:var(--ok-bg)}
@@ -510,7 +586,7 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 @keyframes tipdown{from{opacity:0;transform:translate(-50%,-3px)}to{opacity:1;transform:translate(-50%,0)}}
 
 .sec-actions [data-tip]:hover::after, .sec-actions [data-tip]:focus-visible::after,
-.page-acts [data-tip]:hover::after, .page-acts [data-tip]:focus-visible::after,
+.sheet .tools [data-tip]:hover::after, .sheet .tools [data-tip]:focus-visible::after,
 .memo-zoom [data-tip]:hover::after, .memo-zoom [data-tip]:focus-visible::after,
 .zoom-group [data-tip]:hover::after, .zoom-group [data-tip]:focus-visible::after,
 .sp-item [data-tip]:hover::after, .sp-item [data-tip]:focus-visible::after,

@@ -18,6 +18,7 @@ import { useEffect, useRef, useState } from "react";
 import { ITEM_LIBRARY } from "@/lib/items";
 import { fromApi, type ApiData, type RecordState } from "@/lib/record";
 import { exportMasked, filesToPages, releasePage, type PageItem } from "@/lib/pages";
+import { moveBy, moveTo } from "@/lib/reorder";
 import type { MaskState } from "@/lib/mask";
 import { loadVocab } from "@/lib/vocab";
 import Review from "./components/Review";
@@ -129,14 +130,10 @@ export default function Page() {
     });
 
   const movePage = (id: string, dir: -1 | 1) =>
-    setPages((p) => {
-      const i = p.findIndex((x) => x.id === id);
-      const j = i + dir;
-      if (i < 0 || j < 0 || j >= p.length) return p;
-      const n = [...p];
-      [n[i], n[j]] = [n[j], n[i]];
-      return n;
-    });
+    setPages((p) => moveBy(p, p.findIndex((x) => x.id === id), dir));
+
+  /** ドラッグでの置き直し（取り込み画面。←→ と同じ結果になることは tests/reorder で保証） */
+  const reorderPages = (from: number, insertAt: number) => setPages((p) => moveTo(p, from, insertAt));
 
   const setMask = (id: string, mask: MaskState) => setPages((p) => p.map((x) => (x.id === id ? { ...x, mask } : x)));
 
@@ -276,18 +273,15 @@ export default function Page() {
       <Intake
         pages={pages}
         busy={busy}
+        error={!pages.length ? error : ""}
         onAdd={addFiles}
         onRemove={removePage}
         onMove={movePage}
+        onReorder={reorderPages}
         onNext={() => { setIndex(0); setMode("mask"); }}
         onHome={goHome}
         toast={toast}
       />
-      {error && !pages.length && (
-        <div className="wrap single">
-          <div className="errline">{error}</div>
-        </div>
-      )}
       <Dialog spec={dlg} />
       <Toast msg={msg} on={on} />
     </>

@@ -1,0 +1,346 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メモおこし — 取り込み画面モック</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f1eb; --desk:#eeebe3; --surface:#ffffff; --ink:#2b2a25; --sub:#7b766c;
+  --line:#e3dfd6; --faint:#faf9f5;
+  --accent:#33566b; --accent-deep:#274456;
+  --t1:#8fae9d; --t2:#93a9c0; --t3:#cbb478; --t4:#c39a8a; --t5:#a89bb5; --t6:#9db3ae;
+  --head:"Zen Kaku Gothic New","Hiragino Sans",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%}
+body{
+  font-family:"Hiragino Sans","Yu Gothic UI",Meiryo,system-ui,sans-serif;
+  background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased;
+  display:flex; flex-direction:column; overflow:hidden;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+
+/* ---------- header ---------- */
+header{background:var(--surface);border-bottom:1px solid var(--line);flex:0 0 auto;position:relative;z-index:20}
+.h-in{display:flex;align-items:center;gap:14px;padding:9px 16px}
+.brand{font-family:var(--head);font-weight:700;font-size:1rem;letter-spacing:.06em;display:flex;align-items:center;gap:8px}
+.brand::before{content:"";width:8px;height:20px;border-radius:3px;background:linear-gradient(180deg,var(--t1),var(--t2))}
+.steps{display:flex;align-items:center;gap:1px;font-size:.74rem;color:#b8b2a6}
+.steps .cur{background:var(--accent);color:#fff;font-weight:700;padding:4px 11px;border-radius:99px;font-size:.74rem}
+.steps i{font-style:normal;color:#d3cec3;font-size:.7rem;padding:0 3px}
+.steps span.f{padding:4px 6px}
+.h-right{margin-left:auto;display:flex;align-items:center;gap:9px}
+.dict{
+  background:var(--faint);border:1px solid var(--line);border-radius:9px;
+  padding:7px 14px 7px 11px;font-size:.8rem;color:var(--sub);
+  display:flex;align-items:center;gap:8px;
+}
+.dict::before{content:"";width:4px;height:15px;border-radius:2px;background:var(--t3)}
+.dict:hover{border-color:var(--accent);color:var(--accent)}
+.next{
+  border-radius:9px;padding:8px 20px;font-family:var(--head);font-size:.87rem;font-weight:700;letter-spacing:.06em;
+  background:var(--faint);border:1.5px dashed #cfc9bc;color:#b3ada1;cursor:default;
+  transition:all .3s;
+}
+.next.ready{
+  background:var(--accent);border:1.5px solid var(--accent);color:#fff;cursor:pointer;
+  padding-left:26px;position:relative;
+}
+.next.ready::before{
+  content:"";position:absolute;left:9px;top:50%;transform:translateY(-50%);
+  width:4px;height:16px;border-radius:2px;background:var(--t1);
+}
+.next.ready:hover{background:var(--accent-deep)}
+
+/* ---------- 机 ---------- */
+.desk{
+  flex:1 1 auto;position:relative;overflow:auto;
+  background:var(--desk);
+  transition:background .25s;
+}
+.desk::before{ /* 木目のようなごく淡い横筋 */
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;
+  background-image:repeating-linear-gradient(92deg,
+    rgba(150,138,118,.028) 0 2px, transparent 2px 7px,
+    rgba(150,138,118,.018) 7px 8px, transparent 8px 19px);
+}
+.desk.over{background:#e7e3d8}
+.desk.over::after{
+  content:"";position:absolute;inset:12px;border:2px dashed #b9b1a0;border-radius:16px;
+  pointer-events:none;
+}
+
+.sheets{
+  position:relative;z-index:2;
+  display:flex;flex-wrap:wrap;gap:26px 30px;
+  padding:38px 34px 60px;
+  align-content:flex-start;
+}
+
+/* ---------- 空のとき ---------- */
+.empty{
+  position:absolute;inset:0;display:flex;align-items:center;justify-content:center;
+  z-index:1;
+}
+.empty.hide{display:none}
+.slot{
+  width:190px;height:262px;border-radius:4px;
+  border:1.5px dashed #c8c1b2;background:rgba(255,255,255,.5);
+  display:flex;align-items:center;justify-content:center;
+  transform:rotate(-1.2deg);
+  animation:breathe 4.2s ease-in-out infinite;
+  transition:transform .25s, background .25s, border-color .25s;
+  cursor:pointer;
+}
+@keyframes breathe{
+  0%,100%{transform:rotate(-1.2deg) translateY(0)}
+  50%{transform:rotate(-1.2deg) translateY(-5px)}
+}
+.slot:hover{background:rgba(255,255,255,.85);border-color:var(--accent)}
+.slot .plus{font-size:2.1rem;color:#a49d8e;line-height:1;font-weight:300}
+.slot:hover .plus{color:var(--accent)}
+.desk.over .slot{background:#fff;border-color:var(--accent);animation:none;transform:rotate(-1.2deg) scale(1.04)}
+
+/* ---------- 紙 ---------- */
+.sheet{
+  width:190px;flex:0 0 auto;position:relative;
+  background:var(--surface);border-radius:3px;
+  box-shadow:0 2px 5px rgba(43,42,37,.10), 0 8px 18px rgba(43,42,37,.06);
+  transition:transform .22s cubic-bezier(.2,.8,.3,1), box-shadow .22s;
+  animation:lay .42s cubic-bezier(.2,.8,.3,1) backwards;
+  cursor:default;
+}
+@keyframes lay{
+  from{opacity:0;transform:translateY(-14px) rotate(0deg) scale(1.03)}
+  to{opacity:1}
+}
+.sheet:nth-child(odd){transform:rotate(-.8deg)}
+.sheet:nth-child(even){transform:rotate(.7deg)}
+.sheet:nth-child(3n){transform:rotate(-.3deg)}
+.sheet:hover{
+  transform:rotate(0deg) translateY(-4px);
+  box-shadow:0 4px 9px rgba(43,42,37,.13), 0 14px 30px rgba(43,42,37,.10);
+  z-index:5;
+}
+.sheet img{display:block;width:100%;height:246px;object-fit:cover;border-radius:3px 3px 0 0;background:#f6f4ee}
+.sheet .foot{
+  display:flex;align-items:center;gap:7px;padding:7px 9px;border-top:1px solid #f0ede5;
+}
+.sheet .no{
+  font-family:var(--head);font-size:.66rem;font-weight:700;color:#fff;
+  background:var(--nc,var(--t1));border-radius:3px;padding:1px 7px;letter-spacing:.05em;
+}
+.sheet .nm{font-size:.66rem;color:#b0aa9e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
+/* 紙の左肩のインデックスタブ */
+.sheet::before{
+  content:"";position:absolute;left:-1px;top:16px;width:6px;height:34px;
+  border-radius:0 3px 3px 0;background:var(--nc,var(--t1));
+}
+/* 操作は載せたときだけ */
+.tools{
+  position:absolute;top:7px;right:7px;display:flex;gap:4px;
+  opacity:0;transition:opacity .18s;
+}
+.sheet:hover .tools{opacity:1}
+.tools button{
+  width:26px;height:26px;border-radius:7px;background:rgba(255,255,255,.94);
+  border:1px solid var(--line);color:var(--sub);font-size:.8rem;line-height:1;
+  display:flex;align-items:center;justify-content:center;
+  box-shadow:0 1px 3px rgba(43,42,37,.10);
+}
+.tools button:hover{border-color:var(--accent);color:var(--accent)}
+.tools button.del:hover{border-color:#d98a80;color:#9c352b}
+.tools button[disabled]{opacity:.3;cursor:default}
+
+/* 末尾の追加スロット */
+.add{
+  width:190px;height:288px;flex:0 0 auto;border-radius:4px;
+  border:1.5px dashed #cbc4b5;background:rgba(255,255,255,.42);
+  display:flex;align-items:center;justify-content:center;
+  color:#a49d8e;font-size:1.9rem;font-weight:300;transform:rotate(.5deg);
+  transition:background .2s,border-color .2s,color .2s;
+}
+.add:hover{background:rgba(255,255,255,.9);border-color:var(--accent);color:var(--accent)}
+
+/* ---------- メニュー ---------- */
+.menu{
+  position:absolute;z-index:40;background:var(--surface);border:1px solid var(--line);
+  border-radius:11px;box-shadow:0 10px 30px rgba(43,42,37,.16);padding:6px;min-width:196px;display:none;
+}
+.menu.on{display:block;animation:mi .16s ease-out}
+@keyframes mi{from{opacity:0;transform:translateY(-4px)}to{opacity:1}}
+.menu button{
+  display:flex;align-items:center;gap:10px;width:100%;text-align:left;
+  padding:9px 11px;border-radius:8px;font-size:.87rem;color:var(--ink);
+}
+.menu button:hover{background:var(--faint)}
+.menu .ic{width:17px;text-align:center;color:var(--sub);font-size:.9rem}
+
+.toast{
+  position:fixed;bottom:22px;left:50%;transform:translateX(-50%);
+  background:#2b2a25;color:#fff;font-size:.8rem;padding:9px 18px;border-radius:99px;z-index:60;
+  opacity:0;transition:opacity .25s;pointer-events:none;
+}
+.toast.on{opacity:1}
+
+.mockbar{
+  position:fixed;bottom:0;left:0;right:0;background:rgba(43,42,37,.9);color:#cfcabf;
+  font-size:.7rem;padding:6px 14px;display:flex;gap:14px;align-items:center;z-index:70;
+}
+.mockbar button{color:#fff;text-decoration:underline;font-size:.7rem}
+
+@media (max-width:720px){
+  .steps{display:none}
+  .sheets{gap:20px;padding:24px 18px 60px}
+  .sheet,.add,.slot{width:calc(50% - 10px)}
+  .sheet img{height:auto;aspect-ratio:.72}
+  .add{height:auto;aspect-ratio:.66}
+  .slot{height:auto;aspect-ratio:.72;max-width:200px}
+  .tools{opacity:1}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-in">
+    <div class="brand">メモおこし</div>
+    <div class="steps">
+      <span class="cur">取り込み</span><i>›</i>
+      <span class="f">伏せる</span><i>›</i><span class="f">変換</span><i>›</i>
+      <span class="f">確認</span><i>›</i><span class="f">出力</span>
+    </div>
+    <div class="h-right">
+      <button class="dict">辞書</button>
+      <button class="next" id="next">伏せるへ</button>
+    </div>
+  </div>
+</header>
+
+<div class="desk" id="desk">
+  <div class="empty" id="empty">
+    <div class="slot" onclick="openMenu(event)"><span class="plus">＋</span></div>
+  </div>
+  <div class="sheets" id="sheets"></div>
+</div>
+
+<div class="menu" id="menu">
+  <button onclick="pick()"><span class="ic">▣</span>カメラで撮影</button>
+  <button onclick="pick()"><span class="ic">▤</span>写真から選ぶ</button>
+  <button onclick="pick()"><span class="ic">▥</span>ファイルを選ぶ（画像・PDF）</button>
+</div>
+<input type="file" id="file" accept="image/*,application/pdf" multiple hidden>
+
+<div class="toast" id="toast"></div>
+
+<div class="mockbar">
+  <span>モック</span>
+  <button onclick="demo()">見本を3枚置く</button>
+  <button onclick="reset()">空に戻す</button>
+  <span style="margin-left:auto">画像をこの画面にドラッグしても取り込めます</span>
+</div>
+
+<script>
+const TAB=['var(--t1)','var(--t2)','var(--t3)','var(--t4)','var(--t5)','var(--t6)'];
+let pages=[];
+
+function render(){
+  const s=document.getElementById('sheets');
+  s.innerHTML='';
+  document.getElementById('empty').classList.toggle('hide', pages.length>0);
+  document.getElementById('next').classList.toggle('ready', pages.length>0);
+  if(!pages.length) return;
+  pages.forEach((p,i)=>{
+    const el=document.createElement('div');
+    el.className='sheet'; el.style.setProperty('--nc',TAB[i%TAB.length]);
+    el.style.animationDelay=(i*0.05)+'s';
+    el.innerHTML=`
+      <img src="${p.url}" alt="">
+      <div class="foot"><span class="no">${i+1}</span><span class="nm">${p.name}</span></div>
+      <div class="tools">
+        <button title="前へ" ${i===0?'disabled':''} onclick="move(${i},-1)">↑</button>
+        <button title="後ろへ" ${i===pages.length-1?'disabled':''} onclick="move(${i},1)">↓</button>
+        <button class="del" title="外す" onclick="del(${i})">✕</button>
+      </div>`;
+    s.appendChild(el);
+  });
+  const add=document.createElement('button');
+  add.className='add'; add.textContent='＋';
+  add.onclick=openMenu;
+  s.appendChild(add);
+}
+function move(i,d){
+  const j=i+d; if(j<0||j>=pages.length) return;
+  [pages[i],pages[j]]=[pages[j],pages[i]]; render();
+}
+function del(i){ pages.splice(i,1); render(); toast('外しました'); }
+
+/* menu */
+function openMenu(e){
+  const m=document.getElementById('menu');
+  const r=e.currentTarget.getBoundingClientRect();
+  m.classList.add('on');
+  let l=Math.min(r.left, window.innerWidth-215);
+  m.style.left=Math.max(10,l)+'px';
+  m.style.top=(Math.min(r.bottom+8, window.innerHeight-190))+'px';
+  e.stopPropagation();
+}
+document.addEventListener('click',()=>document.getElementById('menu').classList.remove('on'));
+function pick(){ document.getElementById('file').click(); }
+document.getElementById('file').addEventListener('change',e=>{
+  addFiles([...e.target.files]); e.target.value='';
+});
+
+function addFiles(fs){
+  const imgs=fs.filter(f=>f.type.startsWith('image/'));
+  if(!imgs.length){ toast('画像を選んでください（モックは画像のみ）'); return; }
+  imgs.forEach(f=>pages.push({url:URL.createObjectURL(f), name:f.name}));
+  render(); toast(imgs.length+'枚 取り込みました');
+}
+
+/* drag & drop：机全体が受け皿 */
+const desk=document.getElementById('desk');
+['dragenter','dragover'].forEach(ev=>desk.addEventListener(ev,e=>{
+  e.preventDefault(); desk.classList.add('over');
+}));
+['dragleave','drop'].forEach(ev=>desk.addEventListener(ev,e=>{
+  e.preventDefault();
+  if(ev==='dragleave' && e.relatedTarget && desk.contains(e.relatedTarget)) return;
+  desk.classList.remove('over');
+}));
+desk.addEventListener('drop',e=>{ addFiles([...e.dataTransfer.files]); });
+
+/* mock helpers */
+function demo(){
+  const svg=(n,land)=>{
+    const w=land?720:520, h=land?520:720;
+    let lines='';
+    const cols=land?2:1;
+    for(let c=0;c<cols;c++){
+      for(let y=90;y<h-60;y+=26){
+        const x0=40+c*(w/cols);
+        const len=(w/cols)*(0.35+Math.random()*0.5);
+        lines+=`<path d="M${x0} ${y} q ${len*0.3} ${-5+Math.random()*10}, ${len*0.6} ${-2+Math.random()*6} t ${len*0.4} 3" stroke="#3d3a31" stroke-width="${1.6+Math.random()}" fill="none" stroke-linecap="round" opacity="${.55+Math.random()*.4}"/>`;
+      }
+    }
+    return `data:image/svg+xml;utf8,`+encodeURIComponent(
+      `<svg xmlns="http://www.w3.org/2000/svg" width="${w}" height="${h}"><rect width="${w}" height="${h}" fill="#efe9dc"/>${lines}<text x="40" y="56" font-family="sans-serif" font-size="30" fill="#2f2c26">面談メモ ${n}</text></svg>`);
+  };
+  pages=[{url:svg(1,false),name:'IMG_0248.jpg'},
+         {url:svg(2,true),name:'IMG_0249.jpg'},
+         {url:svg(3,false),name:'IMG_0250.jpg'}];
+  render();
+}
+function reset(){ pages=[]; render(); }
+function toast(m){
+  const t=document.getElementById('toast'); t.textContent=m; t.classList.add('on');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),2000);
+}
+render();
+</script>
+</body>
+</html>
