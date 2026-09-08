@@ -50,20 +50,21 @@ export default function SectionCard({
           <span className="okmark">✓</span>
         </h3>
         <div className="sec-actions">
-          <button className="mini ic arrow" data-tip="上へ" onClick={() => onMove(-1)}>
+          <button className="mini ic arrow" data-tip="上へ" aria-label="上へ" onClick={() => onMove(-1)}>
             ↑
           </button>
-          <button className="mini ic arrow" data-tip="下へ" onClick={() => onMove(1)}>
+          <button className="mini ic arrow" data-tip="下へ" aria-label="下へ" onClick={() => onMove(1)}>
             ↓
           </button>
           <button
             className={"mini ic copy" + (copied ? " copied" : "")}
             data-tip="この項目をコピー"
+            aria-label="この項目をコピー"
             onClick={onCopy}
           >
             {copied ? "✓" : "⧉"}
           </button>
-          <button className="mini ic" data-tip="文章を直す" onClick={() => { setDraft(text); onStartEdit(); }}>
+          <button className="mini ic" data-tip="文章を直す" aria-label="文章を直す" onClick={() => { setDraft(text); onStartEdit(); }}>
             ✎
           </button>
         </div>

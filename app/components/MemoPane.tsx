@@ -3,7 +3,8 @@
 // 元メモペイン（確認画面）。黒塗り済みの実画像を、黒塗り画面と同じ拡大・移動で見られる。
 // ドラッグ=移動・ホイール=拡大・ピンチ／−・全体・＋（P6 項目4）。
 // lines を持つページは開発用フィクスチャ（?fixture=1）専用の再現表示（拡大なし）。
-// ? の説明は位置連動が未実装のため「黒塗り済みの画像を表示」まで。連動実装時に正本の文言へ戻す。
+// ? の説明は位置連動が未実装のため「伏せたあとの画像を表示」まで。連動実装時に
+// 「伏せたあとの画像を表示。マーカーを押すと該当行が光ります」へ戻す（2026-09-09に工程名を改称）。
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { useZoomPan } from "./useZoomPan";
@@ -84,13 +85,13 @@ function ImageStage({ src }: { src: string }) {
         <div className={"zoom-badge" + (zp.zoomShown ? " on" : "")}>{Math.round(zp.t.scale * 100)}%</div>
       </div>
       <div className="memo-zoom">
-        <button className="mini ic" data-tip="縮小" onClick={() => zp.zoomBy(1 / 1.5)}>
+        <button className="mini ic" data-tip="縮小" aria-label="縮小" onClick={() => zp.zoomBy(1 / 1.5)}>
           −
         </button>
         <button className="mini" data-tip="全体表示" onClick={zp.fit}>
           全体
         </button>
-        <button className="mini ic" data-tip="拡大" onClick={() => zp.zoomBy(1.5)}>
+        <button className="mini ic" data-tip="拡大" aria-label="拡大" onClick={() => zp.zoomBy(1.5)}>
           ＋
         </button>
       </div>
@@ -104,7 +105,7 @@ export default function MemoPane({ pages, page, onPage }: Props) {
     <>
       <div className="pane-h">
         <h2>元メモ</h2>
-        <span className="info" data-tip="黒塗り済みの画像を表示" tabIndex={0}>
+        <span className="info" data-tip="伏せたあとの画像を表示" tabIndex={0}>
           ?
         </span>
       </div>

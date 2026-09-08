@@ -492,3 +492,91 @@ html.lock,html.lock body{height:100%;overflow:hidden;overscroll-behavior:none}
   .print-doc tr{break-inside:avoid}
   @page{size:A4;margin:15mm}
 }
+
+/* ============================================================
+   P6-b（2026-09-09）文言とUIの細部
+   ============================================================ */
+
+/* ---------- ツールチップの向き（画面外へ出さない） ----------
+   既定は「上・中央」。ヘッダーは画面最上部に貼り付くので上に余地がなく、
+   右端に寄る道具列は中央合わせだと右へはみ出す。
+   [DECISION 2026-09-09] JSで測らず、CSSの文脈指定で向きだけ変える（部品も属性も増やさない）。
+   [DECISION 2026-09-09] タッチ環境ではツールチップが出ない。アイコンだけのボタンには aria-label を
+   付けるにとどめ、**目に見えるラベルは足さない**（引き算原則。要否は現場の実機確認で判断する）。 */
+header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
+.pane-h [data-tip]:hover::after, .pane-h [data-tip]:focus-visible::after{
+  bottom:auto; top:calc(100% + 7px); animation-name:tipdown;
+}
+@keyframes tipdown{from{opacity:0;transform:translate(-50%,-3px)}to{opacity:1;transform:translate(-50%,0)}}
+
+.sec-actions [data-tip]:hover::after, .sec-actions [data-tip]:focus-visible::after,
+.page-acts [data-tip]:hover::after, .page-acts [data-tip]:focus-visible::after,
+.memo-zoom [data-tip]:hover::after, .memo-zoom [data-tip]:focus-visible::after,
+.zoom-group [data-tip]:hover::after, .zoom-group [data-tip]:focus-visible::after,
+.sp-item [data-tip]:hover::after, .sp-item [data-tip]:focus-visible::after,
+.vc-add [data-tip]:hover::after, .vc-add [data-tip]:focus-visible::after,
+.vc-row [data-tip]:hover::after, .vc-row [data-tip]:focus-visible::after{
+  left:auto; right:0; transform:none; animation-name:tipedge;
+}
+@keyframes tipedge{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
+
+/* 伏せる画面の下部ツールバーは overflow-x:auto（＝縦もクリップされる）ので、ツールチップが
+   上端で切れていた。道具が横に収まる幅・かつホバーできる環境でだけはみ出しを許す
+   （狭い窓では従来どおり横スクロールを優先。タッチではそもそもツールチップが出ない）。 */
+@media (hover:hover) and (min-width:700px){ .toolbar{overflow:visible} }
+
+/* ---------- ヘッダー右: 主ボタンと道具（辞書） ----------
+   [DECISION 2026-09-09] 押せない状態は「まだ何も挟まっていない空のインデックス」＝
+   紙地＋破線の輪郭で表す（灰色のベタ塗りは押せる濃色と見分けがつかなかった）。
+   押せる状態は accent のベタ塗り＋左肩にインデックスシールの帯（ブランドの色帯と同じ）。
+   ※「押せるが未完成」（確認画面の完成ボタン）は従来どおり無地のベタ塗り。3状態を塗り分ける。 */
+.done-btn{
+  border:1.5px solid transparent; position:relative; overflow:hidden;
+  padding:9px 20px 9px 24px; transition:background .35s, box-shadow .35s, border-color .25s, color .25s;
+}
+.done-btn.ready::before{
+  content:""; position:absolute; left:0; top:0; bottom:0; width:5px;
+  background:linear-gradient(180deg,var(--t1),var(--t2));
+}
+.done-btn:disabled:not(.ready):not(.busy){
+  background:var(--faint); color:#b3ada1; border:1.5px dashed #d3ccbe; box-shadow:none; animation:none;
+}
+.h-right .tool-btn{background:var(--faint); padding:6px 12px}
+.h-right .tool-btn:hover{background:var(--surface)}
+.tool-btn:not(.accent)::before{
+  content:""; width:4px; height:13px; border-radius:0 2px 2px 0; background:var(--t3); flex:0 0 auto;
+}
+.h-right .tool-btn .ins-count{background:#e7edf1; color:var(--accent)}
+
+/* ---------- 辞書ドロワー: 追加行・一覧・例示 ----------
+   [DECISION 2026-09-09] 入力欄は 16px（iOS Safari の自動拡大を避ける値）。語と意味は
+   縦に積み、＋ は右で2行ぶんの高さ。例示の行と同じ並びにして「登録するとこう並ぶ」を形で見せる。 */
+.vc-add{display:grid;grid-template-columns:1fr auto;gap:6px;align-items:stretch;margin-bottom:4px}
+.vc-add input{
+  grid-column:1;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;
+  padding:8px 11px;background:var(--faint);color:var(--ink);min-width:0;
+}
+.vc-add input:focus{outline:none;border-color:var(--accent);background:var(--surface);box-shadow:0 0 0 3px rgba(51,86,107,.09)}
+.vc-add input::placeholder{color:#bfb9ad}
+.vc-add .mini{grid-column:2;grid-row:1 / span 2;width:38px;font-size:1rem}
+.vc-row{display:flex;align-items:center;gap:9px;padding:8px 2px;border-bottom:1px solid var(--line)}
+.vc-row .vc-term{font-size:.88rem;font-weight:700;flex:0 0 auto;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vc-row .vc-gloss{font-size:.78rem;color:var(--sub);flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vc-row.editing{display:grid;grid-template-columns:1fr auto auto;gap:6px;align-items:stretch}
+.vc-row.editing input{
+  grid-column:1;font:inherit;font-size:16px;border:1px solid var(--line);border-radius:8px;
+  padding:8px 11px;background:var(--faint);color:var(--ink);min-width:0;
+}
+.vc-row.editing input:focus{outline:none;border-color:var(--accent);background:var(--surface)}
+.vc-row.editing .mini:nth-of-type(1){grid-column:2;grid-row:1 / span 2}
+.vc-row.editing .mini:nth-of-type(2){grid-column:3;grid-row:1 / span 2}
+
+/* 空のときだけの例示。登録済みの行とは色も余白も分け、頭に「例」の札を付ける */
+.vc-ex{margin-top:10px;padding-top:9px;border-top:1px dashed var(--line)}
+.vc-ex-row{display:flex;align-items:center;gap:8px;padding:5px 2px;color:#b8b2a6}
+.vc-ex-tag{
+  font-family:var(--head);font-size:.56rem;letter-spacing:.12em;color:#bfb9ad;
+  border:1px solid #ded8cb;border-radius:3px;padding:1px 5px;flex:0 0 auto;
+}
+.vc-ex-term{font-size:.86rem;flex:0 0 auto;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.vc-ex-gloss{font-size:.76rem;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}

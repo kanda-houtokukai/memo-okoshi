@@ -206,9 +206,9 @@ export default function Page() {
   const goStep = (target: Step) => {
     if (target === "mask" && mode === "review") {
       confirm({
-        title: "黒塗りに戻りますか",
-        body: "変換した記録（マーカーの確認・直した文章・こぼれ枠・気づき）は失われます。画像と黒塗りは残ります。",
-        go: "黒塗りに戻る",
+        title: "「伏せる」に戻りますか",
+        body: "変換した記録（マーカーの確認・直した文章・こぼれ枠・気づき）は失われます。画像と伏せた箇所は残ります。",
+        go: "伏せるに戻る",
         cancel: "やめる",
         onGo: () => { dropResult(); setMode("mask"); },
       });
@@ -218,7 +218,7 @@ export default function Page() {
       if (mode === "review") {
         confirm({
           title: "取り込みに戻りますか",
-          body: "変換した記録は失われます。画像と黒塗りは残ります（ページを外すとその黒塗りも消えます）。",
+          body: "変換した記録は失われます。画像と伏せた箇所は残ります（ページを外すとその箇所も消えます）。",
           go: "取り込みに戻る",
           cancel: "やめる",
           onGo: () => { dropResult(); setMode("intake"); },
@@ -234,7 +234,7 @@ export default function Page() {
     if (pages.length === 0 && !rec) return;
     confirm({
       title: "最初からやり直しますか",
-      body: "取り込んだ画像・黒塗り・変換した記録はすべて失われます（この端末にも残りません）。",
+      body: "取り込んだ画像・伏せた箇所・変換した記録はすべて失われます（この端末にも残りません）。",
       warn: "コピーや保存をしていない記録は戻せません。",
       go: "最初から",
       cancel: "やめる",

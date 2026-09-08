@@ -176,11 +176,11 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
     const unpainted = pages.map((p, i) => ({ p, i })).filter((o) => !hasPaint(o.p.mask));
     if (unpainted.length) {
       setDlg({
-        title: "黒塗りがないページがあります",
-        body: `${unpainted.map((o) => `${o.i + 1}枚目`).join("・")} は何も塗られていません。氏名などが写っている場合は、隠してから変換してください。`,
+        title: "伏せていないページがあります",
+        body: `${unpainted.map((o) => `${o.i + 1}枚目`).join("・")} は何も伏せていません。氏名などが写っている場合は、伏せてから変換してください。`,
         warn: "変換すると、この画像がAIに送られます。",
         go: "このまま変換する",
-        cancel: "戻って塗る",
+        cancel: "戻って伏せる",
         onGo: () => {
           setDlg(null);
           onConvert();
@@ -196,6 +196,7 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
     <button
       className={"tool" + (props.on ? " on" : "") + (props.wide ? " wide" : "")}
       data-tip={props.tip}
+      aria-label={props.tip}
       disabled={props.disabled}
       onClick={props.onClick}
     >

@@ -30,6 +30,17 @@ export function looksLikePersonName(term: string): boolean {
   return NAME_SUFFIX.test(normalize(term));
 }
 
+/** ドロワーが空のときだけ淡く出す例示（**表示専用**）。
+ *  [DECISION 2026-09-09] 初期セットを入れない決定（2026-09-07）は維持したまま、
+ *  「何を登録する場所か」を説明文なしで伝えるために例示だけを見せる。
+ *  ここに置いた語は保存もプロンプト送信もしない（登録済みの一覧とは見た目を分ける）。
+ */
+export const VOCAB_EXAMPLES: readonly VocabEntry[] = [
+  { term: "個支計", gloss: "個別支援計画" },
+  { term: "ケース会", gloss: "ケース会議" },
+  { term: "日中一", gloss: "日中一時支援" },
+];
+
 export type Reason = "empty" | "dup" | "name" | "full" | "long";
 export type EditResult = { list: VocabEntry[]; ok: boolean; reason?: Reason };
 

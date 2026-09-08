@@ -92,7 +92,7 @@ export default function Intake({ pages, busy, onAdd, onRemove, onMove, onNext, o
               disabled={pages.length === 0 || busy}
               onClick={onNext}
             >
-              黒塗りへ
+              伏せるへ
             </button>
           </>
         }
@@ -113,13 +113,13 @@ export default function Intake({ pages, busy, onAdd, onRemove, onMove, onNext, o
               <span className="page-no">{i + 1}</span>
               <img src={p.thumb} alt="" />
               <div className="page-acts">
-                <button className="mini ic" data-tip="前へ" onClick={() => onMove(p.id, -1)} disabled={i === 0}>
+                <button className="mini ic" data-tip="前へ" aria-label="前へ" onClick={() => onMove(p.id, -1)} disabled={i === 0}>
                   ↑
                 </button>
-                <button className="mini ic" data-tip="後ろへ" onClick={() => onMove(p.id, 1)} disabled={i === pages.length - 1}>
+                <button className="mini ic" data-tip="後ろへ" aria-label="後ろへ" onClick={() => onMove(p.id, 1)} disabled={i === pages.length - 1}>
                   ↓
                 </button>
-                <button className="mini ic" data-tip="外す" onClick={() => onRemove(p.id)}>
+                <button className="mini ic" data-tip="外す" aria-label="このページを外す" onClick={() => onRemove(p.id)}>
                   ×
                 </button>
               </div>
@@ -128,6 +128,7 @@ export default function Intake({ pages, busy, onAdd, onRemove, onMove, onNext, o
           <button
             className="page-add"
             data-tip="メモを追加"
+            aria-label="メモを追加"
             disabled={busy}
             onClick={(e) => {
               if (!mobile) return pick(fileRef);

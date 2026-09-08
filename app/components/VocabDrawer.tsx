@@ -2,6 +2,11 @@
 
 // 組織語彙のドロワー。項目ドロワー（Drawer.tsx）と同じ器・同じ作法（説明文なし・脚注1行）。
 // 状態はこの部品が localStorage と直接やり取りする（開くたびに読み、変えるたびに保存）。
+//
+// [DECISION 2026-09-09] 何を登録する場所かは**説明文でなく例で**伝える:
+//   (1) プレースホルダーを具体例にする（「語」→「サビ管」）
+//   (2) 辞書が空のときだけ淡い例示を出す（1語でも入ったら消える。登録済みとは見た目を分ける）
+//   例示は福祉現場で一般的な略語のみ（特定の法人・事業所が分かる語は使わない）。
 
 import { useEffect, useRef, useState } from "react";
 import {
@@ -11,6 +16,7 @@ import {
   removeEntry,
   saveVocab,
   updateEntry,
+  VOCAB_EXAMPLES,
   type VocabEntry,
 } from "@/lib/vocab";
 import { exportBackup, importBackup } from "@/lib/backup";
@@ -98,37 +104,49 @@ export default function VocabDrawer({ open, onClose, toast }: Props) {
       <div className={"drawer-ovl" + (open ? " on" : "")} onClick={onClose} />
       <div className={"drawer" + (open ? " on" : "")}>
         <div className="dr-h">
-          <h2>組織の語彙</h2>
+          <h2>事業所の言葉</h2>
           <p>次の変換からAIの読み取りに反映されます。</p>
         </div>
         <div className="dr-body">
           <div className="vc-add">
             <input
               value={term}
-              placeholder="語"
+              placeholder="サビ管"
               onChange={(e) => setTerm(e.target.value)}
               onKeyDown={(e) => onKey(e, add)}
             />
             <input
               value={gloss}
-              placeholder="意味（任意）"
+              placeholder="サービス管理責任者"
               onChange={(e) => setGloss(e.target.value)}
               onKeyDown={(e) => onKey(e, add)}
             />
-            <button className="mini ic" data-tip="追加" onClick={add}>
+            <button className="mini ic" data-tip="追加" aria-label="辞書に追加" onClick={add}>
               ＋
             </button>
           </div>
+
+          {list.length === 0 && (
+            <div className="vc-ex" aria-hidden="true">
+              {VOCAB_EXAMPLES.map((e) => (
+                <div className="vc-ex-row" key={e.term}>
+                  <span className="vc-ex-tag">例</span>
+                  <span className="vc-ex-term">{e.term}</span>
+                  <span className="vc-ex-gloss">{e.gloss}</span>
+                </div>
+              ))}
+            </div>
+          )}
 
           {list.map((v, i) =>
             editing === i ? (
               <div className="vc-row editing" key={i}>
                 <input value={eTerm} onChange={(e) => setETerm(e.target.value)} onKeyDown={(e) => onKey(e, saveEdit)} autoFocus />
                 <input value={eGloss} placeholder="意味（任意）" onChange={(e) => setEGloss(e.target.value)} onKeyDown={(e) => onKey(e, saveEdit)} />
-                <button className="mini ic" data-tip="保存" onClick={saveEdit}>
+                <button className="mini ic" data-tip="保存" aria-label="保存" onClick={saveEdit}>
                   ✓
                 </button>
-                <button className="mini ic" data-tip="取消" onClick={() => setEditing(null)}>
+                <button className="mini ic" data-tip="取消" aria-label="取消" onClick={() => setEditing(null)}>
                   ×
                 </button>
               </div>
@@ -136,10 +154,10 @@ export default function VocabDrawer({ open, onClose, toast }: Props) {
               <div className="vc-row" key={i}>
                 <span className="vc-term">{v.term}</span>
                 <span className="vc-gloss">{v.gloss ?? ""}</span>
-                <button className="mini ic" data-tip="直す" onClick={() => startEdit(i)}>
+                <button className="mini ic" data-tip="直す" aria-label="直す" onClick={() => startEdit(i)}>
                   ✎
                 </button>
-                <button className="mini ic" data-tip="外す" onClick={() => commit(removeEntry(list, i))}>
+                <button className="mini ic" data-tip="外す" aria-label="辞書から外す" onClick={() => commit(removeEntry(list, i))}>
                   ×
                 </button>
               </div>

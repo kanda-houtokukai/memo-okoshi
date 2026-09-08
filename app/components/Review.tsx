@@ -412,6 +412,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
                           <button
                             className="mv"
                             data-tip="項目へ移す"
+                            aria-label="項目へ移す"
                             onClick={(e) => onOpenSpillPicker(idx, e.currentTarget)}
                           >
                             ＋
