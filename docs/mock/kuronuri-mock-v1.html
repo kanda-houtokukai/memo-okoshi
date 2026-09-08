@@ -1,0 +1,504 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<title>メモおこし — 黒塗り画面モック</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f1eb; --surface:#ffffff; --ink:#2b2a25; --sub:#7b766c; --line:#e3dfd6; --faint:#faf9f5;
+  --accent:#33566b; --accent-deep:#274456;
+  --r-ink:#9c352b; --r-bg:#f5d6d1; --r-line:#d98a80;
+  --ok:#3d7a4f;
+  --head:"Zen Kaku Gothic New","Hiragino Sans",sans-serif;
+  --bar:64px;
+}
+*{box-sizing:border-box;margin:0;padding:0;-webkit-tap-highlight-color:transparent}
+html,body{height:100%;overflow:hidden}
+body{
+  font-family:"Hiragino Sans","Yu Gothic UI",Meiryo,system-ui,sans-serif;
+  background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased;
+  display:flex; flex-direction:column;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+
+/* ---------- header ---------- */
+header{background:var(--surface);border-bottom:1px solid var(--line);flex:0 0 auto}
+.h-in{display:flex;align-items:center;gap:14px;padding:9px 14px}
+.brand{font-family:var(--head);font-weight:700;font-size:.98rem;letter-spacing:.05em;display:flex;align-items:center;gap:7px}
+.brand::before{content:"";width:9px;height:20px;border-radius:3px;background:linear-gradient(180deg,#8fae9d,#93a9c0)}
+.steps{display:flex;align-items:center;gap:1px;font-size:.72rem;color:var(--sub)}
+.steps button{padding:4px 9px;border-radius:99px;color:var(--sub);font-size:.72rem}
+.steps button.done{color:var(--accent)}
+.steps button.done:hover{background:#eef2f4}
+.steps .cur{background:var(--accent);color:#fff;font-weight:700;padding:4px 10px;border-radius:99px}
+.steps i{font-style:normal;color:#cdc8bd;font-size:.7rem}
+.steps .future{color:#c2bdb2;cursor:default}
+.h-right{margin-left:auto;display:flex;align-items:center;gap:9px}
+.pages{display:flex;align-items:center;gap:5px;font-size:.74rem;color:var(--sub)}
+.pg{border:1px solid var(--line);background:var(--faint);border-radius:7px;padding:4px 11px;font-size:.76rem;color:var(--sub);min-width:34px}
+.pg.on{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}
+.next-btn{
+  background:var(--accent);color:#fff;border-radius:9px;padding:9px 20px;
+  font-family:var(--head);font-size:.88rem;font-weight:700;letter-spacing:.05em;
+}
+.next-btn:hover{background:var(--accent-deep)}
+
+/* ---------- stage ---------- */
+.stage{
+  flex:1 1 auto;position:relative;overflow:hidden;
+  background:#5d594f;
+  touch-action:none;
+}
+.canvas-wrap{
+  position:absolute;transform-origin:0 0;
+  box-shadow:0 4px 20px rgba(0,0,0,.3);
+  background:#fff;
+}
+#view{display:block;width:100%;height:100%}
+.zoom-badge{
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  background:rgba(43,42,37,.82);color:#fff;font-size:.72rem;padding:4px 12px;border-radius:99px;
+  opacity:0;transition:opacity .25s;pointer-events:none;font-variant-numeric:tabular-nums;
+}
+.zoom-badge.on{opacity:1}
+
+/* 未塗りの注意（初回のみ・自動で消える） */
+.first-hint{
+  position:absolute;left:50%;bottom:16px;transform:translateX(-50%);
+  background:rgba(43,42,37,.86);color:#fff;font-size:.8rem;padding:9px 18px;border-radius:99px;
+  transition:opacity .4s;white-space:nowrap;max-width:92vw;
+}
+.first-hint.off{opacity:0;pointer-events:none}
+
+/* ---------- toolbar（下部・指の届く位置） ---------- */
+.toolbar{
+  flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);
+  display:flex;align-items:center;gap:6px;padding:8px 12px;
+  padding-bottom:calc(8px + env(safe-area-inset-bottom));
+  overflow-x:auto;
+}
+.tool{
+  flex:0 0 auto;width:52px;height:48px;border-radius:11px;background:var(--faint);border:1px solid var(--line);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  color:var(--sub);transition:background .15s,border-color .15s,color .15s;
+}
+.tool:active{background:#eceae3}
+.tool.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.tool.on .dot{background:#fff}
+.tool .dot{width:var(--d,10px);height:var(--d,10px);border-radius:50%;background:#5d594f;transition:background .15s}
+.tool .er{width:16px;height:12px;border:2px solid currentColor;border-radius:3px;background:repeating-linear-gradient(45deg,transparent,transparent 3px,currentColor 3px,currentColor 4px)}
+.tool .lb{font-size:.58rem;font-family:var(--head);letter-spacing:.02em}
+.tool[disabled]{opacity:.32}
+.sep{flex:0 0 auto;width:1px;height:32px;background:var(--line);margin:0 4px}
+.zoom-group{display:flex;gap:6px;margin-left:auto;flex:0 0 auto}
+.tool.wide{width:auto;padding:0 14px;flex-direction:row;gap:6px;font-size:.8rem}
+
+/* 拡大中の表示 */
+.mode-pill{
+  position:absolute;top:10px;right:10px;background:rgba(43,42,37,.82);color:#fff;
+  font-size:.7rem;padding:4px 11px;border-radius:99px;display:none;
+}
+.mode-pill.on{display:block}
+
+/* ---------- 確認ダイアログ ---------- */
+.ovl{position:fixed;inset:0;background:rgba(43,42,37,.5);z-index:80;display:none;align-items:center;justify-content:center;padding:20px}
+.ovl.on{display:flex}
+.dlg{background:var(--surface);border-radius:14px;max-width:430px;width:100%;padding:22px 24px}
+.dlg h2{font-family:var(--head);font-size:.98rem;margin-bottom:8px}
+.dlg p{font-size:.86rem;color:var(--sub);line-height:1.75;margin-bottom:16px}
+.dlg .warn{color:var(--r-ink);background:var(--r-bg);border-radius:9px;padding:9px 13px;font-size:.82rem;margin-bottom:14px}
+.dlg-btns{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.dlg-btns button{border-radius:9px;padding:10px 18px;font-size:.86rem;font-family:var(--head);font-weight:700}
+.dlg-btns .go{background:var(--accent);color:#fff}
+.dlg-btns .cancel{border:1px solid var(--line);color:var(--sub);font-weight:500}
+
+.toast{
+  position:fixed;bottom:calc(var(--bar) + 22px);left:50%;transform:translateX(-50%);
+  background:#2b2a25;color:#fff;font-size:.8rem;padding:9px 18px;border-radius:99px;z-index:90;
+  opacity:0;transition:opacity .25s;pointer-events:none;max-width:92vw;text-align:center;
+}
+.toast.on{opacity:1}
+
+@media (max-width:760px){
+  .steps{display:none}
+  .brand{font-size:.9rem}
+  .h-in{padding:8px 11px;gap:9px}
+  .next-btn{padding:8px 15px;font-size:.83rem}
+  .tool{width:48px;height:46px}
+}
+</style>
+</head>
+<body>
+
+<header>
+  <div class="h-in">
+    <div class="brand">メモおこし</div>
+    <div class="steps">
+      <button class="done" onclick="backTo('取り込み')">取り込み</button><i>›</i>
+      <span class="cur">黒塗り</span><i>›</i>
+      <span class="future">変換</span><i>›</i>
+      <span class="future">確認</span><i>›</i>
+      <span class="future">出力</span>
+    </div>
+    <div class="h-right">
+      <div class="pages">
+        <button class="pg on" id="pg0" onclick="setPage(0)">1</button>
+        <button class="pg" id="pg1" onclick="setPage(1)">2</button>
+      </div>
+      <button class="next-btn" onclick="tryNext()">変換へ</button>
+    </div>
+  </div>
+</header>
+
+<div class="stage" id="stage">
+  <div class="canvas-wrap" id="wrap"><canvas id="view"></canvas></div>
+  <div class="zoom-badge" id="zb">100%</div>
+  <div class="mode-pill" id="modePill">移動モード</div>
+  <div class="first-hint" id="hint">氏名や固有名詞を指でなぞって隠します</div>
+</div>
+
+<div class="toolbar">
+  <button class="tool on" id="t-s" onclick="setPen('s')" title="細"><span class="dot" style="--d:7px"></span><span class="lb">細</span></button>
+  <button class="tool" id="t-m" onclick="setPen('m')" title="中"><span class="dot" style="--d:11px"></span><span class="lb">中</span></button>
+  <button class="tool" id="t-l" onclick="setPen('l')" title="太"><span class="dot" style="--d:16px"></span><span class="lb">太</span></button>
+  <div class="sep"></div>
+  <button class="tool" id="t-er" onclick="toggleEraser()" title="消しゴム"><span class="er"></span><span class="lb">消す</span></button>
+  <button class="tool" id="t-undo" onclick="undo()" title="元に戻す"><span style="font-size:1.15rem;line-height:1">↶</span><span class="lb">戻す</span></button>
+  <button class="tool" id="t-clear" onclick="clearAll()" title="全部消す"><span style="font-size:1rem;line-height:1">✕</span><span class="lb">全消し</span></button>
+  <div class="zoom-group">
+    <button class="tool" onclick="zoomBy(1/1.5)" title="縮小"><span style="font-size:1.2rem;line-height:1">−</span></button>
+    <button class="tool wide" id="t-fit" onclick="fit()" title="全体表示"><span class="lb" style="font-size:.72rem">全体</span></button>
+    <button class="tool" onclick="zoomBy(1.5)" title="拡大"><span style="font-size:1.2rem;line-height:1">＋</span></button>
+    <button class="tool" id="t-pan" onclick="togglePan()" title="移動モード"><span style="font-size:1rem;line-height:1">✥</span><span class="lb">移動</span></button>
+  </div>
+</div>
+
+<div class="ovl" id="ovl">
+  <div class="dlg" id="dlgBody"></div>
+</div>
+<div class="toast" id="toast"></div>
+
+<script>
+/* =======================================================
+   設計の核:
+   - 描画は「元解像度のマスクcanvas」に対して行う（表示倍率と無関係）
+   - 画面表示は view canvas に mask を合成して描くだけ
+   → 何倍に拡大しても線・画像は鮮明。拡大しても品質は落ちない
+   ======================================================= */
+
+const PAGES=[
+  {w:1600,h:2100, label:"1枚目"},
+  {w:2100,h:1500, label:"2枚目（横長）"}
+];
+let cur=0;
+const state=PAGES.map(p=>({
+  base:null,          // 元解像度の下絵
+  mask:null,          // 元解像度のマスク（黒塗り）
+  strokes:[],         // undo用スナップショット
+  scale:1, tx:0, ty:0 // 表示状態
+}));
+
+let pen='s', eraser=false, panMode=false;
+const PEN_RATIO={s:0.012, m:0.025, l:0.045}; // 画像幅に対する比率
+
+const stage=document.getElementById('stage');
+const wrap=document.getElementById('wrap');
+const view=document.getElementById('view');
+const vctx=view.getContext('2d');
+
+/* ---------- ダミーの下絵を生成（実物は撮影画像） ---------- */
+function makeBase(p){
+  const c=document.createElement('canvas'); c.width=p.w; c.height=p.h;
+  const g=c.getContext('2d');
+  g.fillStyle="#efe9dc"; g.fillRect(0,0,p.w,p.h);
+  // 紙の質感
+  for(let i=0;i<2600;i++){
+    g.fillStyle=`rgba(120,110,95,${Math.random()*0.05})`;
+    g.fillRect(Math.random()*p.w,Math.random()*p.h,2,2);
+  }
+  const land = p.w>p.h;
+  g.strokeStyle="#3b3830"; g.lineCap="round"; g.lineJoin="round";
+  // 手書き風の線を段組みで
+  const cols = land?2:1;
+  const colW = p.w/cols;
+  for(let col=0; col<cols; col++){
+    let y=p.h*0.10;
+    const x0=colW*col + p.w*0.05;
+    while(y<p.h*0.93){
+      const len=colW*(0.36+Math.random()*0.5);
+      g.lineWidth=Math.max(2,p.w*0.0022+Math.random()*1.4);
+      g.beginPath();
+      let x=x0;
+      g.moveTo(x,y);
+      // ぐにゃぐにゃした走り書き
+      for(let s=0;s<len;s+=p.w*0.012){
+        x+=p.w*0.012;
+        g.lineTo(x, y+Math.sin(s*0.12)*p.h*0.004 + (Math.random()-0.5)*p.h*0.003);
+      }
+      g.stroke();
+      y+=p.h*0.028;
+    }
+  }
+  // 名前らしき塊（塗る対象の目印）
+  g.fillStyle="#2f2c26";
+  g.font=`bold ${Math.round(p.w*0.032)}px "Hiragino Sans", sans-serif`;
+  g.fillText("〇〇 太郎 さん", p.w*0.06, p.h*0.075);
+  g.fillText("△△ 花子", p.w*(land?0.55:0.55), p.h*(land?0.16:0.30));
+  return c;
+}
+function initPage(i){
+  const s=state[i], p=PAGES[i];
+  if(s.base) return;
+  s.base=makeBase(p);
+  const m=document.createElement('canvas'); m.width=p.w; m.height=p.h;
+  s.mask=m;
+}
+
+/* ---------- 表示 ---------- */
+function render(){
+  const s=state[cur], p=PAGES[cur];
+  // view は表示サイズ（devicePixelRatio 込み）で持つ
+  const dispW=Math.round(p.w*s.scale), dispH=Math.round(p.h*s.scale);
+  const dpr=Math.min(window.devicePixelRatio||1, 2);
+  if(view.width!==Math.round(dispW*dpr)||view.height!==Math.round(dispH*dpr)){
+    view.width=Math.round(dispW*dpr); view.height=Math.round(dispH*dpr);
+  }
+  wrap.style.width=dispW+"px"; wrap.style.height=dispH+"px";
+  wrap.style.left=s.tx+"px"; wrap.style.top=s.ty+"px";
+  vctx.setTransform(dpr,0,0,dpr,0,0);
+  vctx.imageSmoothingQuality="high";
+  vctx.clearRect(0,0,dispW,dispH);
+  vctx.drawImage(s.base,0,0,dispW,dispH);
+  vctx.drawImage(s.mask,0,0,dispW,dispH);
+  document.getElementById('zb').textContent=Math.round(s.scale*100)+"%";
+  document.getElementById('t-undo').disabled = s.strokes.length===0;
+  document.getElementById('t-clear').disabled = s.strokes.length===0;
+}
+function showZoom(){
+  const zb=document.getElementById('zb'); zb.classList.add('on');
+  clearTimeout(zb._t); zb._t=setTimeout(()=>zb.classList.remove('on'),900);
+}
+
+/* ---------- fit: 画面に収まる最大 ---------- */
+function fit(){
+  const s=state[cur], p=PAGES[cur];
+  const pad=14;
+  const availW=stage.clientWidth-pad*2, availH=stage.clientHeight-pad*2;
+  s.scale=Math.min(availW/p.w, availH/p.h);
+  s.tx=(stage.clientWidth-p.w*s.scale)/2;
+  s.ty=(stage.clientHeight-p.h*s.scale)/2;
+  render(); showZoom();
+}
+function zoomBy(f,cx,cy){
+  const s=state[cur];
+  const nx = cx===undefined? stage.clientWidth/2 : cx;
+  const ny = cy===undefined? stage.clientHeight/2 : cy;
+  const before=s.scale;
+  s.scale=Math.max(0.05, Math.min(8, s.scale*f));
+  const k=s.scale/before;
+  s.tx = nx - (nx - s.tx)*k;
+  s.ty = ny - (ny - s.ty)*k;
+  render(); showZoom();
+}
+
+/* ---------- 描画 ---------- */
+function penWidth(){
+  const p=PAGES[cur];
+  const base=p.w*PEN_RATIO[pen];
+  return eraser? base*1.6 : base;
+}
+function toImg(e){
+  const s=state[cur];
+  const r=stage.getBoundingClientRect();
+  return {
+    x:(e.clientX-r.left-s.tx)/s.scale,
+    y:(e.clientY-r.top -s.ty)/s.scale
+  };
+}
+let drawing=false, last=null;
+let pts=new Map(); // ポインタID→座標（ピンチ用）
+let pinch=null;
+
+stage.addEventListener('pointerdown',(e)=>{
+  stage.setPointerCapture?.(e.pointerId);
+  pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pts.size===2){ // ピンチ開始
+    drawing=false;
+    const [a,b]=[...pts.values()];
+    pinch={d:Math.hypot(a.x-b.x,a.y-b.y), s:state[cur].scale,
+           cx:(a.x+b.x)/2, cy:(a.y+b.y)/2,
+           tx:state[cur].tx, ty:state[cur].ty};
+    return;
+  }
+  if(panMode){ pinch={pan:true, x:e.clientX, y:e.clientY, tx:state[cur].tx, ty:state[cur].ty}; return; }
+  drawing=true; last=toImg(e); stroke(last,last); pushUndo(true);
+  hideHint();
+});
+stage.addEventListener('pointermove',(e)=>{
+  if(pts.has(e.pointerId)) pts.set(e.pointerId,{x:e.clientX,y:e.clientY});
+  if(pinch&&pinch.pan){
+    const s=state[cur];
+    const r=stage.getBoundingClientRect();
+    s.tx=pinch.tx+(e.clientX-pinch.x); s.ty=pinch.ty+(e.clientY-pinch.y);
+    render(); return;
+  }
+  if(pinch&&pts.size===2){
+    const [a,b]=[...pts.values()];
+    const d=Math.hypot(a.x-b.x,a.y-b.y);
+    const s=state[cur];
+    const k=(d/pinch.d);
+    const ns=Math.max(0.05,Math.min(8,pinch.s*k));
+    const r=stage.getBoundingClientRect();
+    const cx=pinch.cx-r.left, cy=pinch.cy-r.top;
+    const kk=ns/pinch.s;
+    s.scale=ns;
+    s.tx=cx-(cx-pinch.tx)*kk;
+    s.ty=cy-(cy-pinch.ty)*kk;
+    render(); showZoom(); return;
+  }
+  if(!drawing) return;
+  const p=toImg(e); stroke(last,p); last=p;
+});
+function endPtr(e){
+  pts.delete(e.pointerId);
+  if(pts.size<2) pinch=null;
+  if(drawing){ drawing=false; render(); }
+}
+stage.addEventListener('pointerup',endPtr);
+stage.addEventListener('pointercancel',endPtr);
+stage.addEventListener('pointerleave',endPtr);
+stage.addEventListener('wheel',(e)=>{
+  e.preventDefault();
+  const r=stage.getBoundingClientRect();
+  zoomBy(e.deltaY<0?1.12:1/1.12, e.clientX-r.left, e.clientY-r.top);
+},{passive:false});
+
+function stroke(a,b){
+  const s=state[cur];
+  const g=s.mask.getContext('2d');
+  g.save();
+  g.lineCap="round"; g.lineJoin="round"; g.lineWidth=penWidth();
+  if(eraser){ g.globalCompositeOperation="destination-out"; g.strokeStyle="rgba(0,0,0,1)"; }
+  else { g.strokeStyle="#000"; }
+  g.beginPath(); g.moveTo(a.x,a.y); g.lineTo(b.x,b.y); g.stroke();
+  g.restore();
+  render();
+}
+function pushUndo(){
+  const s=state[cur];
+  // 直前状態を保存（最大20手）
+  const snap=document.createElement('canvas');
+  snap.width=s.mask.width; snap.height=s.mask.height;
+  // 直前を保存したいので、描く前のコピーが必要 → 呼び出し順の都合で1手ずらして管理
+  s.strokes.push(s._prev||null);
+  if(s.strokes.length>20) s.strokes.shift();
+  // 現在を次のprevへ
+  const cp=document.createElement('canvas'); cp.width=s.mask.width; cp.height=s.mask.height;
+  cp.getContext('2d').drawImage(s.mask,0,0);
+  s._prev=cp;
+}
+function undo(){
+  const s=state[cur];
+  if(!s.strokes.length) return;
+  const prev=s.strokes.pop();
+  const g=s.mask.getContext('2d');
+  g.clearRect(0,0,s.mask.width,s.mask.height);
+  if(prev) g.drawImage(prev,0,0);
+  s._prev = prev;
+  render(); toast("元に戻しました");
+}
+function clearAll(){
+  const s=state[cur];
+  if(!s.strokes.length) return;
+  const cp=document.createElement('canvas'); cp.width=s.mask.width; cp.height=s.mask.height;
+  cp.getContext('2d').drawImage(s.mask,0,0);
+  s.strokes.push(s._prev||null); s._prev=cp;
+  // 全消しも1手として戻せる
+  s.strokes.push(cp);
+  s.mask.getContext('2d').clearRect(0,0,s.mask.width,s.mask.height);
+  render(); toast("全部消しました（戻すで復帰できます）");
+}
+
+/* ---------- 道具 ---------- */
+function setPen(p){
+  pen=p; eraser=false;
+  ['s','m','l'].forEach(k=>document.getElementById('t-'+k).classList.toggle('on',k===p));
+  document.getElementById('t-er').classList.remove('on');
+}
+function toggleEraser(){
+  eraser=!eraser;
+  document.getElementById('t-er').classList.toggle('on',eraser);
+  if(eraser) ['s','m','l'].forEach(k=>document.getElementById('t-'+k).classList.remove('on'));
+  else setPen(pen);
+}
+function togglePan(){
+  panMode=!panMode;
+  document.getElementById('t-pan').classList.toggle('on',panMode);
+  document.getElementById('modePill').classList.toggle('on',panMode);
+}
+function setPage(i){
+  cur=i; initPage(i);
+  document.getElementById('pg0').classList.toggle('on',i===0);
+  document.getElementById('pg1').classList.toggle('on',i===1);
+  fit();
+}
+function hideHint(){ document.getElementById('hint').classList.add('off'); }
+
+/* ---------- 導線・警告 ---------- */
+function hasAnyMask(){
+  return state.some(s=>s.mask && s.strokes.length>0);
+}
+function tryNext(){
+  const unpainted = state.map((s,i)=>({s,i})).filter(o=>o.s.base && o.s.strokes.length===0);
+  if(unpainted.length){
+    dialog({
+      title:"黒塗りがないページがあります",
+      body:`${unpainted.map(o=>PAGES[o.i].label).join("・")} は何も塗られていません。氏名などが写っている場合は、隠してから変換してください。`,
+      warn:"変換すると、この画像がAIに送られます。",
+      go:"このまま変換する", cancel:"戻って塗る",
+      onGo:()=>{ close(); toast("（モック）変換へ進みます"); }
+    });
+    return;
+  }
+  toast("（モック）変換へ進みます");
+}
+function backTo(step){
+  dialog({
+    title:step+"に戻りますか",
+    body:"塗った内容はそのまま保持されます。",
+    go:"戻る", cancel:"やめる",
+    onGo:()=>{ close(); toast("（モック）"+step+"へ戻ります"); }
+  });
+}
+function dialog(o){
+  const d=document.getElementById('dlgBody');
+  d.innerHTML=`<h2>${o.title}</h2><p>${o.body}</p>`
+    +(o.warn?`<div class="warn">${o.warn}</div>`:"")
+    +`<div class="dlg-btns"><button class="cancel" onclick="close()">${o.cancel}</button>
+      <button class="go" id="dlgGo">${o.go}</button></div>`;
+  document.getElementById('ovl').classList.add('on');
+  document.getElementById('dlgGo').onclick=o.onGo;
+}
+function close(){ document.getElementById('ovl').classList.remove('on'); }
+function toast(m){
+  const t=document.getElementById('toast'); t.textContent=m; t.classList.add('on');
+  clearTimeout(t._t); t._t=setTimeout(()=>t.classList.remove('on'),2200);
+}
+
+/* ---------- 離脱警告 ---------- */
+window.addEventListener('beforeunload',(e)=>{
+  if(hasAnyMask()){ e.preventDefault(); e.returnValue=''; }
+});
+
+/* ---------- 起動 ---------- */
+initPage(0); initPage(1);
+setPage(0);
+window.addEventListener('resize',()=>{ fit(); });
+setTimeout(()=>hideHint(),5200);
+</script>
+</body>
+</html>

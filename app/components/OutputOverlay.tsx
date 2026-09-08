@@ -14,9 +14,11 @@ type Props = {
   onCopy: () => void;
   onClose: () => void;
   onRestart?: () => void;
+  onWord?: () => void;
+  onPdf?: () => void;
 };
 
-export default function OutputOverlay({ open, text, warning, copied, onCopy, onClose, onRestart }: Props) {
+export default function OutputOverlay({ open, text, warning, copied, onCopy, onClose, onRestart, onWord, onPdf }: Props) {
   return (
     <div className={"ovl" + (open ? " on" : "")}>
       <div className="out-card">
@@ -28,6 +30,16 @@ export default function OutputOverlay({ open, text, warning, copied, onCopy, onC
           <button className="copy" onClick={onCopy}>
             全文をコピー
           </button>
+          {onWord && (
+            <button className="back" onClick={onWord}>
+              Word
+            </button>
+          )}
+          {onPdf && (
+            <button className="back" onClick={onPdf}>
+              PDF
+            </button>
+          )}
           <button className="back" onClick={onClose}>
             確認に戻る
           </button>

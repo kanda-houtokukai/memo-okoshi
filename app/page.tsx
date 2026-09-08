@@ -6,6 +6,12 @@
 //        API へ送るのは exportMasked() でマスクを焼き込んだ JPEG だけ。
 //        確認画面の「元メモ」に出すのも焼き込み後の画像。
 //
+// 行き来と離脱（P6 項目8）— 何が残り何が失われるか:
+//   確認 → 黒塗り: 変換結果（記録・マーカーの解決・こぼれ・気づき）は失われる。画像と黒塗りは残る
+//   確認/黒塗り → 取り込み: 変換結果は失われる。画像と黒塗りは残る（ページを外せばその黒塗りも消える）
+//   ホーム（最初から）: すべて失われる
+//   ブラウザの戻る・閉じる: 画像か変換結果があれば beforeunload で警告
+//
 // ?fixture=1 は開発用（モックv6の内容で確認画面を開く。API課金なし）。
 
 import { useEffect, useRef, useState } from "react";
@@ -17,8 +23,10 @@ import { loadVocab } from "@/lib/vocab";
 import Review from "./components/Review";
 import Intake from "./components/Intake";
 import Redact from "./components/Redact";
+import Dialog, { type DialogSpec } from "./components/Dialog";
 import { Toast, useToast } from "./components/Toast";
 import type { MemoPage } from "./components/MemoPane";
+import type { Step } from "./components/StepHeader";
 
 const SETTINGS_KEY = "memo-okoshi:items";
 
@@ -51,6 +59,18 @@ function loadSettings(): Settings {
 
 type Mode = "intake" | "mask" | "review";
 
+/** 変換API呼び出し（初回も再変換も同じ）。blobs は焼き込み後の画像だけ */
+async function callConvert(blobs: Blob[], itemIds: string[]): Promise<{ ok: true; data: ApiData } | { ok: false; error: string }> {
+  const fd = new FormData();
+  blobs.forEach((b, i) => fd.append("images", b, `page-${i + 1}.jpg`));
+  fd.append("items", JSON.stringify(itemIds));
+  fd.append("vocab", JSON.stringify(loadVocab())); // 端末内の辞書。サーバーは保存しない
+  const res = await fetch("/api/convert", { method: "POST", body: fd });
+  const json = await res.json();
+  if (!json.ok) return { ok: false, error: String(json.error ?? "変換できませんでした") + (json.raw ? "\n\n" + json.raw : "") };
+  return { ok: true, data: json.data as ApiData };
+}
+
 export default function Page() {
   const [mode, setMode] = useState<Mode>("intake");
   const [pages, setPages] = useState<PageItem[]>([]);
@@ -61,7 +81,9 @@ export default function Page() {
   const [rec, setRec] = useState<RecordState | null>(null);
   const [memoPages, setMemoPages] = useState<MemoPage[]>([]);
   const [run, setRun] = useState(0); // 確認画面を作り直すためのキー
+  const [dlg, setDlg] = useState<DialogSpec | null>(null);
   const urls = useRef<string[]>([]);
+  const blobs = useRef<Blob[]>([]); // 焼き込み後の画像（再変換に使う）
   const { toast, msg, on } = useToast();
 
   useEffect(() => {
@@ -76,6 +98,17 @@ export default function Page() {
       })
       .catch((e) => setError(String(e)));
   }, []);
+
+  /* 離脱警告: 端末内にしかないものがあるとき */
+  useEffect(() => {
+    const h = (e: BeforeUnloadEvent) => {
+      if (pages.length === 0 && !rec) return;
+      e.preventDefault();
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", h);
+    return () => window.removeEventListener("beforeunload", h);
+  }, [pages.length, rec]);
 
   const addFiles = async (files: File[]) => {
     setBusy(true);
@@ -113,23 +146,19 @@ export default function Page() {
     setError("");
     try {
       const s = loadSettings();
-      const blobs: Blob[] = [];
-      for (const p of pages) blobs.push(await exportMasked(p)); // ← 送るのは焼き込み後だけ
-      const fd = new FormData();
-      blobs.forEach((b, i) => fd.append("images", b, `page-${i + 1}.jpg`));
-      fd.append("items", JSON.stringify(s.order.filter((id) => s.enabled[id])));
-      fd.append("vocab", JSON.stringify(loadVocab())); // 端末内の辞書。サーバーは保存しない
-      const res = await fetch("/api/convert", { method: "POST", body: fd });
-      const json = await res.json();
-      if (!json.ok) {
-        setError(String(json.error ?? "変換できませんでした") + (json.raw ? "\n\n" + json.raw : ""));
+      const out: Blob[] = [];
+      for (const p of pages) out.push(await exportMasked(p)); // ← 送るのは焼き込み後だけ
+      const r = await callConvert(out, s.order.filter((id) => s.enabled[id]));
+      if (!r.ok) {
+        setError(r.error);
         toast("変換できませんでした");
         return;
       }
+      blobs.current = out;
       urls.current.forEach((u) => URL.revokeObjectURL(u));
-      urls.current = blobs.map((b) => URL.createObjectURL(b));
+      urls.current = out.map((b) => URL.createObjectURL(b));
       setMemoPages(urls.current.map((src) => ({ src })));
-      setRec(fromApi(json.data as ApiData, ITEM_LIBRARY, s.enabled, s.order));
+      setRec(fromApi(r.data, ITEM_LIBRARY, s.enabled, s.order));
       setRun((n) => n + 1);
       setMode("review");
     } catch (e) {
@@ -140,20 +169,86 @@ export default function Page() {
     }
   };
 
-  /** 「新しい変換を始める」: 端末内のデータをすべて捨てて取り込みへ */
-  const restart = () => {
+  /** 追加した項目だけを埋める再変換（項目6）。焼き込み済み画像をそのまま再送する */
+  const reconvert = async (itemIds: string[]): Promise<ApiData | null> => {
+    if (blobs.current.length === 0) return null;
+    const r = await callConvert(blobs.current, itemIds);
+    if (!r.ok) {
+      toast("再変換できませんでした");
+      return null;
+    }
+    return r.data;
+  };
+
+  /** 変換結果を捨てる（画像と黒塗りは残す） */
+  const dropResult = () => {
     urls.current.forEach((u) => URL.revokeObjectURL(u));
     urls.current = [];
-    pages.forEach(releasePage);
-    setPages([]);
-    setIndex(0);
+    blobs.current = [];
     setRec(null);
     setMemoPages([]);
     setError("");
+  };
+
+  /** 「最初から」: 端末内のデータをすべて捨てて取り込みへ */
+  const restart = () => {
+    dropResult();
+    pages.forEach(releasePage);
+    setPages([]);
+    setIndex(0);
     setMode("intake");
   };
 
-  if (mode === "review" && rec) return <Review key={run} initial={rec} pages={memoPages} onRestart={restart} />;
+  const confirm = (spec: Omit<DialogSpec, "onCancel">) =>
+    setDlg({ ...spec, onGo: () => { setDlg(null); spec.onGo(); }, onCancel: () => setDlg(null) });
+
+  /** ステップ表示から前の工程へ戻る（何が失われるかを明示して確認） */
+  const goStep = (target: Step) => {
+    if (target === "mask" && mode === "review") {
+      confirm({
+        title: "黒塗りに戻りますか",
+        body: "変換した記録（マーカーの確認・直した文章・こぼれ枠・気づき）は失われます。画像と黒塗りは残ります。",
+        go: "黒塗りに戻る",
+        cancel: "やめる",
+        onGo: () => { dropResult(); setMode("mask"); },
+      });
+      return;
+    }
+    if (target === "intake") {
+      if (mode === "review") {
+        confirm({
+          title: "取り込みに戻りますか",
+          body: "変換した記録は失われます。画像と黒塗りは残ります（ページを外すとその黒塗りも消えます）。",
+          go: "取り込みに戻る",
+          cancel: "やめる",
+          onGo: () => { dropResult(); setMode("intake"); },
+        });
+      } else {
+        // 黒塗り → 取り込み: 失うものはない
+        setMode("intake");
+      }
+    }
+  };
+
+  const goHome = () => {
+    if (pages.length === 0 && !rec) return;
+    confirm({
+      title: "最初からやり直しますか",
+      body: "取り込んだ画像・黒塗り・変換した記録はすべて失われます（この端末にも残りません）。",
+      warn: "コピーや保存をしていない記録は戻せません。",
+      go: "最初から",
+      cancel: "やめる",
+      onGo: restart,
+    });
+  };
+
+  if (mode === "review" && rec)
+    return (
+      <>
+        <Review key={run} initial={rec} pages={memoPages} onRestart={restart} onStep={goStep} onHome={goHome} onReconvert={reconvert} />
+        <Dialog spec={dlg} />
+      </>
+    );
 
   if (mode === "mask" && pages.length > 0) {
     return (
@@ -163,11 +258,14 @@ export default function Page() {
           index={Math.min(index, pages.length - 1)}
           onIndex={setIndex}
           onMask={setMask}
-          onBack={() => setMode("intake")}
           onConvert={convert}
+          onStep={goStep}
+          onHome={goHome}
           converting={converting}
           error={error}
+          toast={toast}
         />
+        <Dialog spec={dlg} />
         <Toast msg={msg} on={on} />
       </>
     );
@@ -181,13 +279,16 @@ export default function Page() {
         onAdd={addFiles}
         onRemove={removePage}
         onMove={movePage}
-        onNext={() => {
-          setIndex(0);
-          setMode("mask");
-        }}
+        onNext={() => { setIndex(0); setMode("mask"); }}
+        onHome={goHome}
         toast={toast}
       />
-      {error && mode === "intake" && !pages.length && <div className="wrap single"><div className="errline">{error}</div></div>}
+      {error && !pages.length && (
+        <div className="wrap single">
+          <div className="errline">{error}</div>
+        </div>
+      )}
+      <Dialog spec={dlg} />
       <Toast msg={msg} on={on} />
     </>
   );

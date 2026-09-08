@@ -31,8 +31,8 @@ export default function Drawer({ open, enabled, onToggle, onClose }: Props) {
                   onClick={() => onToggle(l.id)}
                 >
                   <span className="sw" />
-                  <span className="nm">{l.label}</span>
                   <span className="tg" style={{ "--tabc": l.color } as React.CSSProperties} />
+                  <span className="nm">{l.label}</span>
                 </div>
               ))}
             </div>

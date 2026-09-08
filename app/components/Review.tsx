@@ -10,9 +10,12 @@ import {
   activeIds,
   buildOutputText,
   counts,
+  mergeReconvert,
   moveSection,
   moveSpillTo,
   outputWarnings,
+  pendingReconvertIds,
+  recordEntries,
   resolveToken,
   saveEdit,
   sectionCopyText,
@@ -25,8 +28,12 @@ import Popover from "./Popover";
 import Drawer from "./Drawer";
 import OutputOverlay from "./OutputOverlay";
 import MemoPane, { type MemoPage } from "./MemoPane";
-import VocabDrawer from "./VocabDrawer";
+import StepHeader, { type Step } from "./StepHeader";
+import VocabButton, { VOCAB_CHANGED } from "./VocabButton";
 import { addEntry, loadVocab, REASON_TEXT, saveVocab } from "@/lib/vocab";
+import type { ApiData } from "@/lib/record";
+import Dialog, { type DialogSpec } from "./Dialog";
+import { exportDocx, printRecord } from "@/lib/export";
 
 const SETTINGS_KEY = "memo-okoshi:items";
 
@@ -48,9 +55,17 @@ function copyText(txt: string, ok: () => void) {
   else fb();
 }
 
-type Props = { initial: RecordState; pages: MemoPage[]; onRestart?: () => void };
+type Props = {
+  initial: RecordState;
+  pages: MemoPage[];
+  onRestart?: () => void;
+  onStep?: (s: Step) => void;
+  onHome?: () => void;
+  /** 追加した項目だけを埋める再変換（項目6）。null なら失敗 */
+  onReconvert?: (itemIds: string[]) => Promise<ApiData | null>;
+};
 
-export default function Review({ initial, pages, onRestart }: Props) {
+export default function Review({ initial, pages, onRestart, onStep, onHome, onReconvert }: Props) {
   const [rec, setRec] = useState<RecordState>(initial);
   const [editing, setEditing] = useState<string | null>(null);
   const [pop, setPop] = useState<{ sid: string; ti: number; left: number; top: number } | null>(null);
@@ -58,9 +73,8 @@ export default function Review({ initial, pages, onRestart }: Props) {
   const [page, setPage] = useState(0);
   const [mobileTab, setMobileTab] = useState<"memo" | "rec">("rec");
   const [drawerOpen, setDrawerOpen] = useState(false);
-  const [vocabOpen, setVocabOpen] = useState(false);
-  const [vocabN, setVocabN] = useState(0);
-  useEffect(() => setVocabN(loadVocab().length), [vocabOpen]);
+  const [dlg, setDlg] = useState<DialogSpec | null>(null);
+  const [reconverting, setReconverting] = useState(false);
   const [insClosed, setInsClosed] = useState(false);
   const [outOpen, setOutOpen] = useState(false);
   const [outText, setOutText] = useState("");
@@ -154,7 +168,7 @@ export default function Review({ initial, pages, onRestart }: Props) {
       const r = addEntry(loadVocab(), { term: val ?? tk.s });
       if (r.ok) {
         saveVocab(r.list);
-        setVocabN(r.list.length);
+        window.dispatchEvent(new Event(VOCAB_CHANGED));
         toast("確定しました — 辞書に追加");
         return;
       }
@@ -248,24 +262,43 @@ export default function Review({ initial, pages, onRestart }: Props) {
   };
 
   const doneReady = c.r === 0;
+  const pending = pendingReconvertIds(rec);
+
+  /** 追加した項目だけを埋める再変換（同意を得てから） */
+  const askReconvert = () => {
+    if (!onReconvert || pending.length === 0) return;
+    const names = pending.map((id) => itemById(id)?.label ?? id).join("・");
+    setDlg({
+      title: "追加した項目をAIで埋めますか",
+      body: `「${names}」を、いまの画像から読み取って埋めます。30〜40秒かかります。すでに直した文章・確認したマーカー・こぼれ枠の内容はそのまま残ります。`,
+      go: "再変換する",
+      cancel: "やめる",
+      onGo: async () => {
+        setDlg(null);
+        setReconverting(true);
+        try {
+          const data = await onReconvert(acts);
+          if (data) {
+            setRec((s) => mergeReconvert(s, data, ITEM_LIBRARY));
+            toast("追加した項目を埋めました");
+          }
+        } finally {
+          setReconverting(false);
+        }
+      },
+      onCancel: () => setDlg(null),
+    });
+  };
 
   return (
     <>
-      <header>
-        <div className="h-in">
-          <div className="brand">メモおこし</div>
-          <div className="steps">
-            <span>取り込み</span>
-            <i>›</i>
-            <span>黒塗り</span>
-            <i>›</i>
-            <span>変換</span>
-            <i>›</i>
-            <span className="cur">確認</span>
-            <i>›</i>
-            <span>出力</span>
-          </div>
-          <div className="h-right">
+      <StepHeader
+        step="review"
+        done={onStep ? ["intake", "mask"] : []}
+        onStep={onStep}
+        onHome={onHome}
+        right={
+          <>
             <div className="chips">
               <span className="lbl">要確認</span>
               <span className={"chip y" + (c.y === 0 ? " zero" : "") + (pulse.y ? " pulse" : "")}>
@@ -278,12 +311,13 @@ export default function Review({ initial, pages, onRestart }: Props) {
                 人名 <b>{c.r}</b>
               </span>
             </div>
+            <VocabButton toast={toast} />
             <button className={"done-btn" + (doneReady ? " ready" : "")} onClick={onDone}>
               {c.r > 0 ? "完成（人名の対応が必要）" : c.y + c.b > 0 ? "完成" : "完成 ✓"}
             </button>
-          </div>
-        </div>
-      </header>
+          </>
+        }
+      />
 
       <div className="wrap">
         <div className="mobile-tabs">
@@ -306,9 +340,12 @@ export default function Review({ initial, pages, onRestart }: Props) {
               ?
             </span>
             <div className="rec-tools">
-              <button className="tool-btn" onClick={() => setVocabOpen(true)}>
-                辞書{vocabN > 0 && <span className="ins-count">{vocabN}</span>}
-              </button>
+              {onReconvert && pending.length > 0 && (
+                <button className={"tool-btn accent" + (reconverting ? " busy" : "")} onClick={askReconvert} disabled={reconverting}>
+                  {reconverting ? "再変換中" : "再変換"}
+                  {!reconverting && <span className="ins-count">{pending.length}</span>}
+                </button>
+              )}
               <button className="tool-btn" onClick={() => setDrawerOpen(true)}>
                 ☰ 項目
               </button>
@@ -459,8 +496,6 @@ export default function Review({ initial, pages, onRestart }: Props) {
         />
       )}
 
-      <VocabDrawer open={vocabOpen} onClose={() => setVocabOpen(false)} toast={toast} />
-
       <Drawer
         open={drawerOpen}
         enabled={rec.enabled}
@@ -479,7 +514,12 @@ export default function Review({ initial, pages, onRestart }: Props) {
           setOutCopied(false);
         }}
         onRestart={onRestart}
+        onWord={() => exportDocx(recordEntries(rec, ITEM_LIBRARY)).catch(() => toast("Wordを作れませんでした"))}
+        onPdf={() => printRecord(recordEntries(rec, ITEM_LIBRARY))}
       />
+
+      {reconverting && <div className="progress fill" />}
+      <Dialog spec={dlg} />
 
       <div className={"toast" + (toastOn ? " on" : "")}>{toastMsg}</div>
     </>

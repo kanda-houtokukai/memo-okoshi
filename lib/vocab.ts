@@ -109,3 +109,45 @@ export function saveVocab(list: VocabEntry[]): void {
     /* プライベートブラウズ等では保存できないが動作は続ける */
   }
 }
+
+
+/* ---------- 辞書バックアップ（純関数部分。ブラウザ側の書き出し/読み込みは lib/backup.ts） ---------- */
+
+export type Backup = {
+  app: "memo-okoshi";
+  version: 1;
+  exported: string;
+  vocab: VocabEntry[];
+  items?: { enabled: string[]; order: string[] };
+};
+
+/** 純関数部分（テスト対象）: 既存の辞書へ追記し、項目設定があれば返す */
+export function mergeBackup(
+  input: unknown,
+  current: VocabEntry[],
+  validItemIds: string[]
+): { ok: true; vocab: VocabEntry[]; added: number; skipped: number; items?: Backup["items"] } | { ok: false } {
+  if (!input || typeof input !== "object") return { ok: false };
+  const b = input as Partial<Backup>;
+  if (b.app !== "memo-okoshi" || !Array.isArray(b.vocab)) return { ok: false };
+  let vocab = current;
+  let added = 0;
+  let skipped = 0;
+  for (const e of sanitizeForPrompt(b.vocab)) {
+    const r = addEntry(vocab, e);
+    if (r.ok) {
+      vocab = r.list;
+      added++;
+    } else skipped++;
+  }
+  // sanitize で落ちた分（人名・型崩れ）も除外として数える
+  skipped += Array.isArray(b.vocab) ? b.vocab.length - sanitizeForPrompt(b.vocab).length : 0;
+  const items =
+    b.items && Array.isArray(b.items.enabled) && Array.isArray(b.items.order)
+      ? {
+          enabled: b.items.enabled.filter((id) => validItemIds.includes(id)),
+          order: b.items.order.filter((id) => validItemIds.includes(id)),
+        }
+      : undefined;
+  return { ok: true, vocab, added, skipped, items };
+}

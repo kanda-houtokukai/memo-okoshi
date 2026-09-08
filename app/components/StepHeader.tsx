@@ -1,12 +1,13 @@
 "use client";
 
-// 取り込み／黒塗り／変換中の画面で使うヘッダー。確認画面（Review）のヘッダーと同じ構造。
+// 共通ヘッダー。ステップ表示は「済んだ工程は押せる（戻れる）／未来の工程は薄い」。
+// [DECISION 2026-09-08] 戻る導線はここに集約（kuronuri-mock-v1 の steps に合わせる）。
 
 import type { ReactNode } from "react";
 
-export type Step = "intake" | "mask" | "convert";
+export type Step = "intake" | "mask" | "convert" | "review" | "output";
 
-const STEPS: { key: Step | "review" | "output"; label: string }[] = [
+const STEPS: { key: Step; label: string }[] = [
   { key: "intake", label: "取り込み" },
   { key: "mask", label: "黒塗り" },
   { key: "convert", label: "変換" },
@@ -14,18 +15,46 @@ const STEPS: { key: Step | "review" | "output"; label: string }[] = [
   { key: "output", label: "出力" },
 ];
 
-export default function StepHeader({ step, right }: { step: Step; right: ReactNode }) {
+type Props = {
+  step: Step;
+  /** 押せる（戻れる）工程 */
+  done?: Step[];
+  onStep?: (s: Step) => void;
+  right: ReactNode;
+  /** ブランドを押したとき（ホームへ戻る） */
+  onHome?: () => void;
+};
+
+export default function StepHeader({ step, done = [], onStep, right, onHome }: Props) {
+  const cur = STEPS.findIndex((s) => s.key === step);
   return (
     <header>
       <div className="h-in">
-        <div className="brand">メモおこし</div>
+        {onHome ? (
+          <button className="brand as-btn" onClick={onHome} data-tip="最初から">
+            メモおこし
+          </button>
+        ) : (
+          <div className="brand">メモおこし</div>
+        )}
         <div className="steps">
-          {STEPS.map((s, i) => (
-            <span key={s.key} style={{ display: "contents" }}>
-              {i > 0 && <i>›</i>}
-              <span className={s.key === step ? "cur" : undefined}>{s.label}</span>
-            </span>
-          ))}
+          {STEPS.map((s, i) => {
+            const isDone = done.includes(s.key);
+            return (
+              <span key={s.key} style={{ display: "contents" }}>
+                {i > 0 && <i>›</i>}
+                {s.key === step ? (
+                  <span className="cur">{s.label}</span>
+                ) : isDone && onStep ? (
+                  <button className="st-done" onClick={() => onStep(s.key)}>
+                    {s.label}
+                  </button>
+                ) : (
+                  <span className={i > cur ? "future" : undefined}>{s.label}</span>
+                )}
+              </span>
+            );
+          })}
         </div>
         <div className="h-right">{right}</div>
       </div>

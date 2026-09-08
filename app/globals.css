@@ -131,7 +131,7 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 }
 .mini:hover{border-color:var(--accent);color:var(--accent)}
 .mini.copied{border-color:var(--ok);color:var(--ok);background:var(--ok-bg)}
-.sec-body{font-size:.95rem;min-height:1.5em;overflow-wrap:anywhere;padding-top:2px}
+.sec-body{font-size:.95rem;min-height:1.5em;overflow-wrap:anywhere;padding-top:2px;white-space:pre-line}
 .sec-body.empty{color:#b6b0a4;font-size:.85rem}
 .sec-body textarea{width:100%;min-height:5.5em;font:inherit;font-size:.95rem;border:1.5px solid var(--accent);border-radius:8px;padding:9px;resize:vertical;background:var(--faint)}
 .ta-btns{display:flex;gap:8px;margin-top:8px}
@@ -336,22 +336,159 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
   .tools{padding:8px 8px}
 }
 
-/* ---------- 合言葉ゲート（ACCESS_CODE 設定時のみ） ---------- */
-.gate{min-height:100vh;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:22px;padding:24px}
-.gate-form{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
-.gate-form input{font:inherit;font-size:1rem;border:1px solid var(--line);border-radius:9px;padding:9px 13px;background:var(--surface);width:200px}
-.gate-form input:focus{outline:none;border-color:var(--accent)}
-.gate-err{font-size:.8rem;color:var(--r-ink)}
+/* ---------- 合言葉ゲート（gate-mock-v1 を移植） ---------- */
+.gate2{min-height:100vh;display:flex;align-items:flex-start;justify-content:center;padding:14vh 20px 40px;position:relative;overflow-x:hidden}
+.gate2::before{
+  content:"";position:fixed;inset:0;pointer-events:none;opacity:.5;
+  background-image:
+    radial-gradient(circle at 18% 22%, rgba(160,150,130,.05) 0 1px, transparent 1px),
+    radial-gradient(circle at 62% 68%, rgba(160,150,130,.045) 0 1px, transparent 1px),
+    radial-gradient(circle at 84% 34%, rgba(160,150,130,.04) 0 1px, transparent 1px);
+  background-size:120px 120px, 90px 90px, 150px 150px;
+}
+.gate2 .card{
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  width:100%;max-width:390px;padding:34px 34px 30px;position:relative;
+  box-shadow:0 2px 14px rgba(43,42,37,.07);animation:gatein .5s cubic-bezier(.2,.7,.3,1) both;
+}
+@keyframes gatein{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+.gate2 .tabs{position:absolute;left:-1px;top:26px;display:flex;flex-direction:column;gap:5px}
+.gate2 .tabs span{width:7px;height:26px;border-radius:0 4px 4px 0;background:var(--c);animation:tabin .5s cubic-bezier(.2,.7,.3,1) both}
+.gate2 .tabs span:nth-child(1){--c:var(--t1);animation-delay:.20s}
+.gate2 .tabs span:nth-child(2){--c:var(--t2);animation-delay:.27s}
+.gate2 .tabs span:nth-child(3){--c:var(--t3);animation-delay:.34s}
+.gate2 .tabs span:nth-child(4){--c:var(--t4);animation-delay:.41s}
+.gate2 .tabs span:nth-child(5){--c:var(--t5);animation-delay:.48s}
+@keyframes tabin{from{opacity:0;transform:translateX(-7px)}to{opacity:1;transform:none}}
+.gate2 h1{font-family:var(--head);font-weight:700;font-size:1.55rem;letter-spacing:.14em;text-align:center;margin-bottom:6px}
+.gate2 .sub{font-family:var(--head);font-size:.66rem;letter-spacing:.24em;color:#b3ada1;text-align:center;margin-bottom:26px}
+.gate2 .field{display:flex;border:1px solid var(--line);border-radius:11px;overflow:hidden;background:var(--faint);transition:border-color .2s, box-shadow .2s}
+.gate2 .field:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(51,86,107,.10);background:#fff}
+.gate2 .field.shake{animation:shake .38s}
+@keyframes shake{0%,100%{transform:translateX(0)}20%{transform:translateX(-7px)}40%{transform:translateX(6px)}60%{transform:translateX(-4px)}80%{transform:translateX(2px)}}
+.gate2 .field input{flex:1;min-width:0;border:none;background:transparent;outline:none;padding:14px 16px;font-size:16px;letter-spacing:.14em;color:var(--ink);font-family:inherit}
+.gate2 .field input::placeholder{color:#bab4a8;letter-spacing:.1em}
+.gate2 .field button{background:var(--accent);color:#fff;padding:0 22px;border:none;font-family:var(--head);font-weight:700;font-size:.9rem;letter-spacing:.1em;transition:background .2s;cursor:pointer}
+.gate2 .field button:hover{background:var(--accent-deep)}
+.gate2 .field button:disabled{background:#c2bdb2;cursor:default}
+@media (max-width:520px){.gate2{padding-top:11vh}.gate2 .card{padding:28px 24px 26px}.gate2 h1{font-size:1.35rem}}
 
-/* ---------- 組織の語彙（辞書ドロワー） ---------- */
-.vc-add,.vc-row{display:flex;align-items:center;gap:6px;padding:7px 4px;border-bottom:1px dashed var(--line)}
-.vc-add{padding-bottom:12px;margin-bottom:6px;border-bottom:1px solid var(--line)}
-.vc-add input,.vc-row.editing input{font:inherit;font-size:.86rem;border:1px solid var(--line);border-radius:8px;padding:6px 9px;background:var(--faint);min-width:0}
-.vc-add input:first-child,.vc-row.editing input:first-child{flex:0 0 38%}
-.vc-add input:nth-child(2),.vc-row.editing input:nth-child(2){flex:1}
-.vc-add input:focus,.vc-row.editing input:focus{outline:none;border-color:var(--accent);background:var(--surface)}
-.vc-term{font-size:.9rem;font-weight:700;flex:0 0 38%;overflow-wrap:anywhere}
-.vc-gloss{font-size:.78rem;color:var(--sub);flex:1;overflow-wrap:anywhere}
-.vc-row .mini{flex-shrink:0}
-.pop-chk{display:flex;align-items:center;gap:7px;font-size:.78rem;color:var(--sub);padding:4px 2px 0;cursor:pointer;user-select:none}
-.pop-chk input{width:auto;margin:0;accent-color:var(--accent)}
+/* ---------- 辞書ドロワーの脚注行（書き出し・読み込み） ---------- */
+.dr-f-row{display:flex;align-items:center;gap:10px;justify-content:space-between}
+.dr-f-btns{display:flex;gap:6px}
+
+/* ============================================================
+   P6（2026-09-08）実機フィードバックによる改良
+   ============================================================ */
+/* ---------- ヘッダー: 済んだ工程は押せる／未来は薄い／ブランドはホームへ ---------- */
+.steps .st-done{padding:3px 9px;border-radius:99px;color:var(--accent);font-size:.72rem;background:none;border:none;font-family:inherit}
+.steps .st-done:hover{background:#eef2f4}
+.steps .future{color:#c2bdb2}
+.brand.as-btn{background:none;border:none;padding:0;color:inherit;font:inherit;font-family:var(--head);font-weight:700;font-size:1.05rem;letter-spacing:.05em}
+.pages-nav{display:flex;gap:5px}
+.pages-nav .pg{min-width:34px;padding:4px 11px}
+
+/* ---------- 黒塗り画面（固定ビューポート・kuronuri-mock-v1） ---------- */
+html.lock,html.lock body{height:100%;overflow:hidden;overscroll-behavior:none}
+.rd-root{position:fixed;inset:0;display:flex;flex-direction:column;background:var(--bg)}
+.rd-root header{position:static;flex:0 0 auto}
+.stage{flex:1 1 auto;position:relative;overflow:hidden;background:#5d594f;touch-action:none;user-select:none;-webkit-user-select:none;cursor:crosshair}
+.stage.pan{cursor:grab}
+.stage .view{position:absolute;left:0;top:0;display:block}
+.stage-err{position:absolute;left:12px;right:12px;bottom:12px;margin:0}
+.zoom-badge{
+  position:absolute;top:10px;left:50%;transform:translateX(-50%);
+  background:rgba(43,42,37,.82);color:#fff;font-size:.72rem;padding:4px 12px;border-radius:99px;
+  opacity:0;transition:opacity .25s;pointer-events:none;font-variant-numeric:tabular-nums;
+}
+.zoom-badge.on{opacity:1}
+.mode-pill{position:absolute;top:10px;right:10px;background:rgba(43,42,37,.82);color:#fff;font-size:.7rem;padding:4px 11px;border-radius:99px;pointer-events:none}
+.first-hint{
+  position:absolute;left:50%;bottom:16px;transform:translateX(-50%);
+  background:rgba(43,42,37,.86);color:#fff;font-size:.8rem;padding:9px 18px;border-radius:99px;
+  white-space:nowrap;max-width:92vw;pointer-events:none;animation:cardin .4s ease-out;
+}
+.toolbar{
+  flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);
+  display:flex;align-items:center;gap:6px;padding:8px 12px;
+  padding-bottom:calc(8px + env(safe-area-inset-bottom));overflow-x:auto;
+}
+.tool{
+  flex:0 0 auto;width:52px;height:48px;border-radius:11px;background:var(--faint);border:1px solid var(--line);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
+  color:var(--sub);transition:background .15s,border-color .15s,color .15s;font-family:inherit;cursor:pointer;
+}
+.tool:active{background:#eceae3}
+.tool.on{background:var(--accent);border-color:var(--accent);color:#fff}
+.tool.on .dot{background:#fff}
+.tool .dot{width:var(--d,10px);height:var(--d,10px);border-radius:50%;background:#5d594f;transition:background .15s}
+.tool .er{width:16px;height:12px;border:2px solid currentColor;border-radius:3px;background:repeating-linear-gradient(45deg,transparent,transparent 3px,currentColor 3px,currentColor 4px)}
+.tool .lb{font-size:.58rem;font-family:var(--head);letter-spacing:.02em}
+.tool .lb.mid{font-size:.72rem}
+.tool .glyph{font-size:1.05rem;line-height:1}
+.tool .glyph.big{font-size:1.25rem}
+.tool:disabled{opacity:.32;cursor:default}
+.toolbar .sep{flex:0 0 auto;width:1px;height:32px;background:var(--line);margin:0 4px}
+.zoom-group{display:flex;gap:6px;margin-left:auto;flex:0 0 auto}
+.tool.wide{width:auto;padding:0 14px}
+@media (max-width:760px){.tool{width:48px;height:46px}.toolbar{padding:8px 8px}}
+
+/* ---------- 変換中: 40秒かけて満ちる進捗（動きで見せる） ---------- */
+.progress.fill{
+  background:var(--accent);background-size:auto;animation:progfill 40s cubic-bezier(.2,.6,.3,1) forwards;
+  width:0;right:auto;
+}
+@keyframes progfill{0%{width:0}60%{width:70%}100%{width:92%}}
+.done-btn.busy{background:var(--accent);animation:breathe 1.6s ease-in-out infinite}
+@keyframes breathe{0%,100%{opacity:1}50%{opacity:.55}}
+.done-btn.busy::after{content:"…";display:inline-block;width:1.2em;text-align:left;animation:dots 1.5s steps(4,end) infinite}
+@keyframes dots{0%{clip-path:inset(0 100% 0 0)}100%{clip-path:inset(0 -10% 0 0)}}
+
+/* ---------- 確認ダイアログ ---------- */
+.dlg-ovl{position:fixed;inset:0;background:rgba(43,42,37,.5);z-index:120;display:flex;align-items:center;justify-content:center;padding:20px}
+.dlg{background:var(--surface);border-radius:14px;max-width:430px;width:100%;padding:22px 24px;animation:popin2 .18s ease-out}
+.dlg h2{font-family:var(--head);font-size:.98rem;margin-bottom:8px}
+.dlg p{font-size:.86rem;color:var(--sub);line-height:1.75;margin-bottom:16px}
+.dlg .warn{color:var(--r-ink);background:var(--r-bg);border-radius:9px;padding:9px 13px;font-size:.82rem;margin-bottom:14px}
+.dlg-btns{display:flex;gap:10px;justify-content:flex-end;flex-wrap:wrap}
+.dlg-btns button{border-radius:9px;padding:10px 18px;font-size:.86rem;font-family:var(--head);font-weight:700;cursor:pointer}
+.dlg-btns .go{background:var(--accent);color:#fff;border:none}
+.dlg-btns .cancel{border:1px solid var(--line);color:var(--sub);font-weight:500;background:var(--surface)}
+
+/* ---------- 確認画面: 元メモの拡大ペイン ---------- */
+.memo-stage{position:relative;height:62vh;min-height:280px;background:#5d594f;overflow:hidden;touch-action:none;user-select:none;-webkit-user-select:none;cursor:grab}
+.memo-stage .view{position:absolute;left:0;top:0;display:block}
+.memo-zoom{display:flex;gap:6px;padding:8px 12px;border-top:1px solid var(--line);justify-content:flex-end}
+@media (max-width:900px){.memo-stage{height:56vh}}
+
+/* ---------- 取り込み: ドラッグ＆ドロップ（PC） ---------- */
+.wrap.drop{min-height:60vh;border-radius:12px;transition:background .15s}
+.wrap.drop.over{background:#eef2f4;outline:2px dashed var(--accent);outline-offset:-8px}
+
+/* ---------- カードのアイコン整理: コピーを主に、並べ替えは控えめに ---------- */
+.mini.ic.copy{border-color:var(--accent);color:var(--accent);background:var(--surface);width:34px;font-size:.9rem}
+.mini.ic.copy.copied{border-color:var(--ok);color:var(--ok);background:var(--ok-bg)}
+@media (hover:none){
+  .mini.arrow{opacity:.28}
+  .sec:focus-within .mini.arrow,.sec:active .mini.arrow{opacity:.85}
+}
+
+/* ---------- 項目ドロワー: 色チップを項目名の手前へ ---------- */
+.dr-item .tg{margin-left:0;width:9px;height:18px;border-radius:0 3px 3px 0}
+
+/* ---------- 再変換ボタン・印刷レイアウト（Word/PDF） ---------- */
+.tool-btn.accent{border-color:var(--accent);color:var(--accent);font-weight:700}
+.tool-btn.busy{animation:breathe 1.6s ease-in-out infinite}
+.print-doc{display:none}
+@media print{
+  body > *:not(.print-doc){display:none !important}
+  .print-doc{display:block;font-family:"Yu Gothic","游ゴシック","Hiragino Sans",Meiryo,sans-serif;color:#000;font-size:10.5pt;line-height:1.6}
+  .print-doc h1{font-size:13pt;margin:0 0 4pt}
+  .print-doc .pd-date{font-size:9pt;color:#444;margin-bottom:8pt}
+  .print-doc table{width:100%;border-collapse:collapse;table-layout:fixed}
+  .print-doc th,.print-doc td{border:0.5pt solid #8a8a8a;padding:4pt 6pt;vertical-align:top;text-align:left}
+  .print-doc th{width:20%;background:#f3f1eb;font-weight:700}
+  .print-doc p{margin:0}
+  .print-doc tr{break-inside:avoid}
+  @page{size:A4;margin:15mm}
+}

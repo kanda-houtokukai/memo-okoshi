@@ -57,7 +57,7 @@ export default function SectionCard({
             ↓
           </button>
           <button
-            className={"mini ic" + (copied ? " copied" : "")}
+            className={"mini ic copy" + (copied ? " copied" : "")}
             data-tip="この項目をコピー"
             onClick={onCopy}
           >

@@ -37,6 +37,8 @@ export type RecordState = {
   order: string[];
   spill: SpillItem[];
   insights: Insight[];
+  /** これまでの変換（初回＋再変換）でAIに渡した項目 id。未変換の項目に「再変換」を出す判定に使う */
+  converted?: string[];
 };
 
 /* ---------- API応答 → 状態 ---------- */
@@ -67,7 +69,64 @@ export function fromApi(
     order,
     spill: (data.spill ?? []).map((s) => ({ text: s.text, sug: s.suggest })),
     insights: (data.insights ?? []).map((i) => ({ s: i.text, why: i.why, refs: i.refs ?? [] })),
+    converted: data.sections.map((s) => s.id),
   };
+}
+
+/** 表示中で、まだAIに渡していない（内容が空の）項目 = 再変換で埋められる項目 */
+export function pendingReconvertIds(state: RecordState): string[] {
+  const done = new Set(state.converted ?? []);
+  return activeIds(state).filter((id) => !done.has(id) && !flatten(state.tokens[id] ?? []).trim());
+}
+
+const norm = (s: string) => s.replace(/\s+/g, "").trim();
+
+/**
+ * 再変換の結果を取り込む（P6 項目6）。
+ * [DECISION 2026-09-08]
+ * - 埋めるのは「表示中で未変換かつ空」の項目だけ。人が直した項目・解決済みマーカーは一切触らない
+ * - こぼれ枠: 新しく埋めた項目に移ったはずの旧こぼれ（suggest がその項目）は取り下げる。
+ *   新しいこぼれは、既存のこぼれ・どこかの項目本文と同じ内容なら足さない（二重化しない）
+ * - 気づきは新しい結果で置き換える（記録ではなく参考表示のため）
+ */
+export function mergeReconvert(state: RecordState, data: ApiData, lib: ItemDef[]): RecordState {
+  const targets = new Set(pendingReconvertIds(state));
+  const tokens = { ...state.tokens };
+  data.sections.forEach((s) => {
+    if (targets.has(s.id) && lib.some((l) => l.id === s.id)) tokens[s.id] = s.tokens ?? [];
+  });
+  const filled = [...targets].filter((id) => flatten(tokens[id] ?? []).trim());
+
+  // 既存のこぼれ: 埋まった項目へ移ったもの（suggest 一致・降格分は除く）は取り下げる
+  let spill = state.spill.filter((sp) => !(sp.sug && filled.includes(sp.sug) && !sp.keepTokens));
+  const bodies = Object.values(tokens).map((t) => norm(flatten(t)));
+  for (const s of data.spill ?? []) {
+    const n = norm(s.text);
+    if (!n) continue;
+    if (spill.some((sp) => norm(sp.text) === n)) continue; // 既にある
+    if (bodies.some((b) => b.includes(n))) continue; // どこかの項目に入っている
+    spill = [...spill, { text: s.text, sug: s.suggest }];
+  }
+
+  return {
+    ...state,
+    tokens,
+    spill,
+    insights: (data.insights ?? []).map((i) => ({ s: i.text, why: i.why, refs: i.refs ?? [] })),
+    converted: [...new Set([...(state.converted ?? []), ...data.sections.map((s) => s.id)])],
+  };
+}
+
+/** 転記対象（記録だけ）。テキスト出力・Word・PDF はすべてここを通る（insights / spill には触れない） */
+export function recordEntries(state: RecordState, lib: ItemDef[]): { id: string; label: string; text: string }[] {
+  return activeIds(state)
+    .map((id) => {
+      const def = lib.find((l) => l.id === id);
+      if (!def) return null;
+      const t = flatten(state.tokens[id] ?? []);
+      return { id, label: def.label, text: t.trim() ? t : "（記載なし）" };
+    })
+    .filter((x): x is { id: string; label: string; text: string } => x !== null);
 }
 
 /* ---------- 選択・表示順 ---------- */
@@ -226,12 +285,8 @@ export function sectionHasWarn(tokens: Token[]): boolean {
 
 export function buildOutputText(state: RecordState, lib: ItemDef[]): string {
   let out = "【面談・モニタリング記録】（メモおこし下書き）\n";
-  activeIds(state).forEach((id) => {
-    const def = lib.find((l) => l.id === id);
-    if (!def) return;
-    const t = flatten(state.tokens[id] ?? []);
-    out += "\n■ " + def.label + "\n";
-    out += (t.trim() ? t : "（記載なし）") + "\n";
+  recordEntries(state, lib).forEach((e) => {
+    out += "\n■ " + e.label + "\n" + e.text + "\n";
   });
   return out;
 }

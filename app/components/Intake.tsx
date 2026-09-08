@@ -1,14 +1,17 @@
 "use client";
 
-// 取り込み画面。＋から3経路（カメラ／写真ライブラリ／ファイル）で追加、並べ替え・削除。
-// 説明文は置かない。ボタンはアイコン＋ツールチップ（引き算原則）。
-// [DECISION 2026-09-07] 並べ替えはドラッグでなく ↑↓（確認画面の項目カードと同じ作法に揃える）
+// 取り込み画面。端末に応じて入口を出し分ける（P6 項目5）。
+// - iOS/Android: ＋ → 「カメラで撮影」（capture）／「写真から選ぶ」（画像のみ）／「ファイルを選ぶ」（画像・PDF）
+// - PC（Windows/Mac）: ＋ → 直接ファイル選択（画像・PDF）。ドラッグ＆ドロップにも対応
+// [DECISION 2026-09-08] PC ではカメラ経路を出さない（内蔵カメラで紙を撮る実用性が低く、
+//   写真もファイルも同じエクスプローラーに落ちるため入口は1つにする）。
+// [DECISION 2026-09-08] 端末判定は UA（iPhone/iPad/iPod/Android）＋ iPadOS の Mac 偽装対策
+//   （MacIntel かつ maxTouchPoints>1）。判定が外れても「ファイルを選ぶ」は常に使える。
 
 import { useEffect, useRef, useState } from "react";
 import type { PageItem } from "@/lib/pages";
-import StepHeader from "./StepHeader";
-import VocabDrawer from "./VocabDrawer";
-import { loadVocab } from "@/lib/vocab";
+import StepHeader, { type Step } from "./StepHeader";
+import VocabButton from "./VocabButton";
 
 type Props = {
   pages: PageItem[];
@@ -17,17 +20,27 @@ type Props = {
   onRemove: (id: string) => void;
   onMove: (id: string, dir: -1 | 1) => void;
   onNext: () => void;
+  onHome: () => void;
   toast: (m: string) => void;
 };
 
-export default function Intake({ pages, busy, onAdd, onRemove, onMove, onNext, toast }: Props) {
+export function isMobileDevice(): boolean {
+  if (typeof navigator === "undefined") return false;
+  const ua = navigator.userAgent;
+  if (/iPhone|iPad|iPod|Android/i.test(ua)) return true;
+  // iPadOS 13+ は Mac を名乗る
+  return navigator.platform === "MacIntel" && navigator.maxTouchPoints > 1;
+}
+
+export default function Intake({ pages, busy, onAdd, onRemove, onMove, onNext, onHome, toast }: Props) {
   const [menu, setMenu] = useState<{ left: number; top: number } | null>(null);
-  const [vocabOpen, setVocabOpen] = useState(false);
-  const [vocabN, setVocabN] = useState(0);
-  useEffect(() => setVocabN(loadVocab().length), [vocabOpen]);
+  const [mobile, setMobile] = useState(false);
+  const [dragOver, setDragOver] = useState(false);
   const camRef = useRef<HTMLInputElement>(null);
   const libRef = useRef<HTMLInputElement>(null);
   const fileRef = useRef<HTMLInputElement>(null);
+
+  useEffect(() => setMobile(isMobileDevice()), []);
 
   useEffect(() => {
     const h = (e: MouseEvent) => {
@@ -54,19 +67,26 @@ export default function Intake({ pages, busy, onAdd, onRemove, onMove, onNext, t
 
   const onFiles = (e: React.ChangeEvent<HTMLInputElement>) => {
     const fs = Array.from(e.target.files ?? []);
-    e.target.value = ""; // 同じファイルを続けて選べるように
+    e.target.value = "";
     if (fs.length) onAdd(fs);
+  };
+
+  const onDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    setDragOver(false);
+    const fs = Array.from(e.dataTransfer.files ?? []).filter((f) => /^image\//.test(f.type) || /\.pdf$/i.test(f.name) || f.type === "application/pdf");
+    if (fs.length) onAdd(fs);
+    else toast("画像かPDFを入れてください");
   };
 
   return (
     <>
       <StepHeader
         step="intake"
+        onHome={onHome}
         right={
           <>
-            <button className="tool-btn" onClick={() => setVocabOpen(true)}>
-              辞書{vocabN > 0 && <span className="ins-count">{vocabN}</span>}
-            </button>
+            <VocabButton toast={toast} />
             <button
               className={"done-btn" + (pages.length > 0 && !busy ? " ready" : "")}
               disabled={pages.length === 0 || busy}
@@ -78,9 +98,15 @@ export default function Intake({ pages, busy, onAdd, onRemove, onMove, onNext, t
         }
       />
 
-      <VocabDrawer open={vocabOpen} onClose={() => setVocabOpen(false)} toast={toast} />
-
-      <div className="wrap single">
+      <div
+        className={"wrap single drop" + (dragOver ? " over" : "")}
+        onDragOver={(e) => {
+          e.preventDefault();
+          if (!dragOver) setDragOver(true);
+        }}
+        onDragLeave={() => setDragOver(false)}
+        onDrop={onDrop}
+      >
         <div className="pages">
           {pages.map((p, i) => (
             <div className="page-card" key={p.id}>
@@ -90,12 +116,7 @@ export default function Intake({ pages, busy, onAdd, onRemove, onMove, onNext, t
                 <button className="mini ic" data-tip="前へ" onClick={() => onMove(p.id, -1)} disabled={i === 0}>
                   ↑
                 </button>
-                <button
-                  className="mini ic"
-                  data-tip="後ろへ"
-                  onClick={() => onMove(p.id, 1)}
-                  disabled={i === pages.length - 1}
-                >
+                <button className="mini ic" data-tip="後ろへ" onClick={() => onMove(p.id, 1)} disabled={i === pages.length - 1}>
                   ↓
                 </button>
                 <button className="mini ic" data-tip="外す" onClick={() => onRemove(p.id)}>
@@ -108,14 +129,17 @@ export default function Intake({ pages, busy, onAdd, onRemove, onMove, onNext, t
             className="page-add"
             data-tip="メモを追加"
             disabled={busy}
-            onClick={(e) => (menu ? setMenu(null) : openMenu(e.currentTarget))}
+            onClick={(e) => {
+              if (!mobile) return pick(fileRef);
+              return menu ? setMenu(null) : openMenu(e.currentTarget);
+            }}
           >
             {busy ? "…" : "＋"}
           </button>
         </div>
       </div>
 
-      {menu && (
+      {menu && mobile && (
         <div className="pop on" style={{ left: menu.left, top: menu.top }}>
           <button className="close" onClick={() => setMenu(null)}>
             ×
@@ -126,17 +150,10 @@ export default function Intake({ pages, busy, onAdd, onRemove, onMove, onNext, t
         </div>
       )}
 
-      {/* 3経路の実体。capture 付きはスマホでカメラを直接開く */}
+      {/* 経路の実体。capture 付きはスマホでカメラを直接開く。PC は fileRef だけを使う */}
       <input ref={camRef} type="file" accept="image/*" capture="environment" hidden onChange={onFiles} />
       <input ref={libRef} type="file" accept="image/*" multiple hidden onChange={onFiles} />
-      <input
-        ref={fileRef}
-        type="file"
-        accept="image/*,application/pdf,.pdf,.heic,.heif"
-        multiple
-        hidden
-        onChange={onFiles}
-      />
+      <input ref={fileRef} type="file" accept="image/*,application/pdf,.pdf,.heic,.heif" multiple hidden onChange={onFiles} />
     </>
   );
 }

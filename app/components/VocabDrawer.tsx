@@ -3,7 +3,7 @@
 // 組織語彙のドロワー。項目ドロワー（Drawer.tsx）と同じ器・同じ作法（説明文なし・脚注1行）。
 // 状態はこの部品が localStorage と直接やり取りする（開くたびに読み、変えるたびに保存）。
 
-import { useEffect, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import {
   addEntry,
   loadVocab,
@@ -13,6 +13,9 @@ import {
   updateEntry,
   type VocabEntry,
 } from "@/lib/vocab";
+import { exportBackup, importBackup } from "@/lib/backup";
+import { ITEM_LIBRARY } from "@/lib/items";
+import { VOCAB_CHANGED } from "./VocabButton";
 
 type Props = { open: boolean; onClose: () => void; toast: (m: string) => void };
 
@@ -23,6 +26,7 @@ export default function VocabDrawer({ open, onClose, toast }: Props) {
   const [editing, setEditing] = useState<number | null>(null);
   const [eTerm, setETerm] = useState("");
   const [eGloss, setEGloss] = useState("");
+  const fileRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
     if (open) {
@@ -34,6 +38,24 @@ export default function VocabDrawer({ open, onClose, toast }: Props) {
   const commit = (next: VocabEntry[]) => {
     setList(next);
     saveVocab(next);
+    window.dispatchEvent(new Event(VOCAB_CHANGED));
+  };
+
+  const onImportFile = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const f = e.target.files?.[0];
+    e.target.value = "";
+    if (!f) return;
+    try {
+      const r = importBackup(JSON.parse(await f.text()), list, ITEM_LIBRARY.map((l) => l.id));
+      if (!r.ok) {
+        toast("辞書のファイルではありません");
+        return;
+      }
+      commit(r.vocab);
+      toast(`${r.added}語を追加${r.skipped ? `（${r.skipped}語は既にあり・除外）` : ""}${r.itemsApplied ? "・項目設定も読み込み" : ""}`);
+    } catch {
+      toast("読み込めませんでした");
+    }
   };
 
   const add = () => {
@@ -124,7 +146,18 @@ export default function VocabDrawer({ open, onClose, toast }: Props) {
             )
           )}
         </div>
-        <div className="dr-f">この端末内のみ・人名は入れない</div>
+        <div className="dr-f dr-f-row">
+          <span>この端末内のみ・人名は入れない</span>
+          <span className="dr-f-btns">
+            <button className="mini" onClick={() => exportBackup(list)} disabled={list.length === 0}>
+              書き出し
+            </button>
+            <button className="mini" onClick={() => fileRef.current?.click()}>
+              読み込み
+            </button>
+          </span>
+          <input ref={fileRef} type="file" accept="application/json,.json" hidden onChange={onImportFile} />
+        </div>
       </div>
     </>
   );

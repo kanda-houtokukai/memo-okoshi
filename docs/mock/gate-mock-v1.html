@@ -1,0 +1,124 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メモおこし — 合言葉</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f1eb; --surface:#ffffff; --ink:#2b2a25; --sub:#7b766c; --line:#e3dfd6; --faint:#faf9f5;
+  --accent:#33566b; --accent-deep:#274456;
+  --t1:#8fae9d; --t2:#93a9c0; --t3:#cbb478; --t4:#c39a8a; --t5:#a89bb5; --t6:#9db3ae;
+  --head:"Zen Kaku Gothic New","Hiragino Sans",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:"Hiragino Sans","Yu Gothic UI",Meiryo,system-ui,sans-serif;
+  background:var(--bg); color:var(--ink); min-height:100vh;
+  -webkit-font-smoothing:antialiased;
+  display:flex; align-items:flex-start; justify-content:center;
+  padding:14vh 20px 40px;
+  position:relative; overflow-x:hidden;
+}
+/* 紙の質感をごく淡く */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;opacity:.5;
+  background-image:
+    radial-gradient(circle at 18% 22%, rgba(160,150,130,.05) 0 1px, transparent 1px),
+    radial-gradient(circle at 62% 68%, rgba(160,150,130,.045) 0 1px, transparent 1px),
+    radial-gradient(circle at 84% 34%, rgba(160,150,130,.04) 0 1px, transparent 1px);
+  background-size:120px 120px, 90px 90px, 150px 150px;
+}
+button{font-family:inherit;cursor:pointer;border:none}
+
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:14px;
+  width:100%;max-width:390px;padding:34px 34px 30px;position:relative;
+  box-shadow:0 2px 14px rgba(43,42,37,.07);
+  animation:in .5s cubic-bezier(.2,.7,.3,1) both;
+}
+@keyframes in{from{opacity:0;transform:translateY(10px)}to{opacity:1;transform:none}}
+
+/* 左肩のインデックスタブ（本編のモチーフを予告） */
+.tabs{position:absolute;left:-1px;top:26px;display:flex;flex-direction:column;gap:5px}
+.tabs span{
+  width:7px;height:26px;border-radius:0 4px 4px 0;background:var(--c);
+  animation:tabin .5s cubic-bezier(.2,.7,.3,1) both;
+}
+.tabs span:nth-child(1){--c:var(--t1);animation-delay:.20s}
+.tabs span:nth-child(2){--c:var(--t2);animation-delay:.27s}
+.tabs span:nth-child(3){--c:var(--t3);animation-delay:.34s}
+.tabs span:nth-child(4){--c:var(--t4);animation-delay:.41s}
+.tabs span:nth-child(5){--c:var(--t5);animation-delay:.48s}
+@keyframes tabin{from{opacity:0;transform:translateX(-7px)}to{opacity:1;transform:none}}
+
+h1{
+  font-family:var(--head);font-weight:700;font-size:1.55rem;letter-spacing:.14em;
+  text-align:center;margin-bottom:6px;
+}
+.sub{
+  font-family:var(--head);font-size:.66rem;letter-spacing:.24em;color:#b3ada1;
+  text-align:center;margin-bottom:26px;
+}
+
+/* 入力欄とボタンを一体の帯に */
+.field{
+  display:flex;border:1px solid var(--line);border-radius:11px;overflow:hidden;
+  background:var(--faint);transition:border-color .2s, box-shadow .2s;
+}
+.field:focus-within{border-color:var(--accent);box-shadow:0 0 0 3px rgba(51,86,107,.10);background:#fff}
+.field.shake{animation:shake .38s}
+@keyframes shake{
+  0%,100%{transform:translateX(0)} 20%{transform:translateX(-7px)}
+  40%{transform:translateX(6px)} 60%{transform:translateX(-4px)} 80%{transform:translateX(2px)}
+}
+.field input{
+  flex:1;min-width:0;border:none;background:transparent;outline:none;
+  padding:14px 16px;font-size:16px;letter-spacing:.14em;color:var(--ink);
+}
+.field input::placeholder{color:#bab4a8;letter-spacing:.1em}
+.field button{
+  background:var(--accent);color:#fff;padding:0 22px;
+  font-family:var(--head);font-weight:700;font-size:.9rem;letter-spacing:.1em;
+  transition:background .2s;
+}
+.field button:hover{background:var(--accent-deep)}
+.field button:disabled{background:#c2bdb2;cursor:default}
+
+@media (max-width:520px){
+  body{padding-top:11vh}
+  .card{padding:28px 24px 26px}
+  h1{font-size:1.35rem}
+}
+</style>
+</head>
+<body>
+<div class="card">
+  <div class="tabs"><span></span><span></span><span></span><span></span><span></span></div>
+  <h1>メモおこし</h1>
+  <div class="sub">MEMO OKOSHI</div>
+  <div class="field" id="field">
+    <input id="code" type="password" placeholder="合言葉" autocomplete="current-password" autofocus>
+    <button id="go">入る</button>
+  </div>
+</div>
+<script>
+const f=document.getElementById('field'), i=document.getElementById('code'), b=document.getElementById('go');
+function submit(){
+  if(!i.value.trim()){ shake(); return; }
+  // モック: 「ok」以外は誤りとして揺らす
+  if(i.value.trim()==='ok'){ b.disabled=true; b.textContent='…'; setTimeout(()=>{ b.textContent='入る'; b.disabled=false; alert('（モック）本編へ'); },700); }
+  else shake();
+}
+function shake(){
+  f.classList.remove('shake'); void f.offsetWidth; f.classList.add('shake');
+  i.select();
+}
+b.onclick=submit;
+i.addEventListener('keydown',e=>{ if(e.key==='Enter') submit(); });
+</script>
+</body>
+</html>

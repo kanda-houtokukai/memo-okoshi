@@ -3,6 +3,7 @@ import { itemsByIds } from "@/lib/items";
 import { buildPrompt } from "@/lib/prompt";
 import { generateWithFallback, ImagePart } from "@/lib/gemini";
 import { sanitizeForPrompt } from "@/lib/vocab";
+import { enforceNames } from "@/lib/names";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -86,7 +87,9 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: result.error, tried: result.tried }, { status: 502 });
     }
 
-    const data = parseModelJson(result.text);
+    const parsed = parseModelJson(result.text);
+    // 原則3の保険: AIが人名を p/y/b に紛れ込ませても、敬称付き氏名は機械的に r へ切り出す
+    const data = parsed ? enforceNames(parsed) : null;
     if (!data) {
       return NextResponse.json(
         { ok: false, error: "モデル出力をJSONとして解釈できませんでした", model: result.model, raw: result.text },
