@@ -21,7 +21,8 @@ export type ZoomPanOptions = {
   panMode: boolean;
   onDrawStart?: (p: Pt) => void;
   onDrawMove?: (p: Pt) => void;
-  onDrawEnd?: () => void;
+  /** 描き終わり。interrupted=true は「途中で中断された」（2本目の指でピンチに移った等） */
+  onDrawEnd?: (interrupted?: boolean) => void;
 };
 
 export function useZoomPan(o: ZoomPanOptions) {
@@ -112,7 +113,7 @@ export function useZoomPan(o: ZoomPanOptions) {
     pts.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
     if (pts.current.size === 2) {
       // ピンチ開始（描画中なら中断）
-      if (gesture.current?.kind === "draw") o.onDrawEnd?.();
+      if (gesture.current?.kind === "draw") o.onDrawEnd?.(true);
       const [a, b] = [...pts.current.values()];
       const r = o.stageRef.current!.getBoundingClientRect();
       gesture.current = {

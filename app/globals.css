@@ -497,6 +497,9 @@ html.lock,html.lock body{height:100%;overflow:hidden;overscroll-behavior:none}
 .tool.on .dot{background:#fff}
 .tool .dot{width:var(--d,10px);height:var(--d,10px);border-radius:50%;background:#5d594f;transition:background .15s}
 .tool .er{width:16px;height:12px;border:2px solid currentColor;border-radius:3px;background:repeating-linear-gradient(45deg,transparent,transparent 3px,currentColor 3px,currentColor 4px)}
+/* 四角で囲って伏せる（塗りつぶした四角そのものを見せる） */
+.tool .sq{width:15px;height:12px;border-radius:2px;background:#5d594f}
+.tool.on .sq{background:#fff}
 .tool .lb{font-size:.58rem;font-family:var(--head);letter-spacing:.02em}
 .tool .lb.mid{font-size:.72rem}
 .tool .glyph{font-size:1.05rem;line-height:1}

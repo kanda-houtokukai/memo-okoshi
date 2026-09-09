@@ -58,3 +58,16 @@
 - 本番検証（ブラウザ）: 合言葉→取り込み（GitHub raw のダミー2枚）→黒塗り→変換（Vercel上の
   Gemini キー）→確認画面。元メモの黒塗り位置は [0,0,0]。
 - 台帳に本番の運用手順を追記。合言葉は台帳に書かずチャットで伝達。
+
+## 2026-09-07 P5: 組織語彙の辞書＋独自ドメイン（自走）
+
+- 合言葉を入れ替え（`vercel env rm/add ACCESS_CODE production` → 再デプロイ）。旧値は本番で
+  差し戻されることを curl で確認。新値はチャット・台帳に書かず Vercel 側にのみ。
+- 独自ドメイン: `vercel domains add memookoshi.fknd.jp` 済み。DNS はエックスドメイン管理
+  （fukushi-watch の CNAME と同居）。ユーザーが CNAME を追加後、証明書発行〜https・ゲート・noindex・
+  既存サブドメイン無傷まで確認（結果は「独自ドメイン」節）。
+- 辞書: lib/vocab.ts（純関数＋localStorage）、VocabDrawer（項目ドロワーと同じ器）、
+  Popover の黄に「辞書に追加」チェック、page.tsx が変換時に同送、API が sanitize してプロンプトへ。
+  入口は取り込み画面ヘッダーと確認画面の「辞書」ボタン（件数バッジ付き）。
+- 将来枠4件を原則との関係込みで記録。
+- テスト 26→31件。

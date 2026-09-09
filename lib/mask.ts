@@ -12,6 +12,12 @@ export type Stroke = {
   points: Point[];
   width: number; // 画像ピクセル
   erase: boolean; // 消しゴム（塗りを取り除く）
+  /**
+   * 形。既定（省略）は線。"rect" は points[0] と points[1] を対角とする長方形を塗る。
+   * [DECISION 2026-09-09] 四角も**同じ1ストローク**として積む。「戻す」が1手で効き、
+   *   消しゴムで一部を消せる挙動も線と同じになる（道具の挙動を一貫させる）。
+   */
+  shape?: "rect";
 };
 
 export type MaskState = {
@@ -64,6 +70,12 @@ export function drawStroke(ctx: CanvasRenderingContext2D, s: Stroke, scale: numb
   ctx.globalCompositeOperation = s.erase ? "destination-out" : "source-over";
   ctx.lineWidth = s.width * scale;
   const p0 = s.points[0];
+  if (s.shape === "rect") {
+    const r = rectOf(s);
+    if (!r) return;
+    ctx.fillRect(r.x * scale, r.y * scale, r.w * scale, r.h * scale);
+    return;
+  }
   if (s.points.length === 1) {
     ctx.beginPath();
     ctx.arc(p0.x * scale, p0.y * scale, (s.width * scale) / 2, 0, Math.PI * 2);
@@ -74,6 +86,13 @@ export function drawStroke(ctx: CanvasRenderingContext2D, s: Stroke, scale: numb
   ctx.moveTo(p0.x * scale, p0.y * scale);
   for (let i = 1; i < s.points.length; i++) ctx.lineTo(s.points[i].x * scale, s.points[i].y * scale);
   ctx.stroke();
+}
+
+/** 2点を対角とする長方形（左上と大きさ）。点が足りなければ null */
+export function rectOf(s: Pick<Stroke, "points">): { x: number; y: number; w: number; h: number } | null {
+  const [a, b] = s.points;
+  if (!a || !b) return null;
+  return { x: Math.min(a.x, b.x), y: Math.min(a.y, b.y), w: Math.abs(a.x - b.x), h: Math.abs(a.y - b.y) };
 }
 
 /** 描画途中の1区間だけを足す（ポインタ移動ごとの差分描画用） */

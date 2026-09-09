@@ -13,6 +13,10 @@
 //   ホイール以外の移動手段が必要。Space+ドラッグ／中ボタンドラッグも併用可）。
 // [DECISION 2026-09-08] 初回だけ「氏名や固有名詞を指でなぞって隠します」を数秒出し、以後は出さない
 //   （引き算原則の「初回のみ」に当たる）。
+// [DECISION 2026-09-09] **四角**で範囲をまとめて伏せられる（ヘッダー全体・住所欄・表の一列など、
+//   細いペンでなぞると手間で塗り残しも出る場所のため）。押した点と離した点を対角とする長方形を、
+//   離した時点でマスクに1ストロークとして積む（「戻す」で1手・消しゴムで一部を消せるのも線と同じ）。
+//   引いている間は枠と薄い塗りで見せ、Esc・2本目の指（ピンチ）・pointercancel で取りやめる。
 // [DECISION 2026-09-09] 道具ごとにカーソルを変える。移動モードは手のひら（掴む前 grab／掴んでいる間 grabbing）、
 //   ペンと消しゴムは**これから塗る／消える範囲と同じ大きさの輪**を出す（ペン＝塗りつぶし・消しゴム＝輪郭のみ）。
 //   ブラウザのカーソル画像は大きさに上限があり拡大に追従できないので、**画面に重ねた div を動かす**方式にした
@@ -21,7 +25,7 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PageItem } from "@/lib/pages";
-import { addStroke, canUndo, clearAll, drawSegment, hasPaint, renderStrokes, undo, type MaskState, type Point, type Stroke } from "@/lib/mask";
+import { addStroke, canUndo, clearAll, drawSegment, hasPaint, rectOf, renderStrokes, undo, type MaskState, type Point, type Stroke } from "@/lib/mask";
 import { useZoomPan } from "./useZoomPan";
 import StepHeader, { type Step } from "./StepHeader";
 import Dialog, { type DialogSpec } from "./Dialog";
@@ -53,6 +57,10 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
   const maskRef = useRef<HTMLCanvasElement | null>(null); // 元解像度のマスク
   const [size, setSize] = useState<"s" | "m" | "l">("m");
   const [eraser, setEraser] = useState(false);
+  const [rect, setRect] = useState(false);
+  /** 引いている途中の四角（画像ピクセル座標）。確定するまでマスクには入れない */
+  const draft = useRef<{ a: Point; b: Point } | null>(null);
+  const cancelled = useRef(false);
   const [panMode, setPanMode] = useState(false);
   const [hint, setHint] = useState(false);
   const [dlg, setDlg] = useState<DialogSpec | null>(null);
@@ -106,13 +114,24 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
     panMode,
     onDrawStart: (p) => {
       if (!page) return;
+      setHint(false);
+      if (rect) {
+        cancelled.current = false;
+        draft.current = { a: p, b: p };
+        scheduleRender();
+        return;
+      }
       const width = page.width * PEN[size] * (eraser ? ERASER_RATIO : 1);
       drawing.current = { pts: [p], width, erase: eraser };
       drawSegment(maskRef.current!.getContext("2d")!, p, p, width, eraser, 1);
-      setHint(false);
       scheduleRender();
     },
     onDrawMove: (p) => {
+      if (draft.current) {
+        draft.current = { a: draft.current.a, b: p };
+        scheduleRender();
+        return;
+      }
       const d = drawing.current;
       if (!d) return;
       const last = d.pts[d.pts.length - 1];
@@ -120,7 +139,18 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
       drawSegment(maskRef.current!.getContext("2d")!, last, p, d.width, d.erase, 1);
       scheduleRender();
     },
-    onDrawEnd: () => {
+    onDrawEnd: (interrupted) => {
+      if (draft.current) {
+        const { a, b } = draft.current;
+        draft.current = null;
+        const stop = interrupted || cancelled.current;
+        cancelled.current = false;
+        scheduleRender();
+        // 面積が無いものは捨てる（ただの押下で真っ黒な点を積まない）
+        if (stop || !page || Math.abs(a.x - b.x) < 2 || Math.abs(a.y - b.y) < 2) return;
+        onMask(page.id, addStroke(page.mask, { points: [a, b], width: 0, erase: false, shape: "rect" }));
+        return;
+      }
       const d = drawing.current;
       if (!d || !page) return;
       drawing.current = null;
@@ -150,6 +180,20 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
     ctx.scale(zp.t.scale, zp.t.scale);
     ctx.drawImage(page.bitmap, 0, 0);
     ctx.drawImage(maskRef.current, 0, 0);
+    // 引いている途中の四角（確定するまでマスクには入れない。表示だけ）
+    const d = draft.current;
+    if (d) {
+      const r = rectOf({ points: [d.a, d.b] });
+      if (r) {
+        ctx.fillStyle = "rgba(43,42,37,.45)";
+        ctx.fillRect(r.x, r.y, r.w, r.h);
+        ctx.strokeStyle = "#fff";
+        ctx.lineWidth = 1.5 / zp.t.scale;
+        ctx.setLineDash([6 / zp.t.scale, 4 / zp.t.scale]);
+        ctx.strokeRect(r.x, r.y, r.w, r.h);
+        ctx.setLineDash([]);
+      }
+    }
   }, [page, zp.t]);
 
   const scheduleRender = useCallback(() => {
@@ -159,6 +203,18 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
       render();
     });
   }, [render]);
+
+  /* 四角を引いている途中に Esc で取りやめる */
+  useEffect(() => {
+    const h = (e: KeyboardEvent) => {
+      if (e.key !== "Escape" || !draft.current) return;
+      cancelled.current = true;
+      draft.current = null;
+      scheduleRender();
+    };
+    window.addEventListener("keydown", h);
+    return () => window.removeEventListener("keydown", h);
+  }, [scheduleRender]);
 
   useEffect(() => {
     rebuildMask();
@@ -178,6 +234,7 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
   const setPen = (k: "s" | "m" | "l") => {
     setSize(k);
     setEraser(false);
+    setRect(false);
   };
 
   const tryConvert = () => {
@@ -202,8 +259,10 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
 
   /** いま塗れる/消せる範囲の直径（画面上のpx）。拡大率と太さに追従する */
   const ringSize = Math.max(4, page.width * PEN[size] * (eraser ? ERASER_RATIO : 1) * zp.t.scale);
-  /** 輪を出す条件: マウス等がステージ上にあり、移動モードでも変換中でもないこと */
-  const brushRing = ringOn && !panMode && !converting;
+  /** 輪を出す条件: マウス等がステージ上にあり、移動モード・変換中・四角のいずれでもないこと。
+      [DECISION 2026-09-09] 四角のときは輪を出さない（輪は「これから塗られる範囲」を示すものだが、
+      四角の範囲はドラッグで決まるので示すものがない）。十字カーソルに戻して始点を狙いやすくする。 */
+  const brushRing = ringOn && !panMode && !converting && !rect;
 
   /** 位置は state ではなく直接 style に書く（1フレームごとの再描画を起こさないため） */
   const moveRing = (e: React.PointerEvent) => {
@@ -262,19 +321,37 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
       <div className="rd-main">
         <div className="ltool">
           <div className="grp">
-            <T on={!eraser && size === "s"} tip="細く塗る" onClick={() => setPen("s")}>
+            <T on={!eraser && !rect && size === "s"} tip="細く塗る" onClick={() => setPen("s")}>
               <span className="dot" style={{ ["--d" as string]: "7px" }} />
               <span className="lb">細</span>
             </T>
-            <T on={!eraser && size === "m"} tip="塗る" onClick={() => setPen("m")}>
+            <T on={!eraser && !rect && size === "m"} tip="塗る" onClick={() => setPen("m")}>
               <span className="dot" style={{ ["--d" as string]: "11px" }} />
               <span className="lb">中</span>
             </T>
-            <T on={!eraser && size === "l"} tip="太く塗る" onClick={() => setPen("l")}>
+            <T on={!eraser && !rect && size === "l"} tip="太く塗る" onClick={() => setPen("l")}>
               <span className="dot" style={{ ["--d" as string]: "16px" }} />
               <span className="lb">太</span>
             </T>
-            <T on={eraser} tip="消しゴム" onClick={() => setEraser((v) => !v)}>
+            <T
+              on={rect}
+              tip="四角で囲って伏せる"
+              onClick={() => {
+                setRect((v) => !v);
+                setEraser(false);
+              }}
+            >
+              <span className="sq" />
+              <span className="lb">四角</span>
+            </T>
+            <T
+              on={eraser}
+              tip="消しゴム"
+              onClick={() => {
+                setEraser((v) => !v);
+                setRect(false);
+              }}
+            >
               <span className="er" />
               <span className="lb">消す</span>
             </T>
