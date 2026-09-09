@@ -838,11 +838,17 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .rd-main{flex:1 1 auto;display:flex;min-height:0}
 .ltool{
   flex:0 0 auto;width:64px;background:var(--surface);border-right:1px solid var(--line);
-  display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0;
+  display:flex;flex-direction:column;align-items:center;gap:8px;padding:10px 0;
+}
+/* [DECISION 2026-09-09] 画面が低いときにはみ出すのは**道具側**（スクロールで全部に届く）。
+   「次へ」は帯の外側なので、画面の高さに関わらず必ず見える。 */
+.ltool-tools{
+  flex:1 1 auto;min-height:0;overflow-y:auto;overflow-x:hidden;
+  display:flex;flex-direction:column;align-items:center;gap:5px;padding:0 8px;
+  scrollbar-width:thin;overscroll-behavior:contain;
 }
 .ltool .grp{display:flex;flex-direction:column;gap:5px;align-items:center}
 .ltool .hr{width:30px;height:1px;background:var(--line);margin:6px 0;flex:0 0 auto}
-.ltool .spacer{flex:1 1 auto}
 .ltool .tool{width:46px;height:44px}
 .ltool .tool .lb{font-size:.55rem}
 .ltool .fin{
@@ -863,13 +869,18 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
     border-right:none;border-top:1px solid var(--line);
     padding:8px 10px;padding-bottom:calc(8px + env(safe-area-inset-bottom));overflow-x:auto;
   }
+  .ltool-tools{flex-direction:row;overflow-x:auto;overflow-y:hidden;gap:6px;padding:0}
   .ltool .grp{flex-direction:row}
   .ltool .hr{width:1px;height:32px;margin:0 3px}
   .ltool .tool{width:48px;height:46px}
-  /* 道具は横スクロールするが、次へは常に見えていないと詰まる（右端に貼り付ける） */
-  .ltool .fin{
-    width:auto;min-width:56px;height:46px;padding:0 14px;flex-direction:row;gap:6px;
-    position:sticky;right:0;z-index:2;
-  }
+  /* 道具は横スクロールするが、次へは帯の外側なので常に右端に見える */
+  .ltool .fin{width:auto;min-width:56px;height:46px;padding:0 14px;flex-direction:row;gap:6px}
   .ltool .fin .lb{font-size:.72rem}
 }
+
+/* ---------- P6-k（2026-09-09）送信前の確認 ----------
+   ここが個人情報の出口。毎回出るので、その回の中身（伏せた数・伏せていないページ）を
+   行ごとに立てて読ませる（形だけの確認にしない）。 */
+.dlg-line{display:block}
+.dlg-line + .dlg-line{margin-top:6px}
+.dlg p .dlg-line:last-child{color:var(--sub);font-size:.82rem;margin-top:10px}

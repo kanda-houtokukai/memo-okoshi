@@ -237,24 +237,49 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
     setRect(false);
   };
 
+  /** 伏せた箇所の数（消しゴムは数えない。線も四角も1か所） */
+  const paintCount = pages.reduce((n, p) => n + p.mask.strokes.filter((k) => !k.erase).length, 0);
+  const unpainted = pages.map((p, i) => ({ p, i })).filter((o) => !hasPaint(o.p.mask));
+
+  /**
+   * [DECISION 2026-09-09] **ここが個人情報の出口**なので、塗りの有無にかかわらず必ず確認を挟む。
+   *   毎回出るものなので、その回の中身（伏せた数・伏せていないページ）を書いて、
+   *   読まないと押せない形にする（形だけの確認にしない）。抑制する設定は作らない。
+   *   既定の焦点は「戻って確認する」側に置く。
+   */
   const tryConvert = () => {
-    const unpainted = pages.map((p, i) => ({ p, i })).filter((o) => !hasPaint(o.p.mask));
-    if (unpainted.length) {
-      setDlg({
-        title: "伏せていないページがあります",
-        body: `${unpainted.map((o) => `${o.i + 1}枚目`).join("・")} は何も伏せていません。氏名などが写っている場合は、伏せてから変換してください。`,
-        warn: "変換すると、この画像がAIに送られます。",
-        go: "このまま変換する",
-        cancel: "戻って伏せる",
-        onGo: () => {
-          setDlg(null);
-          onConvert();
-        },
-        onCancel: () => setDlg(null),
-      });
-      return;
+    const lines: string[] = [];
+    if (paintCount > 0) lines.push(`${paintCount}か所を伏せています。`);
+    else lines.push("まだ1か所も伏せていません。");
+    if (pages.length === 1) {
+      if (unpainted.length) lines.push("このページは伏せていません。");
+    } else if (unpainted.length === pages.length) {
+      lines.push("どのページも伏せていません。");
+    } else if (unpainted.length) {
+      lines.push(`${unpainted.map((o) => `${o.i + 1}枚目`).join("・")}は伏せていません。`);
     }
-    onConvert();
+    lines.push("送るのは伏せたあとの画像です。元の画像はこの端末から出ません。");
+    setDlg({
+      title: "この画像をAIに送ります",
+      body: (
+        <>
+          {lines.map((t, i) => (
+            <span key={i} className="dlg-line">
+              {t}
+            </span>
+          ))}
+        </>
+      ),
+      warn: "伏せ忘れがないか、画面をもう一度見てください。",
+      go: "変換する",
+      cancel: "戻って確認する",
+      focus: "cancel",
+      onGo: () => {
+        setDlg(null);
+        onConvert();
+      },
+      onCancel: () => setDlg(null),
+    });
   };
 
   /** いま塗れる/消せる範囲の直径（画面上のpx）。拡大率と太さに追従する */
@@ -320,6 +345,9 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
           （CSS の flex-direction を変えるだけ。DOMは1つ）。 */}
       <div className="rd-main">
         <div className="ltool">
+          {/* [DECISION 2026-09-09] 画面が低いとき、はみ出すのは**道具側**にする（スクロールで全部に届く）。
+              「次へ」は帯の外側に置いて常に見えるようにする（出口を隠さない）。 */}
+          <div className="ltool-tools">
           <div className="grp">
             <T on={!eraser && !rect && size === "s"} tip="細く塗る" onClick={() => setPen("s")}>
               <span className="dot" style={{ ["--d" as string]: "7px" }} />
@@ -383,7 +411,7 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
               <span className="lb">移動</span>
             </T>
           </div>
-          <div className="spacer" />
+          </div>
           <button
             className={"fin" + (converting ? " busy" : "")}
             disabled={converting}

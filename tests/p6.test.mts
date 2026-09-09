@@ -168,13 +168,13 @@ test("次の操作は作業している場所の近くに出す（取り込み�
   assert.ok(redact.includes('className="ltool"'), "伏せるは左の縦帯に道具をまとめる");
   assert.ok(!redact.includes('className="toolbar"'), "旧・下部ツールバーは廃止");
   const rail = redact.slice(redact.indexOf('className="ltool"'), redact.indexOf('className="stage"'));
-  assert.ok(rail.indexOf('className="spacer"') < rail.indexOf('"fin"'), "次へは帯の一番下（間仕切りの後ろ）");
+  assert.ok(rail.indexOf('className="ltool-tools"') < rail.indexOf('"fin"'), "次へは道具の後ろ（帯の一番下）");
   assert.ok(!/done-btn/.test(redact), "ヘッダーの「変換する」は左帯へ移した");
 
   const css = readFileSync("app/globals.css", "utf8");
   assert.ok(/@media \(max-width:760px\)\{[\s\S]*?\.rd-main\{flex-direction:column-reverse\}/.test(css),
     "狭い画面では道具の帯を下へ回す");
-  assert.ok(/\.ltool \.fin\{[\s\S]*?position:sticky/.test(css), "狭い画面でも次へは常に見える");
+  assert.ok(/\.ltool-tools\{[\s\S]*?overflow-x:auto/.test(css), "狭い画面では道具側が横スクロールする");
 });
 
 test("使い方の入口は冊子アイコン＋文字（案C）", () => {
@@ -184,4 +184,45 @@ test("使い方の入口は冊子アイコン＋文字（案C）", () => {
   const css = readFileSync("app/globals.css", "utf8");
   assert.ok(/\.about-link \.bk b\{[^}]*background:var\(--t3\)/.test(css), "冊子の左肩にインデックスタブ（--t3）");
   assert.ok(/\.h-right \.about-link \.lb\{display:none\}/.test(css), "狭い画面では冊子だけに縮める");
+});
+
+test("伏せる: 「次へ」は塗りの有無に関わらず常にある（P6-kの再発防止）", () => {
+  // 塗る必要がないメモ（氏名が写っていない・伏せ字で書かれている・印刷物）でも進めなければならない。
+  // 「0枚では帯を出さない」は取り込み画面の話で、伏せる画面には当てはまらない。
+  const src = readFileSync("app/components/Redact.tsx", "utf8");
+  const rail = src.slice(src.indexOf('className="ltool"'), src.indexOf('className="stage"'));
+  const fin = rail.slice(rail.indexOf('className={"fin"'), rail.indexOf("</button>"));
+  for (const cond of ["hasPaint", "strokes.length", "paintCount"]) {
+    assert.ok(!fin.includes(cond), `次への表示が ${cond} に依存している`);
+  }
+  assert.ok(/disabled=\{converting\}/.test(fin), "無効になるのは変換中だけ");
+});
+
+test("伏せる: 画面が低くても「次へ」も道具も届く（はみ出すのは道具側）", () => {
+  const css = readFileSync("app/globals.css", "utf8");
+  const tools = css.slice(css.indexOf(".ltool-tools{"), css.indexOf(".ltool .grp{"));
+  assert.ok(/flex:1 1 auto/.test(tools) && /min-height:0/.test(tools), "道具側が縮む側");
+  assert.ok(/overflow-y:auto/.test(tools), "入りきらない道具はスクロールで届く");
+  const src = readFileSync("app/components/Redact.tsx", "utf8");
+  const rail = src.slice(src.indexOf('className="ltool"'), src.indexOf('className="stage"'));
+  const toolsEnd = rail.indexOf('className={"fin"');
+  assert.ok(rail.slice(0, toolsEnd).includes('className="ltool-tools"'), "次へは道具の外側にある（押し出されない）");
+});
+
+test("送信前の確認は必ず出る（抑制する設定を作らない）", () => {
+  const src = readFileSync("app/components/Redact.tsx", "utf8");
+  const fn = src.slice(src.indexOf("const tryConvert = () =>"), src.indexOf("/** いま塗れる/消せる範囲の直径"));
+  assert.ok(fn.includes("setDlg({"), "確認ダイアログを出す");
+  assert.ok(!/onConvert\(\);\s*\n\s*(return|\})/.test(fn.replace(/onGo:[\s\S]*?\},/, "")),
+    "確認を飛ばして変換に進む道がない");
+  assert.ok(fn.includes('cancel: "戻って確認する"') && fn.includes('go: "変換する"'), "ボタンの文言");
+  assert.ok(fn.includes('focus: "cancel"'), "既定の焦点は戻る側");
+  // その回の中身（読まないと押せない情報）が入っていること
+  assert.ok(fn.includes("か所を伏せています"), "伏せた箇所の数");
+  assert.ok(fn.includes("枚目") && fn.includes("は伏せていません"), "伏せていないページの明示");
+  assert.ok(fn.includes("AIに送ります") || src.includes("AIに送ります"), "AIに送られること");
+  // 抑制機能を作らない
+  assert.ok(!src.includes("今後表示しない") && !src.includes("skipConfirm"), "抑制する設定は作らない");
+  const dlg = readFileSync("app/components/Dialog.tsx", "utf8");
+  assert.ok(dlg.indexOf('className="cancel"') < dlg.indexOf('className="go"'), "戻る側が左（既定の位置）");
 });
