@@ -20,11 +20,14 @@ function base(): RecordState {
       { id: "gaiyou", tokens: [{ t: "p", s: "初回の概要" }] },
       { id: "honnin", tokens: [{ t: "y", s: "作業所", cands: ["作業書"] }] },
       { id: "kazoku", tokens: [] },
-      { id: "shokan", tokens: [] },
       { id: "kadai", tokens: [] },
+      { id: "kenko", tokens: [] },
+      { id: "seikatsu", tokens: [] },
+      { id: "shokan", tokens: [] },
       { id: "moushiokuri", tokens: [{ t: "r", s: "田中W" }] },
     ],
-    spill: [{ text: "服薬の飲み忘れの話", suggest: "kenko" }, { text: "受け皿のない内容", suggest: null }],
+    // 2026-09-10に既定オンが8項目になったので、あとから足す項目は「金銭管理」で試す
+    spill: [{ text: "通帳の管理の話", suggest: "kinsen" }, { text: "受け皿のない内容", suggest: null }],
     insights: [{ text: INSIGHT_CANARY, why: "w", refs: [] }],
   };
   return fromApi(data, ITEM_LIBRARY, enabled, ITEM_LIBRARY.map((l) => l.id));
@@ -35,44 +38,44 @@ function base(): RecordState {
 test("再変換: 追加してオンにした空の項目だけが pending になる", () => {
   let s = base();
   assert.deepEqual(pendingReconvertIds(s), []);
-  s = toggleItem(s, "kenko", ITEM_LIBRARY).state;
-  assert.deepEqual(pendingReconvertIds(s), ["kenko"]);
+  s = toggleItem(s, "kinsen", ITEM_LIBRARY).state;
+  assert.deepEqual(pendingReconvertIds(s), ["kinsen"]);
 });
 
 test("再変換: 人が直した項目・解決済みマーカーは上書きされず、新しい項目だけ埋まる", () => {
   let s = base();
   s = resolveToken(s, "honnin", 0, "作業書"); // 黄を解決
   s = saveEdit(s, "gaiyou", "手で直した概要"); // 手直し
-  s = toggleItem(s, "kenko", ITEM_LIBRARY).state;
+  s = toggleItem(s, "kinsen", ITEM_LIBRARY).state;
   const again: ApiData = {
     sections: [
       { id: "gaiyou", tokens: [{ t: "p", s: "AIが出し直した概要（無視されるべき）" }] },
       { id: "honnin", tokens: [{ t: "y", s: "作業所", cands: ["作業書"] }] },
-      { id: "kenko", tokens: [{ t: "p", s: "服薬の飲み忘れの話" }] },
+      { id: "kinsen", tokens: [{ t: "p", s: "通帳の管理の話" }] },
       { id: "moushiokuri", tokens: [{ t: "r", s: "田中W" }] },
     ],
-    spill: [{ text: "服薬の飲み忘れの話", suggest: "kenko" }, { text: "受け皿のない内容", suggest: null }, { text: "新しいこぼれ", suggest: null }],
+    spill: [{ text: "通帳の管理の話", suggest: "kinsen" }, { text: "受け皿のない内容", suggest: null }, { text: "新しいこぼれ", suggest: null }],
     insights: [{ text: "新しい気づき", why: "w", refs: [] }],
   };
   const m = mergeReconvert(s, again, ITEM_LIBRARY);
   assert.equal(m.tokens.gaiyou[0].s, "手で直した概要", "手直しが上書きされた");
   assert.equal(m.tokens.honnin[0].resolved, true, "解決済みマーカーが戻された");
   assert.equal(m.tokens.honnin[0].s, "作業書");
-  assert.equal(m.tokens.kenko[0].s, "服薬の飲み忘れの話", "追加項目が埋まっていない");
+  assert.equal(m.tokens.kinsen[0].s, "通帳の管理の話", "追加項目が埋まっていない");
   assert.deepEqual(pendingReconvertIds(m), []);
-  assert.ok(m.converted?.includes("kenko"));
+  assert.ok(m.converted?.includes("kinsen"));
 });
 
 test("再変換: こぼれは二重化しない（埋まった項目へ移った分は取り下げ・既存/本文と同じ新規は足さない）", () => {
-  let s = toggleItem(base(), "kenko", ITEM_LIBRARY).state;
+  let s = toggleItem(base(), "kinsen", ITEM_LIBRARY).state;
   const again: ApiData = {
-    sections: [{ id: "kenko", tokens: [{ t: "p", s: "服薬の飲み忘れの話" }] }],
-    spill: [{ text: "服薬の飲み忘れの話", suggest: "kenko" }, { text: "受け皿のない内容", suggest: null }, { text: "新しいこぼれ", suggest: null }],
+    sections: [{ id: "kinsen", tokens: [{ t: "p", s: "通帳の管理の話" }] }],
+    spill: [{ text: "通帳の管理の話", suggest: "kinsen" }, { text: "受け皿のない内容", suggest: null }, { text: "新しいこぼれ", suggest: null }],
     insights: [],
   };
   const m = mergeReconvert(s, again, ITEM_LIBRARY);
   const texts = m.spill.map((x) => x.text);
-  assert.ok(!texts.includes("服薬の飲み忘れの話"), "項目に入った内容がこぼれに残った");
+  assert.ok(!texts.includes("通帳の管理の話"), "項目に入った内容がこぼれに残った");
   assert.equal(texts.filter((t) => t === "受け皿のない内容").length, 1, "既存のこぼれが二重化した");
   assert.ok(texts.includes("新しいこぼれ"));
 });

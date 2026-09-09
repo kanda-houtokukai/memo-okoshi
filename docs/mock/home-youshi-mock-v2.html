@@ -1,0 +1,187 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メモおこし — ホームと用紙 モック v2</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f1eb; --desk:#eeebe3; --surface:#ffffff; --ink:#2b2a25; --sub:#7b766c;
+  --line:#e3dfd6; --faint:#faf9f5;
+  --accent:#33566b; --accent-deep:#274456;
+  --t1:#8fae9d; --t2:#93a9c0; --t3:#cbb478; --t4:#c39a8a; --t5:#a89bb5; --t6:#9db3ae;
+  --t7:#b5a789; --t8:#a3b0c4;
+  --head:"Zen Kaku Gothic New","Hiragino Sans",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Hiragino Sans","Yu Gothic UI",Meiryo,system-ui,sans-serif;background:#dedad0;color:var(--ink);-webkit-font-smoothing:antialiased;padding-bottom:50px}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+.label{font-family:var(--head);font-size:.8rem;letter-spacing:.14em;color:#5f5a50;padding:24px 20px 8px}
+.label small{display:block;letter-spacing:0;font-size:.74rem;color:#8b8578;margin-top:3px;font-weight:400}
+.frame{background:var(--bg);margin:0 16px 20px;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(43,42,37,.10)}
+
+header{background:var(--surface);border-bottom:1px solid var(--line)}
+.h-in{display:flex;align-items:center;gap:16px;padding:9px 16px}
+.brand{font-family:var(--head);font-weight:700;font-size:.98rem;letter-spacing:.06em;display:flex;align-items:center;gap:8px}
+.brand::before{content:"";width:8px;height:20px;border-radius:3px;background:linear-gradient(180deg,var(--t1),var(--t2))}
+.h-right{margin-left:auto;display:flex;gap:8px}
+.hbtn{background:var(--faint);border:1px solid var(--line);border-radius:9px;padding:6px 13px 6px 10px;font-size:.78rem;color:var(--sub);display:flex;align-items:center;gap:7px}
+.hbtn::before{content:"";width:4px;height:14px;border-radius:2px;background:var(--t3)}
+
+/* ============ ホーム ============ */
+.home{padding:58px 30px 62px;background:var(--desk);position:relative;min-height:360px}
+.home::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background-image:repeating-linear-gradient(92deg,rgba(150,138,118,.028) 0 2px,transparent 2px 7px,rgba(150,138,118,.018) 7px 8px,transparent 8px 19px)}
+.home-in{position:relative;z-index:2;max-width:620px;margin:0 auto}
+.hero{font-family:var(--head);font-size:1.6rem;letter-spacing:.12em;margin-bottom:32px;text-align:center}
+.cards{display:flex;flex-direction:column;gap:13px}
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  padding:20px 22px 20px 28px;position:relative;text-align:left;
+  box-shadow:0 2px 6px rgba(43,42,37,.06);transition:transform .18s,box-shadow .18s;
+  display:flex;align-items:center;gap:13px;
+  font-family:var(--head);font-size:1.05rem;font-weight:700;letter-spacing:.05em;
+}
+.card:hover{transform:translateY(-3px);box-shadow:0 6px 18px rgba(43,42,37,.11)}
+.card::before{content:"";position:absolute;left:-1px;top:16px;width:7px;height:calc(100% - 32px);border-radius:0 4px 4px 0;background:var(--c)}
+.card .ic{font-size:1.15rem;opacity:.7;font-weight:400}
+.card .ar{margin-left:auto;color:#c2bdb2;font-size:.95rem}
+.card.main{padding:26px 26px 26px 32px;font-size:1.22rem;background:linear-gradient(180deg,#fff,#fcfbf8)}
+
+/* ============ 用紙の設定 ============ */
+.sheet-cfg{display:grid;grid-template-columns:1fr 1.5fr;min-height:520px}
+.cfg{padding:20px 22px;background:var(--surface);border-right:1px solid var(--line)}
+.cfg h2{font-family:var(--head);font-size:.8rem;letter-spacing:.14em;color:var(--sub);margin-bottom:12px}
+.grp-t{font-family:var(--head);font-size:.66rem;letter-spacing:.13em;color:#a8a297;margin:14px 0 6px;font-weight:700}
+.row{display:flex;align-items:center;gap:10px;padding:6px 9px;border-radius:8px;cursor:pointer;user-select:none}
+.row:hover{background:var(--faint)}
+.sw{width:33px;height:19px;border-radius:99px;background:#d8d3c8;position:relative;flex:0 0 auto;transition:background .2s}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff;transition:left .2s}
+.row.on .sw{background:var(--accent)}
+.row.on .sw::after{left:16px}
+.row .tg{width:4px;height:15px;border-radius:2px;background:var(--c);flex:0 0 auto}
+.row .nm{font-size:.86rem}
+.cfg-foot{border-top:1px solid var(--line);margin-top:16px;padding-top:14px;display:flex;align-items:center;gap:10px}
+.cfg-foot .cnt{font-size:.8rem;color:var(--sub)}
+.dl{margin-left:auto;background:var(--accent);color:#fff;border-radius:10px;padding:10px 22px 10px 18px;font-family:var(--head);font-size:.88rem;font-weight:700;letter-spacing:.06em;display:flex;align-items:center;gap:9px}
+.dl::before{content:"";width:4px;height:16px;border-radius:2px;background:var(--t1)}
+.dl:hover{background:var(--accent-deep)}
+
+/* プレビュー */
+.pv{background:var(--desk);padding:20px;display:flex;align-items:flex-start;justify-content:center;overflow:auto}
+.paper{width:390px;background:#fff;box-shadow:0 3px 16px rgba(43,42,37,.16);padding:13px 14px 14px}
+.p-head{display:flex;align-items:flex-end;gap:8px;border-bottom:1.5px solid #3a3730;padding-bottom:5px;margin-bottom:8px}
+.p-title{font-family:var(--head);font-size:.76rem;font-weight:700;letter-spacing:.08em}
+.p-meta{margin-left:auto;display:flex;gap:7px;font-size:.52rem;color:#6f6a60}
+.p-meta span{border-bottom:1px solid #b8b2a6;padding:0 20px 1px 3px}
+.p-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.p-box{border:1px solid #6f6a60;border-radius:2px;overflow:hidden;break-inside:avoid}
+.p-box h4{
+  font-family:var(--head);font-size:.55rem;font-weight:700;padding:2px 6px;
+  background:#f0eee8;border-bottom:1px solid #6f6a60;letter-spacing:.05em;
+  display:flex;align-items:center;gap:5px;
+}
+.p-box h4::before{content:"";width:3px;height:9px;border-radius:1px;background:var(--c)}
+.p-lines{padding:4px 6px 5px}
+.p-lines div{border-bottom:1px dotted #c9c4b8;height:12px}
+.p-foot{font-size:.46rem;color:#a8a297;text-align:right;margin-top:5px;border-top:1px solid #e3dfd6;padding-top:3px}
+</style>
+</head>
+<body>
+
+<!-- ============ 1. ホーム ============ -->
+<div class="label">1. ホーム画面<small>タイトルのみ。説明は置いていません。</small></div>
+<div class="frame">
+  <header><div class="h-in">
+    <div class="brand">メモおこし</div>
+    <div class="h-right"><button class="hbtn">辞書</button></div>
+  </div></header>
+  <div class="home"><div class="home-in">
+    <div class="hero">メモおこし</div>
+    <div class="cards">
+      <button class="card main" style="--c:var(--t1)"><span class="ic">▤</span>メモをおこす<span class="ar">›</span></button>
+      <button class="card" style="--c:var(--t3)"><span class="ic">▢</span>用紙を作る<span class="ar">›</span></button>
+      <button class="card" style="--c:var(--t2)"><span class="ic">▣</span>使い方<span class="ar">›</span></button>
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ 2. 用紙を作る ============ -->
+<div class="label">2. 用紙を作る<small>基本＝概要・本人・家族・課題・健康・生活。所感と申し送りは追加項目へ移しました。</small></div>
+<div class="frame">
+  <header><div class="h-in">
+    <div class="brand">メモおこし</div>
+    <div class="h-right"><button class="hbtn">辞書</button></div>
+  </div></header>
+  <div class="sheet-cfg">
+    <div class="cfg">
+      <h2>用紙に入れる項目</h2>
+      <div class="grp-t">基本</div>
+      <div class="row on" style="--c:var(--t1)"><span class="sw"></span><span class="tg"></span><span class="nm">面談概要</span></div>
+      <div class="row on" style="--c:var(--t2)"><span class="sw"></span><span class="tg"></span><span class="nm">本人の発言・様子</span></div>
+      <div class="row on" style="--c:var(--t3)"><span class="sw"></span><span class="tg"></span><span class="nm">家族等の発言</span></div>
+      <div class="row on" style="--c:var(--t5)"><span class="sw"></span><span class="tg"></span><span class="nm">課題・変化</span></div>
+      <div class="row on" style="--c:var(--t7)"><span class="sw"></span><span class="tg"></span><span class="nm">健康・服薬</span></div>
+      <div class="row on" style="--c:var(--t8)"><span class="sw"></span><span class="tg"></span><span class="nm">生活・住環境</span></div>
+      <div class="grp-t">追加項目</div>
+      <div class="row on" style="--c:var(--t4)"><span class="sw"></span><span class="tg"></span><span class="nm">支援者の所感</span></div>
+      <div class="row on" style="--c:var(--t6)"><span class="sw"></span><span class="tg"></span><span class="nm">次回への申し送り</span></div>
+      <div class="row" style="--c:var(--t1)"><span class="sw"></span><span class="tg"></span><span class="nm">日中活動・就労</span></div>
+      <div class="row" style="--c:var(--t3)"><span class="sw"></span><span class="tg"></span><span class="nm">金銭管理</span></div>
+      <div class="row" style="--c:var(--t4)"><span class="sw"></span><span class="tg"></span><span class="nm">リスク・緊急性</span></div>
+      <div class="row" style="--c:var(--t2)"><span class="sw"></span><span class="tg"></span><span class="nm">関係機関との連携</span></div>
+      <div class="row" style="--c:var(--t5)"><span class="sw"></span><span class="tg"></span><span class="nm">本人の希望・目標</span></div>
+      <div class="cfg-foot">
+        <span class="cnt">8項目・1枚</span>
+        <button class="dl">PDFで保存</button>
+      </div>
+    </div>
+    <div class="pv">
+      <div class="paper">
+        <div class="p-head">
+          <span class="p-title">面談記録メモ</span>
+          <span class="p-meta"><span>日時</span><span>場所</span><span>参加者</span></span>
+        </div>
+        <div class="p-grid">
+          <div class="p-box" style="--c:var(--t1)"><h4>面談概要</h4><div class="p-lines"><div></div><div></div><div></div></div></div>
+          <div class="p-box" style="--c:var(--t2)"><h4>本人の発言・様子</h4><div class="p-lines"><div></div><div></div><div></div></div></div>
+          <div class="p-box" style="--c:var(--t3)"><h4>家族等の発言</h4><div class="p-lines"><div></div><div></div><div></div></div></div>
+          <div class="p-box" style="--c:var(--t5)"><h4>課題・変化</h4><div class="p-lines"><div></div><div></div><div></div></div></div>
+          <div class="p-box" style="--c:var(--t7)"><h4>健康・服薬</h4><div class="p-lines"><div></div><div></div><div></div></div></div>
+          <div class="p-box" style="--c:var(--t8)"><h4>生活・住環境</h4><div class="p-lines"><div></div><div></div><div></div></div></div>
+          <div class="p-box" style="--c:var(--t4)"><h4>支援者の所感</h4><div class="p-lines"><div></div><div></div><div></div></div></div>
+          <div class="p-box" style="--c:var(--t6)"><h4>次回への申し送り</h4><div class="p-lines"><div></div><div></div><div></div></div></div>
+        </div>
+        <div class="p-foot">メモおこし</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 3. 用紙の見本（拡大） ============ -->
+<div class="label">3. 用紙の見本（拡大）<small>A4縦・2列。余白は狭め。8項目が1枚に収まります。</small></div>
+<div class="frame"><div class="pv" style="background:#cfcabd;padding:26px">
+  <div class="paper" style="width:520px;padding:17px 18px 18px">
+    <div class="p-head" style="padding-bottom:6px;margin-bottom:10px">
+      <span class="p-title" style="font-size:.95rem">面談記録メモ</span>
+      <span class="p-meta" style="font-size:.66rem;gap:10px"><span style="padding-right:30px">日時</span><span style="padding-right:30px">場所</span><span style="padding-right:34px">参加者</span></span>
+    </div>
+    <div class="p-grid" style="gap:8px">
+      <div class="p-box" style="--c:var(--t1)"><h4 style="font-size:.7rem">面談概要</h4><div class="p-lines"><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div></div></div>
+      <div class="p-box" style="--c:var(--t2)"><h4 style="font-size:.7rem">本人の発言・様子</h4><div class="p-lines"><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div></div></div>
+      <div class="p-box" style="--c:var(--t3)"><h4 style="font-size:.7rem">家族等の発言</h4><div class="p-lines"><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div></div></div>
+      <div class="p-box" style="--c:var(--t5)"><h4 style="font-size:.7rem">課題・変化</h4><div class="p-lines"><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div></div></div>
+      <div class="p-box" style="--c:var(--t7)"><h4 style="font-size:.7rem">健康・服薬</h4><div class="p-lines"><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div></div></div>
+      <div class="p-box" style="--c:var(--t8)"><h4 style="font-size:.7rem">生活・住環境</h4><div class="p-lines"><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div></div></div>
+      <div class="p-box" style="--c:var(--t4)"><h4 style="font-size:.7rem">支援者の所感</h4><div class="p-lines"><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div></div></div>
+      <div class="p-box" style="--c:var(--t6)"><h4 style="font-size:.7rem">次回への申し送り</h4><div class="p-lines"><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div><div style="height:16px"></div></div></div>
+    </div>
+    <div class="p-foot" style="font-size:.54rem">メモおこし</div>
+  </div>
+</div></div>
+
+</body>
+</html>

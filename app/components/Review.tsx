@@ -33,11 +33,12 @@ import MemoPane, { type MemoPage } from "./MemoPane";
 import StepHeader, { type Step } from "./StepHeader";
 import VocabButton, { VOCAB_CHANGED } from "./VocabButton";
 import { addEntry, loadVocab, REASON_TEXT, saveVocab } from "@/lib/vocab";
+import { SETTINGS_KEY } from "@/lib/settings";
 import type { ApiData } from "@/lib/record";
 import Dialog, { type DialogSpec } from "./Dialog";
 import { exportDocx, printRecord } from "@/lib/export";
 
-const SETTINGS_KEY = "memo-okoshi:items";
+
 
 function copyText(txt: string, ok: () => void) {
   const fb = () => {

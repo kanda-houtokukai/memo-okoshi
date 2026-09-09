@@ -21,44 +21,19 @@ import { exportMasked, filesToPages, releasePage, type PageItem } from "@/lib/pa
 import { moveBy, moveTo } from "@/lib/reorder";
 import type { MaskState } from "@/lib/mask";
 import { loadVocab } from "@/lib/vocab";
+import { loadSettings } from "@/lib/settings";
 import Review from "./components/Review";
 import Intake from "./components/Intake";
 import Redact from "./components/Redact";
+import Home from "./components/Home";
+import SheetMaker from "./components/SheetMaker";
 import Dialog, { type DialogSpec } from "./components/Dialog";
 import { Toast, useToast } from "./components/Toast";
 import type { MemoPage } from "./components/MemoPane";
 import type { Step } from "./components/StepHeader";
 
-const SETTINGS_KEY = "memo-okoshi:items";
-
-type Settings = { enabled: Record<string, boolean>; order: string[] };
-
-function defaultSettings(): Settings {
-  const enabled: Record<string, boolean> = {};
-  ITEM_LIBRARY.forEach((l) => (enabled[l.id] = l.defaultOn));
-  return { enabled, order: ITEM_LIBRARY.map((l) => l.id) };
-}
-
-/** 項目のチェック構成・表示順（確認画面のドロワーが保存する）。次の変換から反映される */
-function loadSettings(): Settings {
-  const def = defaultSettings();
-  try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
-    if (!raw) return def;
-    const saved = JSON.parse(raw) as { enabled?: string[]; order?: string[] };
-    const enabled: Record<string, boolean> = {};
-    ITEM_LIBRARY.forEach((l) => (enabled[l.id] = (saved.enabled ?? []).includes(l.id)));
-    const order = [
-      ...(saved.order ?? []).filter((id) => ITEM_LIBRARY.some((l) => l.id === id)),
-      ...ITEM_LIBRARY.map((l) => l.id).filter((id) => !(saved.order ?? []).includes(id)),
-    ];
-    return { enabled, order };
-  } catch {
-    return def;
-  }
-}
-
-type Mode = "intake" | "mask" | "review";
+/** 画面。ホームが起点で、そこから「メモをおこす」（intake→mask→review）と「面談用紙」へ分かれる */
+type Mode = "home" | "sheet" | "intake" | "mask" | "review";
 
 /** 変換API呼び出し（初回も再変換も同じ）。blobs は焼き込み後の画像だけ */
 async function callConvert(blobs: Blob[], itemIds: string[]): Promise<{ ok: true; data: ApiData } | { ok: false; error: string }> {
@@ -75,7 +50,7 @@ async function callConvert(blobs: Blob[], itemIds: string[]): Promise<{ ok: true
 }
 
 export default function Page() {
-  const [mode, setMode] = useState<Mode>("intake");
+  const [mode, setMode] = useState<Mode>("home");
   const [pages, setPages] = useState<PageItem[]>([]);
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -91,7 +66,7 @@ export default function Page() {
 
   useEffect(() => {
     if (new URLSearchParams(window.location.search).get("fixture") !== "1") return;
-    const s = loadSettings();
+    const s = loadSettings(ITEM_LIBRARY);
     fetch("/dev-fixture.json")
       .then((r) => r.json())
       .then((f: ApiData & { pages?: MemoPage[] }) => {
@@ -144,7 +119,7 @@ export default function Page() {
     setConverting(true);
     setError("");
     try {
-      const s = loadSettings();
+      const s = loadSettings(ITEM_LIBRARY);
       const out: Blob[] = [];
       for (const p of pages) out.push(await exportMasked(p)); // ← 送るのは焼き込み後だけ
       const r = await callConvert(out, s.order.filter((id) => s.enabled[id]));
@@ -190,13 +165,13 @@ export default function Page() {
     setError("");
   };
 
-  /** 「最初から」: 端末内のデータをすべて捨てて取り込みへ */
+  /** 端末内のデータをすべて捨ててホームへ戻る（ブランド押下＝ホーム） */
   const restart = () => {
     dropResult();
     pages.forEach(releasePage);
     setPages([]);
     setIndex(0);
-    setMode("intake");
+    setMode("home");
   };
 
   const confirm = (spec: Omit<DialogSpec, "onCancel">) =>
@@ -230,17 +205,40 @@ export default function Page() {
     }
   };
 
+  /**
+   * ブランド押下＝ホームへ。
+   * [DECISION 2026-09-10] **作業中の内容が失われるときだけ確認を挟む**（何も無ければ黙って戻る）。
+   */
   const goHome = () => {
-    if (pages.length === 0 && !rec) return;
+    if (pages.length === 0 && !rec) {
+      setMode("home");
+      return;
+    }
     confirm({
-      title: "最初からやり直しますか",
+      title: "ホームに戻りますか",
       body: "取り込んだ画像・伏せた箇所・変換した記録はすべて失われます（この端末にも残りません）。",
       warn: "コピーや保存をしていない記録は戻せません。",
-      go: "最初から",
+      go: "ホームへ戻る",
       cancel: "やめる",
       onGo: restart,
     });
   };
+
+  if (mode === "home")
+    return (
+      <>
+        <Home onMemo={() => setMode("intake")} onSheet={() => setMode("sheet")} toast={toast} />
+        <Toast msg={msg} on={on} />
+      </>
+    );
+
+  if (mode === "sheet")
+    return (
+      <>
+        <SheetMaker onHome={goHome} toast={toast} />
+        <Toast msg={msg} on={on} />
+      </>
+    );
 
   if (mode === "review" && rec)
     return (
