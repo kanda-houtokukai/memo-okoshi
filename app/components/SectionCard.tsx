@@ -2,8 +2,13 @@
 
 // 項目カード（紙ファイル＋インデックスシール）
 // DOM構造・クラス名・文言は docs/mock/memo-okoshi-mock-v6.html の render() に対応。
+//
+// [DECISION 2026-09-09] 文章を直す欄は**内容の量に合わせて高さが伸びる**。元のメモと突き合わせて直す作業なので、
+//   開いた時点で全文が見えている必要がある。入力中も伸びる。上限は画面の高さの6割（`max-height:60vh`）で、
+//   そこを超えたときだけ欄の中がスクロールする。下限は従来どおり 5.5em。
+//   高さはJSで内容の高さ（scrollHeight）に合わせ、上限・下限はCSSに任せる。
 
-import { useState } from "react";
+import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { ItemDef } from "@/lib/items";
 import { flatten, hasOpen, type Token } from "@/lib/record";
 
@@ -35,6 +40,25 @@ export default function SectionCard({
   onTokenClick,
 }: Props) {
   const [draft, setDraft] = useState("");
+  const taRef = useRef<HTMLTextAreaElement>(null);
+
+  /** 内容の高さに合わせる（上限・下限はCSSが決める） */
+  const fitHeight = useCallback(() => {
+    const el = taRef.current;
+    if (!el) return;
+    el.style.height = "auto";
+    // box-sizing:border-box なので、指定する高さには枠線ぶんも要る（足さないと最後の行が数px欠ける）
+    const border = el.offsetHeight - el.clientHeight;
+    el.style.height = el.scrollHeight + border + "px";
+  }, []);
+
+  // 開いた直後（描画前）に合わせる。窓の幅が変わると折り返しも変わるので測り直す
+  useLayoutEffect(() => {
+    if (!editing) return;
+    fitHeight();
+    window.addEventListener("resize", fitHeight);
+    return () => window.removeEventListener("resize", fitHeight);
+  }, [editing, fitHeight]);
   const complete = !hasOpen(tokens);
   const text = flatten(tokens);
 
@@ -73,7 +97,14 @@ export default function SectionCard({
       {editing ? (
         <>
           <div className="sec-body">
-            <textarea value={draft} onChange={(e) => setDraft(e.target.value)} />
+            <textarea
+              ref={taRef}
+              value={draft}
+              onChange={(e) => {
+                setDraft(e.target.value);
+                fitHeight();
+              }}
+            />
           </div>
           <div className="ta-btns">
             <button className="save" onClick={() => onSaveEdit(draft)}>

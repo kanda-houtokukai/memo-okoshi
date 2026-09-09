@@ -134,6 +134,10 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 .sec-body{font-size:.95rem;min-height:1.5em;overflow-wrap:anywhere;padding-top:2px;white-space:pre-line}
 .sec-body.empty{color:#b6b0a4;font-size:.85rem}
 .sec-body textarea{width:100%;min-height:5.5em;font:inherit;font-size:.95rem;border:1.5px solid var(--accent);border-radius:8px;padding:9px;resize:vertical;background:var(--faint)}
+/* [DECISION 2026-09-09] 編集欄は内容に合わせて伸びる（高さはJSが scrollHeight に合わせる）。
+   上限は画面の高さの6割まで＝そこを超えたときだけ中がスクロールする。手で高さを変えるつまみは外す
+   （自動で伸びるため、引っ張っても次の入力で戻ってしまい壊れて見える）。 */
+.sec-body textarea{max-height:60vh;overflow:auto;resize:none}
 .ta-btns{display:flex;gap:8px;margin-top:8px}
 .ta-btns button{border-radius:7px;padding:5px 15px;font-size:.78rem;border:1px solid var(--line);background:var(--faint)}
 .ta-btns .save{background:var(--accent);color:#fff;border-color:var(--accent);font-weight:700}

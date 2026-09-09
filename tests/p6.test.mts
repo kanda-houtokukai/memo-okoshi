@@ -2,6 +2,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
+import { readFileSync } from "node:fs";
 import { ITEM_LIBRARY } from "../lib/items.ts";
 import { buildOutputText, fromApi, mergeReconvert, pendingReconvertIds, recordEntries, resolveToken, saveEdit, toggleItem, type ApiData, type RecordState } from "../lib/record.ts";
 import { buildDocxParts, cleanText, extractText } from "../lib/docx.ts";
@@ -137,4 +138,18 @@ test("バックアップ読み込み: 追記・重複除外・人名ガード・
   assert.deepEqual(r.items, { enabled: ["gaiyou", "kenko"], order: ["kenko", "gaiyou"] });
   assert.equal(mergeBackup({ foo: 1 }, cur, ids).ok, false);
   assert.equal(mergeBackup("x", cur, ids).ok, false);
+});
+
+test("編集欄は内容に合わせて伸びる（上限と下限がある）", () => {
+  // 元のメモと突き合わせて直す作業なので、開いた時点で全文が見えている必要がある。
+  const css = readFileSync("app/globals.css", "utf8");
+  const rule = css.slice(css.indexOf(".sec-body textarea{max-height"));
+  assert.ok(/max-height:60vh/.test(rule), "上限（画面の高さの6割）がある");
+  assert.ok(/overflow:auto/.test(rule), "上限を超えたときだけ中がスクロールする");
+  assert.ok(/min-height:5\.5em/.test(css), "下限がある（短い内容で潰れない）");
+
+  const src = readFileSync("app/components/SectionCard.tsx", "utf8");
+  assert.ok(src.includes("el.scrollHeight"), "高さは内容の高さに合わせる");
+  assert.ok(src.includes("useLayoutEffect"), "開いた直後（描画前）に合わせる");
+  assert.ok(/onChange=\{\(e\) => \{[\s\S]*?fitHeight\(\);/.test(src), "入力中も伸びる");
 });
