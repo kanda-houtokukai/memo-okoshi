@@ -228,6 +228,20 @@ test("こぼれ: 存在しない項目へは移さない（状態を壊さない
 
 /* ============ API応答からの取り込み（実データ形状の担保） ============ */
 
+test("不変条件: 人名の対応表（誰がどの記号か）はサーバーへ送らない", () => {
+  // 置き換え記号は画面の中だけで決める。送信を組み立てる場所と変換APIは対応表を知らない。
+  const page = readFileSync("app/page.tsx", "utf8");
+  const api = readFileSync("app/api/convert/route.ts", "utf8");
+  const prompt = readFileSync("lib/prompt.ts", "utf8");
+  for (const [name, src] of [["app/page.tsx", page], ["app/api/convert/route.ts", api], ["lib/prompt.ts", prompt]]) {
+    assert.ok(!/alias/i.test(src), `${name} が人名の対応表に触れている`);
+  }
+  const alias = readFileSync("lib/alias.ts", "utf8");
+  for (const sink of ["fetch(", "localStorage", "sessionStorage", "document.cookie"]) {
+    assert.ok(!alias.includes(sink), `lib/alias.ts に ${sink} があってはいけない（保存も通信もしない）`);
+  }
+});
+
 test("fromApi: 実際のAPI応答（開発用フィクスチャ）を取り込める", () => {
   const raw = JSON.parse(readFileSync(new URL("../public/dev-fixture.json", import.meta.url), "utf8")) as ApiData;
   const enabled: Record<string, boolean> = {};

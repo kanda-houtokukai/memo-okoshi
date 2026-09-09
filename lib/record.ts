@@ -246,6 +246,29 @@ export function resolveToken(state: RecordState, sid: string, ti: number, val: s
   return { ...state, tokens: { ...state.tokens, [sid]: next } };
 }
 
+/**
+ * 条件に合う**未解決の赤**をまとめて置き換える（同じ名前を1か所ずつ直す手間を省く）。
+ * [DECISION 2026-09-09] まとめ置き換えは「アルファベットの候補」を選んだときだけ使う。
+ *   同じ名前には同じ記号を割り当てる決まりなので、1つずつ直しても結果は同じになる。
+ *   「担当」や自由入力はその場かぎりの判断なので、押した1か所だけに効かせる。
+ */
+export function resolveRedWhere(
+  state: RecordState,
+  match: (tok: Token) => boolean,
+  make: (tok: Token) => string
+): { state: RecordState; count: number } {
+  let count = 0;
+  const tokens: Record<string, Token[]> = {};
+  for (const [sid, list] of Object.entries(state.tokens)) {
+    tokens[sid] = list.map((tk) => {
+      if (tk.t !== "r" || tk.resolved || !match(tk)) return tk;
+      count++;
+      return { ...tk, s: make(tk), resolved: true };
+    });
+  }
+  return { state: { ...state, tokens }, count };
+}
+
 export function saveEdit(state: RecordState, sid: string, text: string): RecordState {
   return { ...state, tokens: { ...state.tokens, [sid]: [{ t: "p", s: text }] } };
 }

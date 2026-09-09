@@ -16,6 +16,7 @@ import {
   outputWarnings,
   pendingReconvertIds,
   recordEntries,
+  resolveRedWhere,
   resolveToken,
   saveEdit,
   sectionCopyText,
@@ -25,6 +26,7 @@ import {
 } from "@/lib/record";
 import SectionCard from "./SectionCard";
 import Popover from "./Popover";
+import { aliasFor, nameKey, seedAliases, type AliasMap } from "@/lib/alias";
 import Drawer from "./Drawer";
 import OutputOverlay from "./OutputOverlay";
 import MemoPane, { type MemoPage } from "./MemoPane";
@@ -67,6 +69,11 @@ type Props = {
 
 export default function Review({ initial, pages, onRestart, onStep, onHome, onReconvert }: Props) {
   const [rec, setRec] = useState<RecordState>(initial);
+  /** 人名 → 記号（A,B,C…）の対応表。**この画面の中だけ**に持つ（サーバーへ送らない・保存しない）。
+      1件の記録のあいだ有効で、次の変換では空から始まる（Review は変換ごとに作り直される）。 */
+  const [aliases, setAliases] = useState<AliasMap>(() =>
+    seedAliases(initial.order.flatMap((sid) => (initial.tokens[sid] ?? []).filter((tk) => tk.t === "r").map((tk) => tk.s)))
+  );
   const [editing, setEditing] = useState<string | null>(null);
   const [pop, setPop] = useState<{ sid: string; ti: number; left: number; top: number } | null>(null);
   const [picker, setPicker] = useState<{ index: number; left: number; top: number } | null>(null);
@@ -155,13 +162,36 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
 
   const onTokenClick = (sid: string, ti: number, el: HTMLElement) => {
     setPicker(null);
+    // 赤を開いた時点で記号を確定させる（同じ名前なら常に同じ記号が返る）
+    const tk = rec.tokens[sid]?.[ti];
+    if (tk?.t === "r" && !tk.resolved) {
+      const a = aliasFor(aliases, tk.s);
+      if (a.map !== aliases) setAliases(a.map);
+    }
     setPop({ sid, ti, ...popPos(el) });
   };
 
   const doResolve = (val: string | null, learn?: boolean) => {
     if (!pop) return;
     const tk = rec.tokens[pop.sid]?.[pop.ti];
-    setRec((s) => resolveToken(s, pop.sid, pop.ti, val));
+    // 赤で「アルファベットの候補」を選んだときは、同じ名前の赤をまとめて置き換える
+    // （同じ名前には同じ記号を割り当てる決まりなので、1つずつ直しても結果は同じになる）
+    const bulk = tk?.t === "r" && val !== null && val === aliasFor(aliases, tk.s).alias;
+    let moved = 1;
+    if (bulk && tk) {
+      const key = nameKey(tk.s);
+      setRec((s) => {
+        const r = resolveRedWhere(
+          s,
+          (x) => nameKey(x.s) === key,
+          (x) => aliasFor(aliases, x.s).alias
+        );
+        moved = r.count;
+        return r.state;
+      });
+    } else {
+      setRec((s) => resolveToken(s, pop.sid, pop.ti, val));
+    }
     setPop(null);
     // 黄マーカーからの学習: 確定した語を組織語彙へ（赤には出ない導線）
     if (learn && tk?.t === "y") {
@@ -175,7 +205,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
       toast(r.reason === "dup" ? "確定しました（辞書にあります）" : REASON_TEXT[r.reason!]);
       return;
     }
-    toast(tk?.t === "r" ? "人名を置き換えました" : "確定しました");
+    toast(tk?.t === "r" ? `人名を置き換えました${bulk && moved > 1 ? `（${moved}か所）` : ""}` : "確定しました");
   };
 
   const onCopySection = (id: string) => {
@@ -482,6 +512,11 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
         <Popover
           token={rec.tokens[pop.sid][pop.ti]}
           pos={{ left: pop.left, top: pop.top }}
+          alias={
+            rec.tokens[pop.sid][pop.ti].t === "r"
+              ? aliasFor(aliases, rec.tokens[pop.sid][pop.ti].s).alias
+              : undefined
+          }
           onResolve={doResolve}
           onClose={() => setPop(null)}
         />
