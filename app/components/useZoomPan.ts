@@ -29,6 +29,8 @@ export function useZoomPan(o: ZoomPanOptions) {
   const tRef = useRef(t);
   tRef.current = t;
   const [zoomShown, setZoomShown] = useState(false);
+  /** 掴んで動かしている最中か（カーソルを grabbing にするため） */
+  const [panning, setPanning] = useState(false);
   const zoomTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
   const pts = useRef(new Map<number, Pt>());
   const gesture = useRef<
@@ -126,6 +128,7 @@ export function useZoomPan(o: ZoomPanOptions) {
       o.panMode || !o.drawEnabled || (e.pointerType === "mouse" && (e.button === 1 || space.current));
     if (wantPan) {
       gesture.current = { kind: "pan", x: e.clientX, y: e.clientY, t0: tRef.current };
+      setPanning(true);
       return;
     }
     gesture.current = { kind: "draw" };
@@ -166,6 +169,7 @@ export function useZoomPan(o: ZoomPanOptions) {
     pts.current.delete(e.pointerId);
     const g = gesture.current;
     if (g?.kind === "draw") o.onDrawEnd?.();
+    if (g?.kind === "pan") setPanning(false);
     if (pts.current.size === 0) gesture.current = null;
     else if (g?.kind === "pinch" && pts.current.size < 2) gesture.current = null;
   };
@@ -196,5 +200,5 @@ export function useZoomPan(o: ZoomPanOptions) {
     return () => el.removeEventListener("wheel", h);
   }, [o.stageRef, flashZoom]);
 
-  return { t, fit, zoomBy, zoomShown, onPointerDown, onPointerMove, onPointerUp };
+  return { t, fit, zoomBy, zoomShown, panning, onPointerDown, onPointerMove, onPointerUp };
 }

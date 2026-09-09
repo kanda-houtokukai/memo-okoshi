@@ -13,6 +13,11 @@
 //   ホイール以外の移動手段が必要。Space+ドラッグ／中ボタンドラッグも併用可）。
 // [DECISION 2026-09-08] 初回だけ「氏名や固有名詞を指でなぞって隠します」を数秒出し、以後は出さない
 //   （引き算原則の「初回のみ」に当たる）。
+// [DECISION 2026-09-09] 道具ごとにカーソルを変える。移動モードは手のひら（掴む前 grab／掴んでいる間 grabbing）、
+//   ペンと消しゴムは**これから塗る／消える範囲と同じ大きさの輪**を出す（ペン＝塗りつぶし・消しゴム＝輪郭のみ）。
+//   ブラウザのカーソル画像は大きさに上限があり拡大に追従できないので、**画面に重ねた div を動かす**方式にした
+//   （canvasを描き直さないので描画の邪魔をしない・npm依存も増やさない）。輪を出している間だけ `cursor:none`。
+//   タッチでは出さない（pointerType==="touch" は無視）。ステージの外へ出たら消す。
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import type { PageItem } from "@/lib/pages";
@@ -53,6 +58,9 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
   const [dlg, setDlg] = useState<DialogSpec | null>(null);
   const drawing = useRef<{ pts: Point[]; width: number; erase: boolean } | null>(null);
   const raf = useRef<number | null>(null);
+  /** 道具の輪（ペン＝塗る範囲・消しゴム＝消える範囲）。マウス/ペンのときだけ出す */
+  const [ringOn, setRingOn] = useState(false);
+  const ringRef = useRef<HTMLDivElement>(null);
 
   /* ページ全体をスクロールさせない */
   useEffect(() => {
@@ -192,6 +200,26 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
     onConvert();
   };
 
+  /** いま塗れる/消せる範囲の直径（画面上のpx）。拡大率と太さに追従する */
+  const ringSize = Math.max(4, page.width * PEN[size] * (eraser ? ERASER_RATIO : 1) * zp.t.scale);
+  /** 輪を出す条件: マウス等がステージ上にあり、移動モードでも変換中でもないこと */
+  const brushRing = ringOn && !panMode && !converting;
+
+  /** 位置は state ではなく直接 style に書く（1フレームごとの再描画を起こさないため） */
+  const moveRing = (e: React.PointerEvent) => {
+    if (e.pointerType === "touch") {
+      if (ringOn) setRingOn(false);
+      return;
+    }
+    const el = ringRef.current;
+    if (el) {
+      const r = stageRef.current!.getBoundingClientRect();
+      el.style.left = e.clientX - r.left + "px";
+      el.style.top = e.clientY - r.top + "px";
+    }
+    if (!ringOn) setRingOn(true);
+  };
+
   const T = (props: { on?: boolean; tip: string; disabled?: boolean; onClick: () => void; children: React.ReactNode; wide?: boolean }) => (
     <button
       className={"tool" + (props.on ? " on" : "") + (props.wide ? " wide" : "")}
@@ -232,15 +260,30 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
       {converting && <div className="progress fill" />}
 
       <div
-        className={"stage" + (panMode ? " pan" : "")}
+        className={
+          "stage" + (panMode ? " pan" : "") + (zp.panning ? " grabbing" : "") + (brushRing ? " brush" : "")
+        }
         ref={stageRef}
         onPointerDown={zp.onPointerDown}
-        onPointerMove={zp.onPointerMove}
+        onPointerMove={(e) => {
+          zp.onPointerMove(e);
+          moveRing(e);
+        }}
         onPointerUp={zp.onPointerUp}
-        onPointerCancel={zp.onPointerUp}
+        onPointerCancel={(e) => {
+          zp.onPointerUp(e);
+          setRingOn(false);
+        }}
+        onPointerEnter={moveRing}
+        onPointerLeave={() => setRingOn(false)}
         onContextMenu={(e) => e.preventDefault()}
       >
         <canvas ref={viewRef} className="view" />
+        <div
+          ref={ringRef}
+          className={"brush-ring" + (brushRing ? " on" : "") + (eraser ? " eraser" : " pen")}
+          style={{ width: ringSize, height: ringSize }}
+        />
         <div className={"zoom-badge" + (zp.zoomShown ? " on" : "")}>{Math.round(zp.t.scale * 100)}%</div>
         {panMode && <div className="mode-pill on">移動モード</div>}
         {hint && <div className="first-hint">氏名や固有名詞を指でなぞって隠します</div>}
