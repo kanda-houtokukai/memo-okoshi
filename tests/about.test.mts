@@ -53,11 +53,23 @@ test("使い方ページはモックの見出しと注意書きを落として�
   }
 });
 
-test("合言葉ゲートの外に出す道は、決めた6本だけ（前方一致にしない）", () => {
+test("合言葉ゲートの外に出す道は、決めたものだけ（前方一致にしない）", () => {
   const src = readFileSync("middleware.ts", "utf8");
   const block = src.slice(src.indexOf("const PUBLIC"), src.indexOf("]);"));
   const paths = [...block.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(paths, ["/gate", "/api/gate", "/about", "/manifest.webmanifest", "/icon.png", "/apple-icon.png"]);
+  // 使い方ページ・マニフェスト・アイコンだけ。いずれも静的で秘密を含まない。
+  assert.deepEqual(paths, [
+    "/gate",
+    "/api/gate",
+    "/about",
+    "/manifest.webmanifest",
+    "/icon-16.png",
+    "/icon-32.png",
+    "/icon-48.png",
+    "/icon-192.png",
+    "/icon-512.png",
+    "/apple-touch-icon.png",
+  ]);
   assert.ok(src.includes("PUBLIC.has(path)"), "完全一致（Set.has）で判定していること");
   assert.ok(!src.includes('path.startsWith("/about'), "前方一致で開けない");
   // ゲート本体（未認証は /gate へ・API は 401）が生きていること

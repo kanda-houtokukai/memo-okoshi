@@ -14,8 +14,12 @@ const PUBLIC = new Set([
   "/api/gate",
   "/about",
   "/manifest.webmanifest",
-  "/icon.png",
-  "/apple-icon.png",
+  "/icon-16.png",
+  "/icon-32.png",
+  "/icon-48.png",
+  "/icon-192.png",
+  "/icon-512.png",
+  "/apple-touch-icon.png",
 ]);
 
 export async function middleware(req: NextRequest) {
