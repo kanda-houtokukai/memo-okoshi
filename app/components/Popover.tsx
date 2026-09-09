@@ -7,9 +7,13 @@
 //  - picker モード: こぼれの移動先を選ぶ一覧。モックにない導線だが、部品は作らず .pop を流用する
 //  - 黄（読取に自信なし）に「辞書に追加」のチェック: 確定した語を組織語彙へ入れる学習導線。
 //    赤（人名）には出さない（人名を辞書に入れさせない配慮）。
+//  - 黄の主ボタン「このままで確定する」（2026-09-09）。**黄と青を同じ骨格にする**:
+//    ①そのまま確定（主ボタン）→ ②選び直す／書き直す → ③消す（青のみ）。
+//    黄には「読みは合っていた」を選ぶ道が無く、最も多い結末に出口が無かった。
+//    候補は `candidatesFor` が現在の語を外して返す（主ボタンと同じ語を二重に出さない）。
 
 import { useState } from "react";
-import type { Token } from "@/lib/record";
+import { candidatesFor, type Token } from "@/lib/record";
 
 type Pos = { left: number; top: number };
 
@@ -68,7 +72,10 @@ export default function Popover(props: Props) {
       {token.t === "y" && (
         <>
           <div className="pt y">読み取りに自信なし</div>
-          {(token.cands ?? []).map((c, i) => (
+          <button className="pri" onClick={() => onResolve(null, learn)}>
+            このままで確定する
+          </button>
+          {candidatesFor(token).map((c, i) => (
             <button key={i} onClick={() => onResolve(c, learn)}>
               {c}
             </button>
@@ -78,9 +85,7 @@ export default function Popover(props: Props) {
             value={val}
             onChange={(e) => setVal(e.target.value)}
           />
-          <button className="pri" onClick={submit}>
-            この内容で確定
-          </button>
+          <button onClick={submit}>直して確定</button>
           <label className="pop-chk">
             <input type="checkbox" checked={learn} onChange={(e) => setLearn(e.target.checked)} />
             辞書に追加

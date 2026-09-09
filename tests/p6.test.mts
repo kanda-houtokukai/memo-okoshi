@@ -5,7 +5,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { withPreferred } from "../lib/gemini.ts";
 import { ITEM_LIBRARY } from "../lib/items.ts";
-import { buildOutputText, fromApi, mergeReconvert, pendingReconvertIds, recordEntries, resolveToken, saveEdit, toggleItem, type ApiData, type RecordState } from "../lib/record.ts";
+import { buildOutputText, candidatesFor, counts, fromApi, mergeReconvert, pendingReconvertIds, recordEntries, resolveToken, saveEdit, toggleItem, type ApiData, type RecordState, type Token } from "../lib/record.ts";
 import { buildDocxParts, cleanText, extractText } from "../lib/docx.ts";
 import { mergeBackup } from "../lib/vocab.ts";
 
@@ -268,4 +268,68 @@ test("こぼれの移動先は常に選べる（提案が外れていても直�
   const row = src.slice(src.indexOf("{def ? ("), src.indexOf('aria-label="項目へ移す"'));
   assert.ok(row.includes('aria-label="他の項目へ移す"'), "提案の隣に他の項目を開く導線がある");
   assert.ok(row.includes("onAcceptSpill"), "提案の1タップは残す");
+});
+
+/* ---------- P7-b: 黄に「このままでよい」を足す ---------- */
+
+test("黄:「このままで確定する」で解消され、語は変わらない（P7-b）", () => {
+  let s = base();
+  const before = s.tokens.honnin[0];
+  assert.equal(before.t, "y");
+  assert.equal(before.s, "作業所");
+  assert.ok(!before.resolved, "はじめは未解決");
+
+  // 主ボタンが呼ぶのは onResolve(null) ＝ 語を変えずに確定する
+  s = resolveToken(s, "honnin", 0, null);
+  const after = s.tokens.honnin[0];
+  assert.equal(after.s, "作業所", "語が書き換わらない");
+  assert.equal(after.resolved, true, "黄が解消される");
+  // 転記テキストにも元の語がそのまま出る
+  assert.ok(buildOutputText(s, ITEM_LIBRARY).includes("作業所"));
+});
+
+test("黄:「このままで確定する」で要確認の読取カウンタが減る（P7-b）", () => {
+  let s = base();
+  assert.equal(counts(s).y, 1);
+  s = resolveToken(s, "honnin", 0, null);
+  assert.equal(counts(s).y, 0, "読取カウンタが減る");
+  assert.equal(counts(s).r, 1, "赤は別勘定のまま残る");
+});
+
+test("黄: 候補の一覧に、いま表示されている語を重ねて出さない（P7-b）", () => {
+  // プロンプトが「語彙で確定できなければ cands にこの表記を含める」と指示しているので、
+  // s と同じ語が cands に入ってくる。主ボタンと重複するため候補からは外す。
+  const dup: Token = { t: "y", s: "作業所", cands: ["作業所", "作業書"] };
+  assert.deepEqual(candidatesFor(dup), ["作業書"]);
+  // 前後の空白だけ違うものも同じ語として外す
+  assert.deepEqual(candidatesFor({ t: "y", s: "作業所", cands: [" 作業所 "] }), []);
+  // 重複していなければそのまま
+  assert.deepEqual(candidatesFor({ t: "y", s: "作業所", cands: ["作業書", "作業所前"] }), ["作業書", "作業所前"]);
+  // 候補が無くても落ちない（このときも主ボタンだけは出る）
+  assert.deepEqual(candidatesFor({ t: "y", s: "作業所" }), []);
+});
+
+test("黄と青は同じ骨格を持つ（そのまま確定が主ボタン）／赤には作らない（原則3）", () => {
+  const src = readFileSync("app/components/Popover.tsx", "utf8");
+  const cut = (from: string, to: string) => src.slice(src.indexOf(from), src.indexOf(to));
+  const yellow = cut('{token.t === "y" && (', '{token.t === "b" && (');
+  const blue = cut('{token.t === "b" && (', '{token.t === "r" && (');
+  const red = src.slice(src.indexOf('{token.t === "r" && ('));
+
+  // 黄: そのまま確定が主ボタンで、候補より前にある
+  assert.ok(yellow.includes('className="pri"'), "黄に主ボタンがある");
+  assert.ok(
+    yellow.indexOf('className="pri"') < yellow.indexOf("candidatesFor"),
+    "主ボタンは候補の一覧より前に置く"
+  );
+  assert.ok(yellow.includes("onResolve(null, learn)"), "主ボタンは語を変えずに確定する");
+  assert.ok(yellow.includes("candidatesFor(token)"), "候補は現在の語を外して出す");
+  assert.ok(!yellow.includes("(token.cands ?? []).map"), "生の cands をそのまま並べない");
+  assert.ok(yellow.includes('placeholder="自分で入力して直す"'), "自由入力は残す");
+
+  // 青: 従来どおり「この内容で確定する」がある（欠落なし）
+  assert.ok(blue.includes("onResolve(null)"), "青にもそのまま確定がある");
+
+  // 赤: 「そのままでよい」を作らない（置き換えるまで完成できない＝原則3）
+  assert.ok(!red.includes("onResolve(null"), "赤にそのまま確定を作らない（原則3）");
 });

@@ -237,6 +237,18 @@ export function moveSpillTo(
 
 /* ---------- マーカーの解消・編集 ---------- */
 
+/**
+ * 黄（読み取りに自信なし）の候補一覧。**いま表示されている語と同じものは外す**。
+ *
+ * [DECISION 2026-09-09] 黄のポップオーバーは「このままで確定する」を主ボタンに持つので、
+ *   同じ語が候補にも並ぶと同じ選択肢が2か所に出て迷う。プロンプトは「語彙で確定できなければ
+ *   cands にこの表記を含める」と指示していて、実際に s と同じ語が cands に入ってくる。
+ */
+export function candidatesFor(tok: Token): string[] {
+  const cur = tok.s.trim();
+  return (tok.cands ?? []).filter((c) => c.trim() !== cur);
+}
+
 export function resolveToken(state: RecordState, sid: string, ti: number, val: string | null): RecordState {
   const list = state.tokens[sid];
   if (!list || !list[ti]) return state;
