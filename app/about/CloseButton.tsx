@@ -4,6 +4,8 @@
 // [DECISION 2026-09-09] 作業画面からは**別タブ**で開く（作業中の画像・記録を失わせないため）。
 //   別タブなら閉じる、直接開かれていたら作業画面へ移る。どちらの入り方でも詰まらない。
 
+import { ABOUT } from "@/lib/about-copy";
+
 export default function CloseButton() {
   const close = () => {
     // 別タブで開かれた場合だけ window.close() が効く。効かなければ作業画面へ。
@@ -14,7 +16,7 @@ export default function CloseButton() {
   };
   return (
     <button className="back" onClick={close}>
-      閉じる
+      {ABOUT.close}
     </button>
   );
 }
