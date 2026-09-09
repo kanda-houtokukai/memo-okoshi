@@ -72,7 +72,9 @@ export default function StepHeader({ step, done = [], onStep, right, onHome }: P
         </div>
         <div className="h-right">
           {/* [DECISION 2026-09-09] 使い方の入口は全工程でここに固定（辞書の左）。
-              作業中の画像・記録を失わせないため**別タブ**で開く。 */}
+              作業中の画像・記録を失わせないため**別タブ**で開く。
+              [DECISION 2026-09-09] 見た目は toolbar-mock-v1 の**案C（冊子アイコン＋「使い方」の文字）**。
+              「?」だけではヘルプの入口だと伝わりにくかった。狭い画面では文字を隠して冊子だけにする。 */}
           <a
             className="about-link"
             href="/about"
@@ -81,7 +83,12 @@ export default function StepHeader({ step, done = [], onStep, right, onHome }: P
             data-tip="使い方"
             aria-label="使い方"
           >
-            ?
+            {/* 冊子＋左肩のインデックスタブ（本編のモチーフと呼応させる） */}
+            <span className="bk" aria-hidden>
+              <i />
+              <b />
+            </span>
+            <span className="lb">使い方</span>
           </a>
           {right}
         </div>

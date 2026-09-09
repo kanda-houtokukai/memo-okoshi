@@ -205,18 +205,7 @@ export default function Intake({ pages, busy, error, onAdd, onRemove, onMove, on
         <StepHeader
           step="intake"
           onHome={onHome}
-          right={
-            <>
-              <VocabButton toast={toast} />
-              <button
-                className={"done-btn" + (pages.length > 0 && !busy ? " ready" : "")}
-                disabled={pages.length === 0 || busy}
-                onClick={onNext}
-              >
-                伏せるへ
-              </button>
-            </>
-          }
+          right={<VocabButton toast={toast} />}
         />
 
         <div
@@ -314,6 +303,21 @@ export default function Intake({ pages, busy, error, onAdd, onRemove, onMove, on
 
           {error && <div className="errline desk-err">{error}</div>}
         </div>
+
+        {/* [DECISION 2026-09-09] 紙が1枚以上あるときだけ、画面の下に操作の帯を出す。
+            実機で「右上の次工程ボタンが次の操作だと気づかれない」ことが分かったため、
+            作業している場所（紙）から視線がそのまま落ちる位置へ移した。同じものを2つ置かないよう
+            ヘッダーの「伏せるへ」は外した。文言は行き先ではなく「次へ」（行き先はステップ表示が示す）。 */}
+        {pages.length > 0 && (
+          <div className="actionbar">
+            <span className="count">
+              <b>{pages.length}</b>枚
+            </span>
+            <button className="go" disabled={busy} onClick={onNext}>
+              次へ<span className="ar">›</span>
+            </button>
+          </div>
+        )}
       </div>
 
       {menu && mobile && (

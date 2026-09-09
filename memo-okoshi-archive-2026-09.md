@@ -46,3 +46,15 @@
 - 実データでの初の青マーカー: 「R6.5.24」→「令和6年（推定）」。
 - 検証はダミー画像2枚（docs/samples）を一時的に public に置いて JS から投入し、終了後に除去。
 - テスト 20→26件（mask.test.mts）。`npm run build` 通過（devを止めてから実行）。
+
+## 2026-09-07 P4: Vercelデプロイ（自走）
+
+- Vercel CLI（既存ログイン kanda-houtokukai）で `vercel link` → env 登録 → `deploy --prod`。
+  本番 alias https://memo-okoshi.vercel.app。GitHub連携なし（CLIデプロイ）。
+- 公開範囲: 公式ドキュメントで Hobby の制約を確認（本番ドメインは Vercel 機能で守れない）。
+  代替として合言葉ゲートをアプリ側に実装（ACCESS_CODE 未設定なら無効）。
+- 本番検証（curl）: /gate 200・robots Disallow・未認証 /api/convert 401・誤入力→/gate?e=1・
+  正解→HttpOnly Cookie→/ 200。
+- 本番検証（ブラウザ）: 合言葉→取り込み（GitHub raw のダミー2枚）→黒塗り→変換（Vercel上の
+  Gemini キー）→確認画面。元メモの黒塗り位置は [0,0,0]。
+- 台帳に本番の運用手順を追記。合言葉は台帳に書かずチャットで伝達。

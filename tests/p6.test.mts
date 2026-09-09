@@ -153,3 +153,35 @@ test("編集欄は内容に合わせて伸びる（上限と下限がある）",
   assert.ok(src.includes("useLayoutEffect"), "開いた直後（描画前）に合わせる");
   assert.ok(/onChange=\{\(e\) => \{[\s\S]*?fitHeight\(\);/.test(src), "入力中も伸びる");
 });
+
+test("次の操作は作業している場所の近くに出す（取り込み＝下の帯／伏せる＝左の帯の一番下）", () => {
+  // [DECISION 2026-09-09] 実機で「右上の次工程ボタンが次の操作だと気づかれない」ことが分かったための配置。
+  const intake = readFileSync("app/components/Intake.tsx", "utf8");
+  assert.ok(intake.includes('className="actionbar"'), "取り込みに下の操作帯がある");
+  assert.ok(/pages\.length > 0 && \(\s*<div className="actionbar">/.test(intake), "紙が0枚のときは帯を出さない");
+  // 説明コメントは対象外（画面に出る文字だけを見る）
+  const intakeBody = intake.replace(/\{\/\*[\s\S]*?\*\/\}/g, "").replace(/^\s*\/\/.*$/gm, "");
+  assert.ok(!intakeBody.includes("伏せるへ"), "ヘッダーの次工程ボタンは外す（同じものを2つ置かない）");
+  assert.ok(intake.includes("次へ"), "文言は行き先ではなく「次へ」");
+
+  const redact = readFileSync("app/components/Redact.tsx", "utf8");
+  assert.ok(redact.includes('className="ltool"'), "伏せるは左の縦帯に道具をまとめる");
+  assert.ok(!redact.includes('className="toolbar"'), "旧・下部ツールバーは廃止");
+  const rail = redact.slice(redact.indexOf('className="ltool"'), redact.indexOf('className="stage"'));
+  assert.ok(rail.indexOf('className="spacer"') < rail.indexOf('"fin"'), "次へは帯の一番下（間仕切りの後ろ）");
+  assert.ok(!/done-btn/.test(redact), "ヘッダーの「変換する」は左帯へ移した");
+
+  const css = readFileSync("app/globals.css", "utf8");
+  assert.ok(/@media \(max-width:760px\)\{[\s\S]*?\.rd-main\{flex-direction:column-reverse\}/.test(css),
+    "狭い画面では道具の帯を下へ回す");
+  assert.ok(/\.ltool \.fin\{[\s\S]*?position:sticky/.test(css), "狭い画面でも次へは常に見える");
+});
+
+test("使い方の入口は冊子アイコン＋文字（案C）", () => {
+  const src = readFileSync("app/components/StepHeader.tsx", "utf8");
+  assert.ok(src.includes('className="bk"'), "冊子アイコンがある");
+  assert.ok(/<span className="lb">使い方<\/span>/.test(src), "「使い方」の文字がある");
+  const css = readFileSync("app/globals.css", "utf8");
+  assert.ok(/\.about-link \.bk b\{[^}]*background:var\(--t3\)/.test(css), "冊子の左肩にインデックスタブ（--t3）");
+  assert.ok(/\.h-right \.about-link \.lb\{display:none\}/.test(css), "狭い画面では冊子だけに縮める");
+});

@@ -487,11 +487,6 @@ html.lock,html.lock body{height:100%;overflow:hidden;overscroll-behavior:none}
   background:rgba(43,42,37,.86);color:#fff;font-size:.8rem;padding:9px 18px;border-radius:99px;
   white-space:nowrap;max-width:92vw;pointer-events:none;animation:cardin .4s ease-out;
 }
-.toolbar{
-  flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);
-  display:flex;align-items:center;gap:6px;padding:8px 12px;
-  padding-bottom:calc(8px + env(safe-area-inset-bottom));overflow-x:auto;
-}
 .tool{
   flex:0 0 auto;width:52px;height:48px;border-radius:11px;background:var(--faint);border:1px solid var(--line);
   display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;
@@ -507,10 +502,6 @@ html.lock,html.lock body{height:100%;overflow:hidden;overscroll-behavior:none}
 .tool .glyph{font-size:1.05rem;line-height:1}
 .tool .glyph.big{font-size:1.25rem}
 .tool:disabled{opacity:.32;cursor:default}
-.toolbar .sep{flex:0 0 auto;width:1px;height:32px;background:var(--line);margin:0 4px}
-.zoom-group{display:flex;gap:6px;margin-left:auto;flex:0 0 auto}
-.tool.wide{width:auto;padding:0 14px}
-@media (max-width:760px){.tool{width:48px;height:46px}.toolbar{padding:8px 8px}}
 
 /* ---------- 変換中: 40秒かけて満ちる進捗（動きで見せる） ---------- */
 .progress.fill{
@@ -584,10 +575,20 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 }
 @keyframes tipdown{from{opacity:0;transform:translate(-50%,-3px)}to{opacity:1;transform:translate(-50%,0)}}
 
+/* 左の縦帯は画面の左端にあるので、ツールチップは右へ出す（中央合わせだと画面の外へ出る） */
+.ltool [data-tip]:hover::after, .ltool [data-tip]:focus-visible::after{
+  left:calc(100% + 8px);right:auto;bottom:auto;top:50%;transform:translateY(-50%);animation-name:tipedge;
+}
+@media (max-width:760px){
+  /* 下に回したときは上へ（縦帯ではなくなるため） */
+  .ltool [data-tip]:hover::after, .ltool [data-tip]:focus-visible::after{
+    left:50%;top:auto;bottom:calc(100% + 7px);transform:translateX(-50%);
+  }
+}
+
 .sec-actions [data-tip]:hover::after, .sec-actions [data-tip]:focus-visible::after,
 .sheet .tools [data-tip]:hover::after, .sheet .tools [data-tip]:focus-visible::after,
 .memo-zoom [data-tip]:hover::after, .memo-zoom [data-tip]:focus-visible::after,
-.zoom-group [data-tip]:hover::after, .zoom-group [data-tip]:focus-visible::after,
 .sp-item [data-tip]:hover::after, .sp-item [data-tip]:focus-visible::after,
 .vc-add [data-tip]:hover::after, .vc-add [data-tip]:focus-visible::after,
 .vc-row [data-tip]:hover::after, .vc-row [data-tip]:focus-visible::after{
@@ -595,10 +596,6 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 }
 @keyframes tipedge{from{opacity:0;transform:translateY(3px)}to{opacity:1;transform:none}}
 
-/* 伏せる画面の下部ツールバーは overflow-x:auto（＝縦もクリップされる）ので、ツールチップが
-   上端で切れていた。道具が横に収まる幅・かつホバーできる環境でだけはみ出しを許す
-   （狭い窓では従来どおり横スクロールを優先。タッチではそもそもツールチップが出ない）。 */
-@media (hover:hover) and (min-width:700px){ .toolbar{overflow:visible} }
 
 /* ---------- ヘッダー右: 主ボタンと道具（辞書） ----------
    [DECISION 2026-09-09] 押せない状態は「まだ何も挟まっていない空のインデックス」＝
@@ -718,14 +715,23 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 
 .about footer{border-top:1px solid var(--line);margin-top:20px;padding-top:20px;font-size:.8rem;color:#a8a297}
 
-/* 作業画面ヘッダーの入口（? を辞書の左に固定。押すと別タブで開く） */
+/* 作業画面ヘッダーの入口（辞書の左に固定。押すと別タブで開く）。
+   [DECISION 2026-09-09] 見た目は toolbar-mock-v1 の案C（冊子＋「使い方」）。 */
 .h-right .about-link{
-  display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
-  border-radius:50%;border:1px solid var(--line);background:var(--faint);color:var(--sub);
-  font-family:var(--head);font-weight:700;font-size:.76rem;text-decoration:none;flex:0 0 auto;
+  display:inline-flex;align-items:center;gap:6px;height:30px;padding:0 12px;
+  border-radius:9px;border:1px solid var(--line);background:var(--faint);color:var(--sub);
+  font-size:.78rem;text-decoration:none;flex:0 0 auto;
   transition:border-color .15s,color .15s,background .15s;
 }
 .h-right .about-link:hover{border-color:var(--accent);color:var(--accent);background:var(--surface)}
+.about-link .bk{position:relative;width:15px;height:16px;flex:0 0 auto}
+.about-link .bk i{position:absolute;inset:0;border:1.5px solid currentColor;border-radius:2px 3px 3px 2px}
+.about-link .bk b{position:absolute;left:-2px;top:3px;width:4px;height:7px;border-radius:0 2px 2px 0;background:var(--t3)}
+@media (max-width:900px){
+  /* 狭い画面は冊子だけに縮める（辞書・主ボタンと並ぶ幅を空ける） */
+  .h-right .about-link{padding:0 8px}
+  .h-right .about-link .lb{display:none}
+}
 
 /* ============================================================
    P6-e（2026-09-09）ステップ表示（A案）と取り込みの配置
@@ -789,3 +795,78 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .brush-ring.eraser{border:1.5px dashed rgba(255,255,255,.95);box-shadow:0 0 0 1px rgba(43,42,37,.45)}
 /* タッチにはカーソルが無いので輪も出さない（保険。実際は pointerType で弾いている） */
 @media (hover:none){.stage.brush{cursor:crosshair}.brush-ring{display:none!important}}
+
+/* ============================================================
+   P6-i（2026-09-09）操作導線の作り直し
+   正本: docs/mock/toolbar-mock-v1.html（凍結・参照のみ）
+   ============================================================ */
+/* ---------- 取り込み: 下部の操作帯 ----------
+   紙が1枚以上のときだけ出す。作業している場所（紙）から視線がそのまま落ちる位置に次の操作を置く。 */
+.actionbar{
+  flex:0 0 auto;background:var(--surface);border-top:1px solid var(--line);
+  display:flex;align-items:center;gap:14px;padding:11px 18px;
+  padding-bottom:calc(11px + env(safe-area-inset-bottom));
+  box-shadow:0 -3px 14px rgba(43,42,37,.05);
+}
+.actionbar .count{font-size:.82rem;color:var(--sub)}
+.actionbar .count b{font-family:var(--head);color:var(--ink);font-size:1rem;margin-right:2px}
+.actionbar .go{
+  margin-left:auto;background:var(--accent);color:#fff;border:none;border-radius:10px;
+  padding:11px 26px 11px 20px;font-family:var(--head);font-size:.92rem;font-weight:700;letter-spacing:.08em;
+  display:flex;align-items:center;gap:10px;
+  box-shadow:0 2px 8px rgba(51,86,107,.25);animation:gopulse 2.6s ease-out infinite;
+}
+@keyframes gopulse{
+  0%{box-shadow:0 2px 8px rgba(51,86,107,.25),0 0 0 0 rgba(51,86,107,.30)}
+  70%{box-shadow:0 2px 8px rgba(51,86,107,.25),0 0 0 11px rgba(51,86,107,0)}
+  100%{box-shadow:0 2px 8px rgba(51,86,107,.25),0 0 0 0 rgba(51,86,107,0)}
+}
+.actionbar .go::before{content:"";width:4px;height:17px;border-radius:2px;background:var(--t1)}
+.actionbar .go:hover{background:var(--accent-deep)}
+.actionbar .go:disabled{animation:none;opacity:.6;cursor:default}
+.actionbar .go .ar{font-size:.9rem;opacity:.85}
+@media (max-width:720px){
+  /* 親指が届く大きさに（横幅いっぱいまでは広げず、右手前に置く） */
+  .actionbar{padding:10px 14px;padding-bottom:calc(10px + env(safe-area-inset-bottom))}
+  .actionbar .go{padding:13px 24px 13px 18px;font-size:.95rem}
+}
+
+/* ---------- 伏せる: 道具を左の縦帯へ ---------- */
+.rd-main{flex:1 1 auto;display:flex;min-height:0}
+.ltool{
+  flex:0 0 auto;width:64px;background:var(--surface);border-right:1px solid var(--line);
+  display:flex;flex-direction:column;align-items:center;gap:5px;padding:10px 0;
+}
+.ltool .grp{display:flex;flex-direction:column;gap:5px;align-items:center}
+.ltool .hr{width:30px;height:1px;background:var(--line);margin:6px 0;flex:0 0 auto}
+.ltool .spacer{flex:1 1 auto}
+.ltool .tool{width:46px;height:44px}
+.ltool .tool .lb{font-size:.55rem}
+.ltool .fin{
+  flex:0 0 auto;width:48px;height:48px;border-radius:12px;background:var(--accent);color:#fff;border:none;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;
+  font-family:var(--head);font-weight:700;letter-spacing:.04em;
+  box-shadow:0 2px 8px rgba(51,86,107,.28);animation:gopulse 2.6s ease-out infinite;
+}
+.ltool .fin .ar{font-size:1rem;line-height:1}
+.ltool .fin .lb{font-size:.56rem}
+.ltool .fin:hover{background:var(--accent-deep)}
+.ltool .fin:disabled{animation:none;opacity:.55;cursor:default}
+@media (max-width:760px){
+  /* 狭い画面は帯が場所を取りすぎるので下へ回す（DOMはそのまま・向きだけ変える） */
+  .rd-main{flex-direction:column-reverse}
+  .ltool{
+    width:auto;flex-direction:row;align-items:center;gap:6px;
+    border-right:none;border-top:1px solid var(--line);
+    padding:8px 10px;padding-bottom:calc(8px + env(safe-area-inset-bottom));overflow-x:auto;
+  }
+  .ltool .grp{flex-direction:row}
+  .ltool .hr{width:1px;height:32px;margin:0 3px}
+  .ltool .tool{width:48px;height:46px}
+  /* 道具は横スクロールするが、次へは常に見えていないと詰まる（右端に貼り付ける） */
+  .ltool .fin{
+    width:auto;min-width:56px;height:46px;padding:0 14px;flex-direction:row;gap:6px;
+    position:sticky;right:0;z-index:2;
+  }
+  .ltool .fin .lb{font-size:.72rem}
+}

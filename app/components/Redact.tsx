@@ -251,85 +251,103 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
               </div>
             )}
             <VocabButton toast={toast} />
-            <button className={"done-btn" + (converting ? " busy" : " ready")} disabled={converting} onClick={tryConvert}>
-              {converting ? "変換中" : "変換する"}
-            </button>
           </>
         }
       />
       {converting && <div className="progress fill" />}
 
-      <div
-        className={
-          "stage" + (panMode ? " pan" : "") + (zp.panning ? " grabbing" : "") + (brushRing ? " brush" : "")
-        }
-        ref={stageRef}
-        onPointerDown={zp.onPointerDown}
-        onPointerMove={(e) => {
-          zp.onPointerMove(e);
-          moveRing(e);
-        }}
-        onPointerUp={zp.onPointerUp}
-        onPointerCancel={(e) => {
-          zp.onPointerUp(e);
-          setRingOn(false);
-        }}
-        onPointerEnter={moveRing}
-        onPointerLeave={() => setRingOn(false)}
-        onContextMenu={(e) => e.preventDefault()}
-      >
-        <canvas ref={viewRef} className="view" />
-        <div
-          ref={ringRef}
-          className={"brush-ring" + (brushRing ? " on" : "") + (eraser ? " eraser" : " pen")}
-          style={{ width: ringSize, height: ringSize }}
-        />
-        <div className={"zoom-badge" + (zp.zoomShown ? " on" : "")}>{Math.round(zp.t.scale * 100)}%</div>
-        {panMode && <div className="mode-pill on">移動モード</div>}
-        {hint && <div className="first-hint">氏名や固有名詞を指でなぞって隠します</div>}
-        {error && <div className="errline stage-err">{error}</div>}
-      </div>
+      {/* [DECISION 2026-09-09] 道具は画面左の縦帯にまとめる（編集ソフトの作法）。次へ進むボタンも同じ帯の
+          一番下に置き、道具と行き先を一箇所に集める。狭い画面では帯が場所を取りすぎるので下へ回す
+          （CSS の flex-direction を変えるだけ。DOMは1つ）。 */}
+      <div className="rd-main">
+        <div className="ltool">
+          <div className="grp">
+            <T on={!eraser && size === "s"} tip="細く塗る" onClick={() => setPen("s")}>
+              <span className="dot" style={{ ["--d" as string]: "7px" }} />
+              <span className="lb">細</span>
+            </T>
+            <T on={!eraser && size === "m"} tip="塗る" onClick={() => setPen("m")}>
+              <span className="dot" style={{ ["--d" as string]: "11px" }} />
+              <span className="lb">中</span>
+            </T>
+            <T on={!eraser && size === "l"} tip="太く塗る" onClick={() => setPen("l")}>
+              <span className="dot" style={{ ["--d" as string]: "16px" }} />
+              <span className="lb">太</span>
+            </T>
+            <T on={eraser} tip="消しゴム" onClick={() => setEraser((v) => !v)}>
+              <span className="er" />
+              <span className="lb">消す</span>
+            </T>
+          </div>
+          <div className="hr" />
+          <div className="grp">
+            <T tip="元に戻す" disabled={!canUndo(page.mask)} onClick={() => onMask(page.id, undo(page.mask))}>
+              <span className="glyph">↶</span>
+              <span className="lb">戻す</span>
+            </T>
+            <T tip="全部消す" disabled={page.mask.strokes.length === 0} onClick={() => onMask(page.id, clearAll(page.mask))}>
+              <span className="glyph">✕</span>
+              <span className="lb">全消し</span>
+            </T>
+          </div>
+          <div className="hr" />
+          <div className="grp">
+            <T tip="拡大" onClick={() => zp.zoomBy(1.5)}>
+              <span className="glyph big">＋</span>
+            </T>
+            <T tip="縮小" onClick={() => zp.zoomBy(1 / 1.5)}>
+              <span className="glyph big">−</span>
+            </T>
+            <T tip="全体表示" onClick={zp.fit}>
+              <span className="lb mid">全体</span>
+            </T>
+            <T on={panMode} tip="移動モード" onClick={() => setPanMode((v) => !v)}>
+              <span className="glyph">✥</span>
+              <span className="lb">移動</span>
+            </T>
+          </div>
+          <div className="spacer" />
+          <button
+            className={"fin" + (converting ? " busy" : "")}
+            disabled={converting}
+            onClick={tryConvert}
+            data-tip={converting ? "変換中" : "変換する"}
+            aria-label={converting ? "変換中" : "変換する"}
+          >
+            <span className="ar">›</span>
+            <span className="lb">{converting ? "変換中" : "次へ"}</span>
+          </button>
+        </div>
 
-      <div className="toolbar">
-        <T on={!eraser && size === "s"} tip="細く塗る" onClick={() => setPen("s")}>
-          <span className="dot" style={{ ["--d" as string]: "7px" }} />
-          <span className="lb">細</span>
-        </T>
-        <T on={!eraser && size === "m"} tip="塗る" onClick={() => setPen("m")}>
-          <span className="dot" style={{ ["--d" as string]: "11px" }} />
-          <span className="lb">中</span>
-        </T>
-        <T on={!eraser && size === "l"} tip="太く塗る" onClick={() => setPen("l")}>
-          <span className="dot" style={{ ["--d" as string]: "16px" }} />
-          <span className="lb">太</span>
-        </T>
-        <div className="sep" />
-        <T on={eraser} tip="消しゴム" onClick={() => setEraser((v) => !v)}>
-          <span className="er" />
-          <span className="lb">消す</span>
-        </T>
-        <T tip="元に戻す" disabled={!canUndo(page.mask)} onClick={() => onMask(page.id, undo(page.mask))}>
-          <span className="glyph">↶</span>
-          <span className="lb">戻す</span>
-        </T>
-        <T tip="全部消す" disabled={page.mask.strokes.length === 0} onClick={() => onMask(page.id, clearAll(page.mask))}>
-          <span className="glyph">✕</span>
-          <span className="lb">全消し</span>
-        </T>
-        <div className="zoom-group">
-          <T tip="縮小" onClick={() => zp.zoomBy(1 / 1.5)}>
-            <span className="glyph big">−</span>
-          </T>
-          <T tip="全体表示" onClick={zp.fit} wide>
-            <span className="lb mid">全体</span>
-          </T>
-          <T tip="拡大" onClick={() => zp.zoomBy(1.5)}>
-            <span className="glyph big">＋</span>
-          </T>
-          <T on={panMode} tip="移動モード" onClick={() => setPanMode((v) => !v)}>
-            <span className="glyph">✥</span>
-            <span className="lb">移動</span>
-          </T>
+        <div
+          className={
+            "stage" + (panMode ? " pan" : "") + (zp.panning ? " grabbing" : "") + (brushRing ? " brush" : "")
+          }
+          ref={stageRef}
+          onPointerDown={zp.onPointerDown}
+          onPointerMove={(e) => {
+            zp.onPointerMove(e);
+            moveRing(e);
+          }}
+          onPointerUp={zp.onPointerUp}
+          onPointerCancel={(e) => {
+            zp.onPointerUp(e);
+            setRingOn(false);
+          }}
+          onPointerEnter={moveRing}
+          onPointerLeave={() => setRingOn(false)}
+          onContextMenu={(e) => e.preventDefault()}
+        >
+          <canvas ref={viewRef} className="view" />
+          <div
+            ref={ringRef}
+            className={"brush-ring" + (brushRing ? " on" : "") + (eraser ? " eraser" : " pen")}
+            style={{ width: ringSize, height: ringSize }}
+          />
+          <div className={"zoom-badge" + (zp.zoomShown ? " on" : "")}>{Math.round(zp.t.scale * 100)}%</div>
+          {panMode && <div className="mode-pill on">移動モード</div>}
+          {hint && <div className="first-hint">氏名や固有名詞を指でなぞって隠します</div>}
+          {error && <div className="errline stage-err">{error}</div>}
         </div>
       </div>
 
