@@ -15,9 +15,17 @@ const BASE = "https://generativelanguage.googleapis.com/v1beta";
 /**
  * 優先して使うモデル（この順に試す）。一覧に無い／呼んで失敗したら次へ進み、
  * すべて駄目なら従来どおり一覧を新しい順に試す。
- * 2026-09-09時点の実測: 3.8/3.7-flash は混雑で 503 が出やすく、3.6-flash が安定していた。
+ *
+ * [DECISION 2026-09-10] 先頭を **gemini-3.5-flash** にした（2026-09-09は 3.6-flash が先頭だった）。
+ *   判読しにくい手書き（`docs/samples/dummy-memo-04-hard.png`・わざと5か所を潰した素材）で比較した実測:
+ *   - **3.6-flash は潰した「訪看」を「姉から声かけ」と読み替え、黄で申告せずに通した**（2回とも）。
+ *     書かれていない事実を作る誤読で、黄0件の回もあった（0/1/2件）。
+ *   - **3.5-flash は潰した5か所すべてを正しく読み、黄または青で申告した**（黄 2/2/4件・0件の回なし）。
+ *   優先順位は「速さ」ではなく **「読めない箇所を申告するか」** で決める（設計の核）。
+ *   3.5-flash は 1変換 24〜31秒（3.6-flash は 15〜20秒）だが、60秒の許容内。
+ *   経緯と数値は台帳「P7-c の比較」を読むこと。並びを変えるときも同じ観点で測ってから変える。
  */
-const PREFERRED = ["gemini-3.6-flash", "gemini-3.5-flash"];
+const PREFERRED = ["gemini-3.5-flash", "gemini-3.6-flash"];
 
 type ModelInfo = { name: string; supportedGenerationMethods?: string[] };
 

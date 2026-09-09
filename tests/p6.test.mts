@@ -249,6 +249,16 @@ test("モデルは優先順位を持つが、使えなければ従来どおり�
   assert.equal(new Set(withPreferred(ordered)).size, ordered.length, "重複しない");
 });
 
+test("優先モデルの先頭は台帳の決定どおり（P7-c: 読めない箇所を申告するモデルを上に置く）", () => {
+  // 速さで並べ替えられないように、いまの決定を機械で見張る。
+  // 変えるときは `docs/samples/dummy-memo-04-hard.png` で測り直し、台帳「P7-c の比較」を更新すること。
+  const src = readFileSync("lib/gemini.ts", "utf8");
+  const line = src.slice(src.indexOf("const PREFERRED"), src.indexOf("\n", src.indexOf("const PREFERRED")));
+  const list = [...line.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
+  assert.deepEqual(list, ["gemini-3.5-flash", "gemini-3.6-flash"]);
+  assert.ok(src.includes("[DECISION 2026-09-10]"), "並べ替えた理由がコード側にも残っている");
+});
+
 test("生成パラメータは構造化タスク向け（temperature 0）", () => {
   const src = readFileSync("lib/gemini.ts", "utf8");
   assert.ok(/temperature:\s*0\b/.test(src), "temperature は 0（決め打ちの復号）");
