@@ -232,15 +232,15 @@ export default function Intake({ pages, busy, error, onAdd, onRemove, onMove, on
           }}
           onDrop={onDrop}
         >
-          {pages.length === 0 && (
-            <div className="empty">
+          <div className="sheets" ref={sheetsRef}>
+            {/* [DECISION 2026-09-09] 空のときも**机の左上**（最初の紙の定位置）に置く。
+                中央に置くと紙を入れた瞬間に位置が飛ぶため。寸法は紙と同じ 228×314。 */}
+            {pages.length === 0 && (
               <button className="slot" onClick={openIntake} disabled={busy} aria-label="メモを取り込む">
                 <span className="plus">{busy ? "…" : "＋"}</span>
               </button>
-            </div>
-          )}
+            )}
 
-          <div className="sheets" ref={sheetsRef}>
             {pages.map((p, i) => (
               <div
                 key={p.id}

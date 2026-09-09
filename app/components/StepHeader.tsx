@@ -2,6 +2,8 @@
 
 // 共通ヘッダー。ステップ表示は「済んだ工程は押せる（戻れる）／未来の工程は薄い」。
 // [DECISION 2026-09-08] 戻る導線はここに集約（kuronuri-mock-v1 の steps に合わせる）。
+// [DECISION 2026-09-09] ステップ表示は**番号入りのタブ列**（docs/mock/steps-mock-v1.html の A案。B案=進捗バー型は不採用）。
+//   丸い番号を添えて「全部で5工程」と「いまどこか」を形で示す。済んだ工程は押して戻れる。
 // [DECISION 2026-09-09] 工程名の表示は「黒塗り」→**「伏せる」**。「黒塗り」は行政文書の
 //   不開示処分を連想させるため。**変えるのは画面の文言だけ**で、コード内の識別子
 //   （Step の "mask"／Redact／kuronuri-mock）は据え置く（無用な差分を増やさない）。
@@ -43,17 +45,26 @@ export default function StepHeader({ step, done = [], onStep, right, onHome }: P
         <div className="steps">
           {STEPS.map((s, i) => {
             const isDone = done.includes(s.key);
+            const n = <span className="n">{i + 1}</span>;
             return (
               <span key={s.key} style={{ display: "contents" }}>
                 {i > 0 && <i>›</i>}
                 {s.key === step ? (
-                  <span className="cur">{s.label}</span>
+                  <span className="s cur">
+                    {n}
+                    {s.label}
+                  </span>
                 ) : isDone && onStep ? (
-                  <button className="st-done" onClick={() => onStep(s.key)}>
+                  <button className="s done" onClick={() => onStep(s.key)}>
+                    {n}
                     {s.label}
                   </button>
                 ) : (
-                  <span className={i > cur ? "future" : undefined}>{s.label}</span>
+                  // 済んだが戻れない工程（変換中の「伏せる」など）は、済んだ見た目のまま押せないだけにする
+                  <span className={"s " + (i < cur ? "past" : "future")}>
+                    {n}
+                    {s.label}
+                  </span>
                 )}
               </span>
             );

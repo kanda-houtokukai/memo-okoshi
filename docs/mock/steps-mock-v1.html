@@ -1,0 +1,183 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メモおこし — ステップ表示 比較</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f1eb; --desk:#eeebe3; --surface:#ffffff; --ink:#2b2a25; --sub:#7b766c;
+  --line:#e3dfd6; --faint:#faf9f5;
+  --accent:#33566b; --accent-deep:#274456;
+  --t1:#8fae9d; --t2:#93a9c0; --t3:#cbb478; --t4:#c39a8a; --t5:#a89bb5; --t6:#9db3ae;
+  --head:"Zen Kaku Gothic New","Hiragino Sans",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Hiragino Sans","Yu Gothic UI",Meiryo,system-ui,sans-serif;background:#dedad0;color:var(--ink);-webkit-font-smoothing:antialiased}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+
+.label{font-family:var(--head);font-size:.78rem;letter-spacing:.14em;color:#6f6a60;padding:20px 22px 8px}
+.frame{background:var(--bg);margin:0 16px 26px;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(43,42,37,.10)}
+
+header{background:var(--surface);border-bottom:1px solid var(--line)}
+.h-in{display:flex;align-items:center;gap:18px;padding:9px 16px}
+.brand{font-family:var(--head);font-weight:700;font-size:1rem;letter-spacing:.06em;display:flex;align-items:center;gap:8px;flex:0 0 auto}
+.brand::before{content:"";width:8px;height:20px;border-radius:3px;background:linear-gradient(180deg,var(--t1),var(--t2))}
+.h-right{margin-left:auto;display:flex;align-items:center;gap:9px;flex:0 0 auto}
+.q{width:32px;height:32px;border-radius:9px;border:1px solid var(--line);background:var(--faint);color:var(--sub);font-size:.85rem}
+.dict{background:var(--faint);border:1px solid var(--line);border-radius:9px;padding:7px 14px 7px 11px;font-size:.8rem;color:var(--sub);display:flex;align-items:center;gap:8px}
+.dict::before{content:"";width:4px;height:15px;border-radius:2px;background:var(--t3)}
+.next{border-radius:9px;padding:8px 20px;font-family:var(--head);font-size:.87rem;font-weight:700;letter-spacing:.06em;background:var(--faint);border:1.5px dashed #cfc9bc;color:#b3ada1;cursor:default}
+
+/* ============ A案: 番号入りのタブ列 ============ */
+.stepsA{display:flex;align-items:center;gap:3px}
+.stepsA .s{
+  display:flex;align-items:center;gap:7px;padding:5px 13px 5px 7px;border-radius:99px;
+  font-size:.78rem;color:#a9a396;background:transparent;transition:background .2s,color .2s;
+}
+.stepsA .s .n{
+  width:19px;height:19px;border-radius:50%;background:#ddd8cc;color:#fff;
+  font-family:var(--head);font-size:.62rem;font-weight:700;
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+}
+.stepsA .s.done{color:var(--accent);cursor:pointer}
+.stepsA .s.done .n{background:var(--t1)}
+.stepsA .s.done:hover{background:#eaeeef}
+.stepsA .s.cur{background:var(--accent);color:#fff;font-weight:700}
+.stepsA .s.cur .n{background:rgba(255,255,255,.28);color:#fff}
+.stepsA i{font-style:normal;color:#cfc9bc;font-size:.7rem}
+
+/* ============ B案: 進捗バー型 ============ */
+.stepsB{display:flex;align-items:stretch;gap:0;border-radius:8px;overflow:hidden;background:#eeebe3}
+.stepsB .s{
+  position:relative;padding:7px 20px 7px 24px;font-size:.78rem;color:#a9a396;
+  display:flex;align-items:center;background:#eeebe3;transition:background .2s,color .2s;
+}
+.stepsB .s::after{ /* 矢羽の切り込み */
+  content:"";position:absolute;right:-9px;top:0;bottom:0;width:18px;z-index:2;
+  background:inherit;clip-path:polygon(0 0,50% 50%,0 100%,0 100%);
+}
+.stepsB .s:last-child::after{display:none}
+.stepsB .s.done{background:#e2e8e5;color:#5b7a6b;cursor:pointer}
+.stepsB .s.done:hover{background:#d8e2dd}
+.stepsB .s.cur{background:var(--accent);color:#fff;font-weight:700;z-index:3}
+.stepsB .s .n{
+  font-family:var(--head);font-size:.62rem;font-weight:700;margin-right:7px;opacity:.7;
+}
+
+/* ---------- 机（両案共通） ---------- */
+.desk{height:330px;background:var(--desk);position:relative;overflow:hidden}
+.desk::before{
+  content:"";position:absolute;inset:0;pointer-events:none;opacity:.55;
+  background-image:repeating-linear-gradient(92deg,
+    rgba(150,138,118,.028) 0 2px, transparent 2px 7px,
+    rgba(150,138,118,.018) 7px 8px, transparent 8px 19px);
+}
+.sheets{position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:26px 30px;padding:34px}
+.slot{
+  width:228px;height:314px;border-radius:4px;flex:0 0 auto;
+  border:1.5px dashed #c8c1b2;background:rgba(255,255,255,.5);
+  display:flex;align-items:center;justify-content:center;
+  transform:rotate(-1.2deg);animation:breathe 4.2s ease-in-out infinite;cursor:pointer;
+}
+@keyframes breathe{0%,100%{transform:rotate(-1.2deg) translateY(0)}50%{transform:rotate(-1.2deg) translateY(-5px)}}
+.slot:hover{background:rgba(255,255,255,.85);border-color:var(--accent)}
+.slot .plus{font-size:2.2rem;color:#a49d8e;font-weight:300;line-height:1}
+.ghost{width:228px;height:314px;flex:0 0 auto;border-radius:4px;border:1px dashed rgba(180,172,156,.35)}
+.note{padding:10px 22px 18px;font-size:.76rem;color:#8b8678;background:var(--bg)}
+</style>
+</head>
+<body>
+
+<div class="label">A案 — 番号入りのタブ列</div>
+<div class="frame">
+  <header>
+    <div class="h-in">
+      <div class="brand">メモおこし</div>
+      <div class="stepsA">
+        <div class="s cur"><span class="n">1</span>取り込み</div><i>›</i>
+        <div class="s"><span class="n">2</span>伏せる</div><i>›</i>
+        <div class="s"><span class="n">3</span>変換</div><i>›</i>
+        <div class="s"><span class="n">4</span>確認</div><i>›</i>
+        <div class="s"><span class="n">5</span>出力</div>
+      </div>
+      <div class="h-right">
+        <button class="q">?</button>
+        <button class="dict">辞書</button>
+        <button class="next">伏せるへ</button>
+      </div>
+    </div>
+  </header>
+  <div class="desk">
+    <div class="sheets">
+      <div class="slot"><span class="plus">＋</span></div>
+      <div class="ghost"></div><div class="ghost"></div>
+    </div>
+  </div>
+  <div class="note">※薄い枠は「3枚並ぶとこの位置」を示すための目安です（実装では出しません）</div>
+</div>
+
+<div class="label">B案 — 進捗バー型（済んだ工程が緑に染まる）</div>
+<div class="frame">
+  <header>
+    <div class="h-in">
+      <div class="brand">メモおこし</div>
+      <div class="stepsB">
+        <div class="s cur"><span class="n">1</span>取り込み</div>
+        <div class="s"><span class="n">2</span>伏せる</div>
+        <div class="s"><span class="n">3</span>変換</div>
+        <div class="s"><span class="n">4</span>確認</div>
+        <div class="s"><span class="n">5</span>出力</div>
+      </div>
+      <div class="h-right">
+        <button class="q">?</button>
+        <button class="dict">辞書</button>
+        <button class="next">伏せるへ</button>
+      </div>
+    </div>
+  </header>
+  <div class="desk">
+    <div class="sheets">
+      <div class="slot"><span class="plus">＋</span></div>
+      <div class="ghost"></div><div class="ghost"></div>
+    </div>
+  </div>
+  <div class="note">※薄い枠は目安です</div>
+</div>
+
+<div class="label">参考 — 3工程目まで進んだ状態（両案）</div>
+<div class="frame">
+  <header>
+    <div class="h-in">
+      <div class="brand">メモおこし</div>
+      <div class="stepsA">
+        <div class="s done"><span class="n">1</span>取り込み</div><i>›</i>
+        <div class="s done"><span class="n">2</span>伏せる</div><i>›</i>
+        <div class="s cur"><span class="n">3</span>変換</div><i>›</i>
+        <div class="s"><span class="n">4</span>確認</div><i>›</i>
+        <div class="s"><span class="n">5</span>出力</div>
+      </div>
+      <div class="h-right"><button class="q">?</button><button class="dict">辞書</button></div>
+    </div>
+  </header>
+  <header style="border-top:1px solid var(--line)">
+    <div class="h-in">
+      <div class="brand">メモおこし</div>
+      <div class="stepsB">
+        <div class="s done"><span class="n">1</span>取り込み</div>
+        <div class="s done"><span class="n">2</span>伏せる</div>
+        <div class="s cur"><span class="n">3</span>変換</div>
+        <div class="s"><span class="n">4</span>確認</div>
+        <div class="s"><span class="n">5</span>出力</div>
+      </div>
+      <div class="h-right"><button class="q">?</button><button class="dict">辞書</button></div>
+    </div>
+  </header>
+  <div class="note">上=A案 / 下=B案。済んだ工程は押して戻れます。</div>
+</div>
+
+</body>
+</html>

@@ -304,13 +304,12 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 }
 .desk.over{background:#e7e3d8}
 .desk.over::after{content:"";position:absolute;inset:12px;border:2px dashed #b9b1a0;border-radius:16px;pointer-events:none}
-.sheets{position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:26px 30px;padding:38px 34px 60px;align-content:flex-start}
+.sheets{position:relative;z-index:2;display:flex;flex-wrap:wrap;gap:26px 30px;padding:34px 34px 60px;align-content:flex-start}
 .desk-err{position:absolute;left:16px;right:16px;bottom:16px;margin:0;z-index:6}
 
-/* 空のとき: 中央に紙の輪郭がひとつ、ゆっくり浮き沈みする */
-.empty{position:absolute;inset:0;display:flex;align-items:center;justify-content:center;z-index:1}
+/* 空のとき: 机の左上（最初の紙の定位置）に紙の輪郭がひとつ、ゆっくり浮き沈みする */
 .slot{
-  width:190px;height:262px;border-radius:4px;border:1.5px dashed #c8c1b2;background:rgba(255,255,255,.5);
+  width:228px;height:314px;border-radius:4px;border:1.5px dashed #c8c1b2;background:rgba(255,255,255,.5);
   display:flex;align-items:center;justify-content:center;transform:rotate(-1.2deg);
   animation:float 4.2s ease-in-out infinite;transition:transform .25s, background .25s, border-color .25s;
 }
@@ -323,7 +322,7 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 
 /* 紙 */
 .sheet{
-  width:190px;flex:0 0 auto;position:relative;background:var(--surface);border-radius:3px;
+  width:228px;flex:0 0 auto;position:relative;background:var(--surface);border-radius:3px;
   box-shadow:0 2px 5px rgba(43,42,37,.10), 0 8px 18px rgba(43,42,37,.06);
   transition:transform .22s cubic-bezier(.2,.8,.3,1), box-shadow .22s;
   user-select:none;-webkit-user-select:none;
@@ -338,7 +337,7 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
   transform:rotate(0deg) translateY(-4px);
   box-shadow:0 4px 9px rgba(43,42,37,.13), 0 14px 30px rgba(43,42,37,.10);z-index:5;
 }
-.sheet img{display:block;width:100%;height:246px;object-fit:cover;border-radius:3px 3px 0 0;background:#f6f4ee;-webkit-user-drag:none}
+.sheet img{display:block;width:100%;height:282px;object-fit:cover;border-radius:3px 3px 0 0;background:#f6f4ee;-webkit-user-drag:none}
 .sheet .foot{display:flex;align-items:center;gap:7px;padding:7px 9px;border-top:1px solid #f0ede5}
 .sheet .no{font-family:var(--head);font-size:.66rem;font-weight:700;color:#fff;background:var(--nc,var(--t1));border-radius:3px;padding:1px 7px;letter-spacing:.05em}
 .sheet .nm{font-size:.66rem;color:#b0aa9e;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;flex:1}
@@ -376,7 +375,7 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 
 /* 末尾の空きスロット */
 .add{
-  width:190px;height:288px;flex:0 0 auto;border-radius:4px;border:1.5px dashed #cbc4b5;
+  width:228px;height:314px;flex:0 0 auto;border-radius:4px;border:1.5px dashed #cbc4b5;
   background:rgba(255,255,255,.42);display:flex;align-items:center;justify-content:center;
   color:#a49d8e;font-size:1.9rem;font-weight:300;transform:rotate(.5deg);
   transition:background .2s,border-color .2s,color .2s;
@@ -387,9 +386,8 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 @media (max-width:720px){
   .sheets{gap:20px;padding:24px 18px 60px}
   .sheet,.add,.slot{width:calc(50% - 10px)}
-  .sheet img{height:auto;aspect-ratio:.72}
-  .add{height:auto;aspect-ratio:.66}
-  .slot{height:auto;aspect-ratio:.72;max-width:200px}
+  .sheet img{height:auto;aspect-ratio:.81}
+  .add,.slot{height:auto;aspect-ratio:.726}
   .sheet .tools{opacity:1}
   .sheet.drop-here::after,.add.drop-here::after{left:-11px}
 }
@@ -460,10 +458,7 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 /* ============================================================
    P6（2026-09-08）実機フィードバックによる改良
    ============================================================ */
-/* ---------- ヘッダー: 済んだ工程は押せる／未来は薄い／ブランドはホームへ ---------- */
-.steps .st-done{padding:3px 9px;border-radius:99px;color:var(--accent);font-size:.72rem;background:none;border:none;font-family:inherit}
-.steps .st-done:hover{background:#eef2f4}
-.steps .future{color:#c2bdb2}
+/* ---------- ヘッダー: ブランドはホームへ（ステップ表示は P6-e の A案へ差し替え） ---------- */
 .brand.as-btn{background:none;border:none;padding:0;color:inherit;font:inherit;font-family:var(--head);font-weight:700;font-size:1.05rem;letter-spacing:.05em}
 .pages-nav{display:flex;gap:5px}
 .pages-nav .pg{min-width:34px;padding:4px 11px}
@@ -727,3 +722,31 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
   transition:border-color .15s,color .15s,background .15s;
 }
 .h-right .about-link:hover{border-color:var(--accent);color:var(--accent);background:var(--surface)}
+
+/* ============================================================
+   P6-e（2026-09-09）ステップ表示（A案）と取り込みの配置
+   正本: docs/mock/steps-mock-v1.html の **A案**（番号入りのタブ列）。B案（進捗バー型）は不採用。
+   ============================================================ */
+/* 番号入りのタブ列。全部で5工程あることと、いまどこかを形で示す。説明文は足さない。
+   ※ モックv6由来の `.steps span{padding:3px 9px…}` を、ここで `.s` と `.n` に上書きしている。 */
+.steps{gap:3px}
+.steps .s{
+  display:flex;align-items:center;gap:7px;padding:5px 13px 5px 7px;border-radius:99px;
+  font-size:.78rem;color:#a9a396;background:transparent;white-space:nowrap;
+  font-family:inherit;border:none;transition:background .2s,color .2s;
+}
+.steps .s .n{
+  width:19px;height:19px;padding:0;border-radius:50%;background:#ddd8cc;color:#fff;
+  font-family:var(--head);font-size:.62rem;font-weight:700;line-height:1;
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto;
+}
+.steps .s.done{color:var(--accent);cursor:pointer}
+.steps .s.done .n{background:var(--t1)}
+.steps .s.done:hover{background:#eaeeef}
+.steps .s.cur{background:var(--accent);color:#fff;font-weight:700}
+.steps .s.cur .n{background:rgba(255,255,255,.28);color:#fff}
+.steps .s.future{color:#c2bdb2}
+/* 済んだが戻れない工程（変換中の「伏せる」など）: 済んだ色のまま、押せる見た目にはしない */
+.steps .s.past{color:var(--accent);cursor:default}
+.steps .s.past .n{background:var(--t1)}
+.steps i{font-size:.7rem;color:#cfc9bc}
