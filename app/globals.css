@@ -750,3 +750,21 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .steps .s.past{color:var(--accent);cursor:default}
 .steps .s.past .n{background:var(--t1)}
 .steps i{font-size:.7rem;color:#cfc9bc}
+
+/* ---------- P6-f（2026-09-09）「次の次」の置き場所 ----------
+   空きスロット（＋）の後ろに薄い枠を2つ控えさせ、複数枚入ることを形で示す。
+   ＋より一段控えめ（線は細く淡く、地色も薄く）＝押せる主役ではないことが見て分かる。
+   押すと＋と同じ取り込みメニューが開く（押して何も起きない状態にはしない）。 */
+.ghost{
+  width:228px;height:314px;flex:0 0 auto;border-radius:4px;
+  border:1px dashed rgba(180,172,156,.38);background:rgba(255,255,255,.18);
+  transform:rotate(-.4deg);transition:background .2s,border-color .2s;
+}
+.ghost.ghost2{transform:rotate(.6deg)}
+.ghost:hover{background:rgba(255,255,255,.45);border-color:#cbc4b5}
+.ghost:disabled{cursor:default}
+@media (max-width:720px){
+  .ghost{width:calc(50% - 10px);height:auto;aspect-ratio:.726}
+  /* 狭い画面は2列。空のときに「＋＋薄枠」で1行に収まるよう、控えは1つだけにする */
+  .ghost.ghost2{display:none}
+}

@@ -304,6 +304,12 @@ export default function Intake({ pages, busy, error, onAdd, onRemove, onMove, on
                 {busy ? "…" : "＋"}
               </button>
             )}
+
+            {/* [DECISION 2026-09-09] 「次の次」の置き場所を薄い枠で2つ控えさせ、**何枚でも足せる**ことを
+                形で伝える（説明文を足さない）。押すと＋と同じ取り込みメニューが開く（押して無反応にしない）。
+                読み上げには出さない（＋と同じ役目が3つ並んで聞こえるのを避ける）。 */}
+            <button className="ghost" aria-hidden tabIndex={-1} disabled={busy} onClick={openIntake} />
+            <button className="ghost ghost2" aria-hidden tabIndex={-1} disabled={busy} onClick={openIntake} />
           </div>
 
           {error && <div className="errline desk-err">{error}</div>}
