@@ -59,7 +59,21 @@ export default function StepHeader({ step, done = [], onStep, right, onHome }: P
             );
           })}
         </div>
-        <div className="h-right">{right}</div>
+        <div className="h-right">
+          {/* [DECISION 2026-09-09] 使い方の入口は全工程でここに固定（辞書の左）。
+              作業中の画像・記録を失わせないため**別タブ**で開く。 */}
+          <a
+            className="about-link"
+            href="/about"
+            target="_blank"
+            rel="noopener"
+            data-tip="使い方"
+            aria-label="使い方"
+          >
+            ?
+          </a>
+          {right}
+        </div>
       </div>
     </header>
   );

@@ -656,3 +656,74 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 }
 .vc-ex-term{font-size:.86rem;flex:0 0 auto;max-width:9em;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
 .vc-ex-gloss{font-size:.76rem;flex:1 1 auto;min-width:0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+
+/* ============================================================
+   P6-d（2026-09-09）使い方ページ /about
+   内容と体裁の正本: docs/mock/tsukaikata-mock-v1.html（モックの <style> を .about 配下へ写した）。
+   作業画面の外の独立ページなので、既存の header/.brand を流用しつつ幅と余白だけ上書きする。
+   ============================================================ */
+.about{line-height:1.85}
+.about .h-in{max-width:820px;padding:10px 22px;gap:14px}
+.about .brand{font-size:1rem}
+.about .back{
+  margin-left:auto;font-size:.83rem;color:var(--sub);border:1px solid var(--line);
+  border-radius:9px;padding:7px 15px;background:var(--faint);
+}
+.about .back:hover{border-color:var(--accent);color:var(--accent)}
+.about main{max-width:820px;margin:0 auto;padding:38px 22px 90px}
+
+.about .lead{margin-bottom:44px}
+.about h1{font-family:var(--head);font-size:1.7rem;letter-spacing:.06em;margin-bottom:14px;line-height:1.5}
+.about .lead p{font-size:1rem;color:#4a463e;max-width:44em}
+
+.about section{margin-bottom:40px}
+.about h2{
+  font-family:var(--head);font-size:.86rem;letter-spacing:.16em;color:var(--sub);
+  font-weight:700;margin-bottom:14px;padding-left:13px;position:relative;
+}
+.about h2::before{content:"";position:absolute;left:0;top:.18em;width:5px;height:1.1em;border-radius:2px;background:var(--c,var(--t1))}
+
+.about .who{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:20px 24px}
+.about .who p{font-size:.94rem;margin-bottom:12px}
+.about .who p:last-child{margin-bottom:0}
+.about .who .also{font-size:.88rem;color:var(--sub);border-top:1px dashed var(--line);padding-top:12px;margin-top:14px}
+
+.about .flow{display:flex;flex-direction:column;gap:10px}
+.about .step{
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  padding:14px 20px 15px 22px;position:relative;display:flex;gap:16px;align-items:flex-start;
+}
+.about .step::before{content:"";position:absolute;left:-1px;top:16px;width:6px;height:calc(100% - 32px);border-radius:0 3px 3px 0;background:var(--c)}
+.about .step .n{
+  font-family:var(--head);font-size:.68rem;font-weight:700;color:#fff;background:var(--c);
+  border-radius:4px;padding:2px 9px;flex:0 0 auto;margin-top:3px;letter-spacing:.06em;
+}
+.about .step .tx{flex:1}
+.about .step h3{font-family:var(--head);font-size:.95rem;margin-bottom:2px}
+.about .step p{font-size:.9rem;color:#55514a}
+
+.about .marks{display:flex;flex-direction:column;gap:8px;background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:18px 22px}
+.about .mk-row{display:flex;gap:13px;align-items:baseline;font-size:.92rem}
+.about .mk{border-radius:4px;padding:1px 9px;font-size:.82rem;font-weight:700;flex:0 0 auto;font-family:var(--head)}
+.about .mk.y{background:var(--y-bg);color:var(--y-ink)}
+.about .mk.b{background:var(--b-bg);color:var(--b-ink)}
+.about .mk.r{background:var(--r-bg);color:var(--r-ink)}
+.about .mk-row span:last-child{color:#55514a}
+
+.about .caution{background:var(--surface);border:1px solid #e8d3ce;border-radius:12px;padding:6px 24px 8px;border-left:5px solid var(--r-line)}
+.about .caution ul{list-style:none}
+.about .caution li{padding:13px 0;border-bottom:1px dashed var(--line);font-size:.93rem}
+.about .caution li:last-child{border-bottom:none}
+.about .caution b{font-family:var(--head);font-size:.94rem;display:block;margin-bottom:1px}
+.about .caution span{color:#55514a;font-size:.9rem}
+
+.about footer{border-top:1px solid var(--line);margin-top:20px;padding-top:20px;font-size:.8rem;color:#a8a297}
+
+/* 作業画面ヘッダーの入口（? を辞書の左に固定。押すと別タブで開く） */
+.h-right .about-link{
+  display:inline-flex;align-items:center;justify-content:center;width:26px;height:26px;
+  border-radius:50%;border:1px solid var(--line);background:var(--faint);color:var(--sub);
+  font-family:var(--head);font-weight:700;font-size:.76rem;text-decoration:none;flex:0 0 auto;
+  transition:border-color .15s,color .15s,background .15s;
+}
+.h-right .about-link:hover{border-color:var(--accent);color:var(--accent);background:var(--surface)}

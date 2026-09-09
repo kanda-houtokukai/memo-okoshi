@@ -476,15 +476,6 @@
 
 # 記録（直近10件まで。超えたら古い順に memo-okoshi-archive-YYYY-MM.md へ原文移動）
 
-## 2026-08-17 P0: 器の整備
-
-- 公開リポジトリ kanda-houtokukai/memo-okoshi を作成・クローン（~/memo-okoshi）。
-- CLAUDE.md（dev-workflow の claude-md-template から）・本台帳を初期化。
-- ~/Downloads/memo-okoshi-mock-v6.html を docs/mock/ へ配置し、UI仕様の正本として凍結。
-- アプリ実装・package.json・APIキー設定・Vercel連携は範囲外として実施せず（P1/P4へ送り）。
-- ~/.claude/skills/design-process/SKILL.md はローカルに存在せず、「AI感の排除」追記はユーザーへ
-  手動反映を案内（design-process スキルは claude.ai 側=プラグイン管理のため）。
-
 ## 2026-08-18 P1: 変換の核
 
 - 手順0: ホーピー（mascot-avatar）の `.env` から `GEMINI_API_KEY` を画面非表示のまま
@@ -633,4 +624,6 @@
 
 # 【経緯アーカイブ】
 
-（まだなし。記録が10件を超えたら memo-okoshi-archive-YYYY-MM.md へ原文のまま移す）
+- **memo-okoshi-archive-2026-08.md** — 2026-08-17 P0: 器の整備（2026-09-09に移動。原文のまま保存）
+
+（記録が10件を超えたら、最も古いものから原文のまま上記のファイルへ移す）
