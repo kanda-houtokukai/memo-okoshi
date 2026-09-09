@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { itemsByIds } from "@/lib/items";
 import { buildPrompt } from "@/lib/prompt";
-import { generateWithFallback, ImagePart } from "@/lib/gemini";
+import { FAIL_TEXT, generateWithFallback, ImagePart } from "@/lib/gemini";
 import { sanitizeForPrompt } from "@/lib/vocab";
 import { enforceNames } from "@/lib/names";
 
@@ -12,7 +12,8 @@ export const maxDuration = 120;
 //   images: File（複数可・1件の記録として統合）
 //   items:  JSON文字列（選択された項目idの配列・表示順）
 //   vocab:  JSON文字列（端末内の組織語彙。プロンプトに差し込むだけで保存しない）
-// 返却: { ok, model, tried, data } または { ok:false, error, raw? }
+// 返却: { ok, model, tried, data } または { ok:false, reason, error }
+//   reason: "quota"（本日の上限）/ "busy"（混雑）/ "error"。error はそのまま画面に出す文言。
 
 type Token = { t: "p" | "y" | "b" | "r"; s: string; cands?: string[]; note?: string };
 type Converted = {
@@ -84,7 +85,15 @@ export async function POST(req: NextRequest) {
 
     const result = await generateWithFallback(buildPrompt(items, vocab), images);
     if (!result.ok) {
-      return NextResponse.json({ ok: false, error: result.error, tried: result.tried }, { status: 502 });
+      // [DECISION 2026-09-10] 枠切れ（429）と混雑（503）で案内を変える。
+      //   他のモデルへは流さないので、ここが「使えない」と正直に伝える唯一の場所になる。
+      //   detail（生のエラー）は画面に出さない（利用者に読めない情報を見せない）。
+      const status = result.reason === "quota" ? 429 : result.reason === "busy" ? 503 : 502;
+      console.error("[convert] 変換できず:", result.reason, result.error, result.tried);
+      return NextResponse.json(
+        { ok: false, reason: result.reason, error: FAIL_TEXT[result.reason], tried: result.tried },
+        { status }
+      );
     }
 
     const parsed = parseModelJson(result.text);
@@ -92,13 +101,14 @@ export async function POST(req: NextRequest) {
     const data = parsed ? enforceNames(parsed) : null;
     if (!data) {
       return NextResponse.json(
-        { ok: false, error: "モデル出力をJSONとして解釈できませんでした", model: result.model, raw: result.text },
+        { ok: false, reason: "error", error: FAIL_TEXT.error, model: result.model, raw: result.text },
         { status: 502 }
       );
     }
 
     return NextResponse.json({ ok: true, model: result.model, tried: result.tried, data });
   } catch (e) {
-    return NextResponse.json({ ok: false, error: String(e) }, { status: 500 });
+    console.error("[convert] 想定外の失敗:", e);
+    return NextResponse.json({ ok: false, reason: "error", error: FAIL_TEXT.error }, { status: 500 });
   }
 }

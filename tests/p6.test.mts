@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { withPreferred } from "../lib/gemini.ts";
+import { FAIL_TEXT, orderForTry, preferredOnly, reasonOf } from "../lib/gemini.ts";
 import { ITEM_LIBRARY } from "../lib/items.ts";
 import { buildOutputText, candidatesFor, counts, fromApi, mergeReconvert, pendingReconvertIds, recordEntries, resolveToken, saveEdit, toggleItem, type ApiData, type RecordState, type Token } from "../lib/record.ts";
 import { buildDocxParts, cleanText, extractText } from "../lib/docx.ts";
@@ -228,25 +228,74 @@ test("送信前の確認は必ず出る（抑制する設定を作らない）",
   assert.ok(dlg.indexOf('className="cancel"') < dlg.indexOf('className="go"'), "戻る側が左（既定の位置）");
 });
 
-test("モデルは優先順位を持つが、使えなければ従来どおり新しい順に試す（P7）", () => {
+test("試すのは優先リストの中だけ（枠切れでも他のモデルへ流さない・P7-d）", () => {
   const ordered = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash"];
-  // 優先リストにあるものが先頭へ（リストの順のまま）。残りは元の並びを保つ
-  assert.deepEqual(withPreferred(ordered, ["gemini-3.6-flash", "gemini-3.5-flash"]), [
-    "gemini-3.6-flash",
+  // 優先リストにあるものだけを、リストの順で返す。**一覧の残りは付けない**
+  assert.deepEqual(preferredOnly(ordered, ["gemini-3.5-flash", "gemini-3.6-flash"]), [
     "gemini-3.5-flash",
-    "gemini-3.8-flash",
-    "gemini-3.7-flash",
-  ]);
-  // 一覧に無い優先モデルは飛ばす（ハードコードではなく「優先順位」）
-  assert.deepEqual(withPreferred(ordered, ["gemini-9.9-flash", "gemini-3.5-flash"]), [
-    "gemini-3.5-flash",
-    "gemini-3.8-flash",
-    "gemini-3.7-flash",
     "gemini-3.6-flash",
   ]);
-  // 優先が全部無ければ従来の並びのまま（作り直さない）
-  assert.deepEqual(withPreferred(ordered, ["gemini-9.9-flash"]), ordered);
-  assert.equal(new Set(withPreferred(ordered)).size, ordered.length, "重複しない");
+  // 一覧に無い優先モデルは飛ばす（ハードコードではなく「優先順位」・耐更改の一覧取得は維持）
+  assert.deepEqual(preferredOnly(ordered, ["gemini-9.9-flash", "gemini-3.5-flash"]), ["gemini-3.5-flash"]);
+  // 優先が1つも一覧に無ければ空＝止まる（勝手に他のモデルへ流れない）
+  assert.deepEqual(preferredOnly(ordered, ["gemini-9.9-flash"]), []);
+  // 直近で成功したものを先に試すが、リストの外には出ない
+  const list = ["gemini-3.5-flash", "gemini-3.6-flash"];
+  assert.deepEqual(orderForTry(list, "gemini-3.6-flash"), ["gemini-3.6-flash", "gemini-3.5-flash"]);
+  assert.deepEqual(orderForTry(list, null), list);
+  assert.deepEqual(orderForTry(list, "gemini-3.8-flash"), list, "リスト外のキャッシュは無視する");
+});
+
+test("枠切れ（429）で他のモデルへ流れない（実装の形を見張る・P7-d）", () => {
+  const src = readFileSync("lib/gemini.ts", "utf8");
+  const body = src.slice(src.indexOf("export async function generateWithFallback"));
+  assert.ok(!body.includes("orderCandidates("), "候補づくりを関数内でやり直さない");
+  assert.ok(body.includes("orderForTry(workingList"), "候補は優先リスト由来のものだけ");
+  assert.ok(src.includes("preferredOnly(orderCandidates("), "一覧取得は維持しつつ優先リストで絞る");
+  assert.ok(!src.includes("withPreferred"), "一覧の残りを後ろに付ける旧実装が残っていない");
+  // 429 を「次のモデルを試す理由」にしない＝候補は最初から優先リストだけ、が担保
+  assert.ok(src.includes("優先モデルがすべて使えません"), "全滅時は正直に止める");
+});
+
+test("429（枠切れ）と 503（混雑）で違う案内を出す（P7-d）", () => {
+  assert.equal(reasonOf([429]), "quota");
+  assert.equal(reasonOf([429, 429]), "quota");
+  assert.equal(reasonOf([503]), "busy");
+  assert.equal(reasonOf([429, 503]), "busy", "待てば直るかもしれない方を優先して伝える");
+  assert.equal(reasonOf([500]), "error");
+  assert.equal(reasonOf([]), "error");
+
+  // 3つとも違う文言で、枠切れは「明日」・混雑は「少し待って」と分かること
+  const texts = [FAIL_TEXT.quota, FAIL_TEXT.busy, FAIL_TEXT.error];
+  assert.equal(new Set(texts).size, 3, "理由ごとに違う文言");
+  assert.ok(FAIL_TEXT.quota.includes("本日") && FAIL_TEXT.quota.includes("明日"));
+  assert.ok(FAIL_TEXT.busy.includes("混み合") && FAIL_TEXT.busy.includes("少し待って"));
+  // どれも「入力が残っている」ことを伝える（作業が消えたのかが最初の不安）
+  for (const t of texts) assert.ok(t.includes("そのまま残っています"), `残っていると伝える → ${t}`);
+
+  // APIは理由ごとにHTTPステータスを分け、生のモデル出力は画面へ出さない
+  const route = readFileSync("app/api/convert/route.ts", "utf8");
+  assert.ok(route.includes('result.reason === "quota" ? 429'), "枠切れは429で返す");
+  assert.ok(route.includes('result.reason === "busy" ? 503'), "混雑は503で返す");
+  assert.ok(route.includes("FAIL_TEXT[result.reason]"), "画面に出す文言は正本から取る");
+  const page = readFileSync("app/page.tsx", "utf8");
+  assert.ok(!page.includes("json.raw"), "生のモデル出力を画面に出さない");
+});
+
+test("変換に失敗しても入力は残り、その場で再試行できる（P7-d）", () => {
+  const page = readFileSync("app/page.tsx", "utf8");
+  const convert = page.slice(page.indexOf("const convert = async"), page.indexOf("const reconvert"));
+  // 失敗の分岐で、取り込んだ紙も伏せた状態も捨てない・画面も移らない
+  const fail = convert.slice(convert.indexOf("if (!r.ok)"), convert.indexOf("blobs.current = out"));
+  for (const forbidden of ["setPages(", "setMode(", "restart(", "dropResult("]) {
+    assert.ok(!fail.includes(forbidden), `失敗時に ${forbidden} を呼ばない`);
+  }
+  // 伏せる画面に再試行の導線があり、送信前の確認を通る道（tryConvert）につながっている
+  const redact = readFileSync("app/components/Redact.tsx", "utf8");
+  const errBlock = redact.slice(redact.indexOf("{error && ("), redact.indexOf("<Dialog spec={dlg} />"));
+  assert.ok(errBlock.includes("もう一度試す"), "再試行のボタンがある");
+  assert.ok(errBlock.includes("onClick={tryConvert}"), "再試行も送信前の確認を必ず通る");
+  assert.ok(errBlock.includes("disabled={converting}"), "変換中は押せない");
 });
 
 test("優先モデルの先頭は台帳の決定どおり（P7-c: 読めない箇所を申告するモデルを上に置く）", () => {

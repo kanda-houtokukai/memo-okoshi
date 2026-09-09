@@ -891,3 +891,11 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .sp-mv{display:inline-flex;align-items:stretch;gap:4px;flex:0 0 auto}
 .sp-mv .mv.other{padding:4px 8px;font-size:.8rem;line-height:1}
 .pop button.pk-off{color:var(--sub)}
+
+/* ---------- 変換に失敗したときの案内（P7-d） ---------- */
+/* 枠切れ・混雑は別モデルへ流さずここで止めるので、理由と再試行の導線をこの1か所に置く */
+.stage-err{display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.stage-err .retry{flex:0 0 auto;border:1px solid var(--r-ink);background:var(--surface);color:var(--r-ink);
+  border-radius:8px;padding:5px 12px;font-size:.8rem;font-weight:600}
+.stage-err .retry:hover{background:var(--r-bg)}
+.stage-err .retry:disabled{opacity:.5}

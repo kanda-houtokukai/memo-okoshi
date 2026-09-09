@@ -67,11 +67,43 @@ export function orderCandidates(models: ModelInfo[]): string[] {
     });
 }
 
-/** 優先リスト（一覧にあるものだけ）→ 従来の並び、の順につないだ候補列 */
-export function withPreferred(ordered: string[], preferred: string[] = PREFERRED): string[] {
-  const head = preferred.filter((m) => ordered.includes(m));
-  return [...head, ...ordered.filter((m) => !head.includes(m))];
+/**
+ * 試す候補＝**優先リストのうち一覧にあるものだけ**（優先リストの順）。
+ *
+ * [DECISION 2026-09-10] **枠切れ・エラーのときに一覧の他のモデルへ流さない。**
+ *   2026-09-09（P7）の「優先→なければ新しい順」から、**フォールバックの範囲を優先リスト内に限定**した
+ *   （廃止ではなく範囲の変更）。理由: 無料枠は1日20リクエスト/モデルで、21回目から別のモデルに流れる。
+ *   流れ先の 3.6-flash は**読めない箇所を申告せず、書かれていない事実を作る**ことが P7-c の実測で分かっている。
+ *   **静かに品質が落ちるより、使えないと分かるほうが安全**（設計の核を守る）。
+ * 一覧取得は維持する（耐更改。優先リストのモデルが廃止されたら、ここが空になって気づける）。
+ */
+export function preferredOnly(ordered: string[], preferred: string[] = PREFERRED): string[] {
+  return preferred.filter((m) => ordered.includes(m));
 }
+
+/** 失敗の理由。画面の案内を変えるために 429（枠切れ）と 503（混雑）を分ける */
+export type FailReason = "quota" | "busy" | "error";
+
+/**
+ * 試したときの HTTP ステータスから、利用者に伝える理由を決める。
+ * すべて 429 なら枠切れ。1つでも 503 が混じれば「待てば直るかもしれない」なので混雑を優先する。
+ */
+export function reasonOf(statuses: number[]): FailReason {
+  if (statuses.length === 0) return "error";
+  if (statuses.includes(503)) return "busy";
+  if (statuses.every((s) => s === 429)) return "quota";
+  return "error";
+}
+
+/**
+ * 画面に出す文言の正本（`tests/p6.test.mts` が検査する）。
+ * 2文目で「入力は残っている」ことを伝える（作業が消えたのかどうかが最初の不安だから）。
+ */
+export const FAIL_TEXT: Record<FailReason, string> = {
+  quota: "本日の利用上限に達しました。明日また試してください。メモと伏せた箇所はそのまま残っています。",
+  busy: "いま混み合っています。少し待ってから、もう一度試してください。メモと伏せた箇所はそのまま残っています。",
+  error: "変換できませんでした。もう一度試してください。メモと伏せた箇所はそのまま残っています。",
+};
 
 async function listCandidates(): Promise<string[]> {
   const res = await fetch(`${BASE}/models?pageSize=1000`, {
@@ -81,8 +113,11 @@ async function listCandidates(): Promise<string[]> {
     throw new Error(`モデル一覧の取得に失敗: HTTP ${res.status} ${await res.text()}`);
   }
   const json = (await res.json()) as { models?: ModelInfo[] };
-  const ordered = withPreferred(orderCandidates(json.models ?? []));
-  if (ordered.length === 0) throw new Error("試行できるGeminiモデルが一覧にありません");
+  const ordered = preferredOnly(orderCandidates(json.models ?? []));
+  if (ordered.length === 0) {
+    // 優先リストのモデルが1つも一覧に無い＝廃止された。ここで止める（他のモデルへは流さない）
+    throw new Error("優先モデルが一覧にありません（PREFERRED の見直しが必要です）");
+  }
   return ordered;
 }
 
@@ -90,21 +125,28 @@ export type ImagePart = { mimeType: string; base64: string };
 
 export type GeminiResult =
   | { ok: true; model: string; text: string; tried: string[] }
-  | { ok: false; error: string; tried: string[] };
+  | { ok: false; reason: FailReason; error: string; tried: string[] };
 
 let workingModel: string | null = null; // 最初に成功したモデルを使い続ける
+let workingList: string[] | null = null; // 一覧はプロセス内でキャッシュする（毎回引かない）
 
-const MAX_TRIALS = 6;
+/** 優先リストの中だけを、直近で成功したものから順に試す。**リストの外へは出ない** */
+export function orderForTry(list: string[], last: string | null): string[] {
+  if (!last || !list.includes(last)) return list;
+  return [last, ...list.filter((m) => m !== last)];
+}
 
 export async function generateWithFallback(
   prompt: string,
   images: ImagePart[]
 ): Promise<GeminiResult> {
-  const candidates = workingModel ? [workingModel] : await listCandidates();
+  workingList ??= await listCandidates();
+  const candidates = orderForTry(workingList, workingModel);
   const tried: string[] = [];
+  const statuses: number[] = [];
   let lastError = "";
 
-  for (const model of candidates.slice(0, MAX_TRIALS)) {
+  for (const model of candidates) {
     tried.push(model);
     const res = await fetch(`${BASE}/models/${model}:generateContent`, {
       method: "POST",
@@ -131,8 +173,9 @@ export async function generateWithFallback(
     });
 
     if (!res.ok) {
+      statuses.push(res.status);
       lastError = `HTTP ${res.status} (${model}): ${(await res.text()).slice(0, 500)}`;
-      // このモデル固有の失敗（404/400/429等）→ 次の候補へ。キャッシュは無効化
+      // 優先リストの次へ進む（リストの外へは出ない）。キャッシュは無効化
       if (workingModel === model) workingModel = null;
       continue;
     }
@@ -144,6 +187,7 @@ export async function generateWithFallback(
       .map((p) => p.text ?? "")
       .join("");
     if (!text) {
+      statuses.push(0); // HTTPは成功だが中身が無い＝一時的な失敗として扱う
       lastError = `${model}: 応答にテキストがありません (finishReason=${json.candidates?.[0]?.finishReason})`;
       continue;
     }
@@ -151,5 +195,7 @@ export async function generateWithFallback(
     return { ok: true, model, text, tried };
   }
 
-  return { ok: false, error: `全候補で失敗。最後のエラー: ${lastError}`, tried };
+  // 全滅したら一覧のキャッシュも捨てる（優先モデルが増減していたら次回に拾えるように）
+  workingList = null;
+  return { ok: false, reason: reasonOf(statuses), error: `優先モデルがすべて使えません。最後のエラー: ${lastError}`, tried };
 }

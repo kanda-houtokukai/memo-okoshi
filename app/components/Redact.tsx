@@ -452,7 +452,16 @@ export default function Redact({ pages, index, onIndex, onMask, onConvert, onSte
           <div className={"zoom-badge" + (zp.zoomShown ? " on" : "")}>{Math.round(zp.t.scale * 100)}%</div>
           {panMode && <div className="mode-pill on">移動モード</div>}
           {hint && <div className="first-hint">氏名や固有名詞を指でなぞって隠します</div>}
-          {error && <div className="errline stage-err">{error}</div>}
+          {error && (
+            /* [DECISION 2026-09-10] 失敗しても入力は残っている。**その場に再試行の導線を置く**
+               （「次へ」と同じ道を通るので、送信前の確認は必ず挟まる） */
+            <div className="errline stage-err">
+              <span>{error}</span>
+              <button className="retry" onClick={tryConvert} disabled={converting}>
+                もう一度試す
+              </button>
+            </div>
+          )}
         </div>
       </div>
 

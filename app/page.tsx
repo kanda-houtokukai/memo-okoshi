@@ -68,7 +68,9 @@ async function callConvert(blobs: Blob[], itemIds: string[]): Promise<{ ok: true
   fd.append("vocab", JSON.stringify(loadVocab())); // 端末内の辞書。サーバーは保存しない
   const res = await fetch("/api/convert", { method: "POST", body: fd });
   const json = await res.json();
-  if (!json.ok) return { ok: false, error: String(json.error ?? "変換できませんでした") + (json.raw ? "\n\n" + json.raw : "") };
+  // [DECISION 2026-09-10] 画面に出すのはAPIが返した**利用者向けの文言だけ**。
+  //   生のモデル出力（raw）や HTTP の中身は出さない（読めない情報を見せない）。
+  if (!json.ok) return { ok: false, error: String(json.error ?? "変換できませんでした。もう一度試してください。") };
   return { ok: true, data: json.data as ApiData };
 }
 
@@ -147,6 +149,7 @@ export default function Page() {
       for (const p of pages) out.push(await exportMasked(p)); // ← 送るのは焼き込み後だけ
       const r = await callConvert(out, s.order.filter((id) => s.enabled[id]));
       if (!r.ok) {
+        // 理由と再試行の導線は伏せる画面のエラー欄に出る（トーストは気づかせるだけ）
         setError(r.error);
         toast("変換できませんでした");
         return;
@@ -171,7 +174,7 @@ export default function Page() {
     if (blobs.current.length === 0) return null;
     const r = await callConvert(blobs.current, itemIds);
     if (!r.ok) {
-      toast("再変換できませんでした");
+      toast(r.error);
       return null;
     }
     return r.data;
