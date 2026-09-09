@@ -23,7 +23,14 @@ type Props =
       onResolve: (val: string | null, learn?: boolean) => void;
       onClose: () => void;
     }
-  | { mode: "picker"; options: { id: string; label: string }[]; pos: Pos; onPick: (id: string) => void; onClose: () => void };
+  | {
+      mode: "picker";
+      /** off=いま表示していない項目（選ぶとオンになる）。頭に「＋」を付けて区別する */
+      options: { id: string; label: string; off?: boolean }[];
+      pos: Pos;
+      onPick: (id: string) => void;
+      onClose: () => void;
+    };
 
 export default function Popover(props: Props) {
   const [val, setVal] = useState("");
@@ -36,7 +43,8 @@ export default function Popover(props: Props) {
           ×
         </button>
         {props.options.map((o) => (
-          <button key={o.id} onClick={() => props.onPick(o.id)}>
+          <button key={o.id} className={o.off ? "pk-off" : undefined} onClick={() => props.onPick(o.id)}>
+            {o.off ? "＋ " : ""}
             {o.label}
           </button>
         ))}

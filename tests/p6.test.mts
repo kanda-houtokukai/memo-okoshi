@@ -3,6 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
+import { withPreferred } from "../lib/gemini.ts";
 import { ITEM_LIBRARY } from "../lib/items.ts";
 import { buildOutputText, fromApi, mergeReconvert, pendingReconvertIds, recordEntries, resolveToken, saveEdit, toggleItem, type ApiData, type RecordState } from "../lib/record.ts";
 import { buildDocxParts, cleanText, extractText } from "../lib/docx.ts";
@@ -225,4 +226,46 @@ test("送信前の確認は必ず出る（抑制する設定を作らない）",
   assert.ok(!src.includes("今後表示しない") && !src.includes("skipConfirm"), "抑制する設定は作らない");
   const dlg = readFileSync("app/components/Dialog.tsx", "utf8");
   assert.ok(dlg.indexOf('className="cancel"') < dlg.indexOf('className="go"'), "戻る側が左（既定の位置）");
+});
+
+test("モデルは優先順位を持つが、使えなければ従来どおり新しい順に試す（P7）", () => {
+  const ordered = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash"];
+  // 優先リストにあるものが先頭へ（リストの順のまま）。残りは元の並びを保つ
+  assert.deepEqual(withPreferred(ordered, ["gemini-3.6-flash", "gemini-3.5-flash"]), [
+    "gemini-3.6-flash",
+    "gemini-3.5-flash",
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+  ]);
+  // 一覧に無い優先モデルは飛ばす（ハードコードではなく「優先順位」）
+  assert.deepEqual(withPreferred(ordered, ["gemini-9.9-flash", "gemini-3.5-flash"]), [
+    "gemini-3.5-flash",
+    "gemini-3.8-flash",
+    "gemini-3.7-flash",
+    "gemini-3.6-flash",
+  ]);
+  // 優先が全部無ければ従来の並びのまま（作り直さない）
+  assert.deepEqual(withPreferred(ordered, ["gemini-9.9-flash"]), ordered);
+  assert.equal(new Set(withPreferred(ordered)).size, ordered.length, "重複しない");
+});
+
+test("生成パラメータは構造化タスク向け（temperature 0）", () => {
+  const src = readFileSync("lib/gemini.ts", "utf8");
+  assert.ok(/temperature:\s*0\b/.test(src), "temperature は 0（決め打ちの復号）");
+  assert.ok(/response_mime_type:\s*"application\/json"/.test(src), "JSONで受け取る");
+  assert.ok(src.includes("const PREFERRED"), "優先順位のリストを持つ");
+  assert.ok(!/model\s*=\s*"gemini-/.test(src), "モデル名の決め打ちはしない");
+});
+
+test("こぼれの移動先は常に選べる（提案が外れていても直せる）", () => {
+  const src = readFileSync("app/components/Review.tsx", "utf8");
+  assert.ok(src.includes("spillOptions"), "移動先の候補を作る関数がある");
+  const fn = src.slice(src.indexOf("const spillOptions"), src.indexOf("const onOpenSpillPicker"));
+  assert.ok(fn.includes("ITEM_LIBRARY.map"), "オフの項目も候補に入れる");
+  assert.ok(fn.includes("off: !acts.includes(id)"), "オフかどうかを渡す（選ぶとオンになる）");
+  assert.ok(!src.includes("options={acts.map"), "表示中の項目だけの一覧にしない");
+  // 提案があるときも、他の項目を開く導線が出ること
+  const row = src.slice(src.indexOf("{def ? ("), src.indexOf('aria-label="項目へ移す"'));
+  assert.ok(row.includes('aria-label="他の項目へ移す"'), "提案の隣に他の項目を開く導線がある");
+  assert.ok(row.includes("onAcceptSpill"), "提案の1タップは残す");
 });

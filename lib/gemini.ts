@@ -1,10 +1,23 @@
 // Gemini REST クライアント。
-// [DECISION] モデル名のハードコード禁止: モデル一覧を取得し、Vision(generateContent)対応の
-// 新しい順（版数降順・同版では flash 優先・preview/exp は後回し）に試行し、
-// 最初に成功したモデルを使い続ける（プロセス内キャッシュ）。
+//
+// [DECISION 2026-09-09] **再現性を優先する**（2026-08-17「モデル名を固定しない」の条件変更。廃止ではない）。
+//   同じメモを2回変換して振り分けが変わると、どちらが正しいか利用者が判断できず記録の道具にならない。
+//   経緯: 一覧を新しい順に試す設計だと、上位のモデルが混雑（HTTP 503）で落ちるたびに別のモデルが当たり、
+//   実測5回で 3.6 / 3.7 / 3.6 / 3.6 / 3.5 と3種類に散らばっていた（2026-09-09・ダミーメモ01で実測）。
+//   → **優先順位のリスト（PREFERRED）を先に試し、使えなければ従来どおり一覧を新しい順に試す**。
+//   モデル名のハードコードではなく「優先順位」であり、リストは見直す前提（新しい版が安定したら入れ替える）。
+// [DECISION 2026-09-09] 生成パラメータは構造化タスク向けに **temperature: 0**（決め打ちの復号）。
+//   0.2 では同じ画像でも振り分けが揺れた。
 // APIキーは URL に載せず x-goog-api-key ヘッダで送る（ログ・履歴への漏れ防止）。
 
 const BASE = "https://generativelanguage.googleapis.com/v1beta";
+
+/**
+ * 優先して使うモデル（この順に試す）。一覧に無い／呼んで失敗したら次へ進み、
+ * すべて駄目なら従来どおり一覧を新しい順に試す。
+ * 2026-09-09時点の実測: 3.8/3.7-flash は混雑で 503 が出やすく、3.6-flash が安定していた。
+ */
+const PREFERRED = ["gemini-3.6-flash", "gemini-3.5-flash"];
 
 type ModelInfo = { name: string; supportedGenerationMethods?: string[] };
 
@@ -46,6 +59,12 @@ export function orderCandidates(models: ModelInfo[]): string[] {
     });
 }
 
+/** 優先リスト（一覧にあるものだけ）→ 従来の並び、の順につないだ候補列 */
+export function withPreferred(ordered: string[], preferred: string[] = PREFERRED): string[] {
+  const head = preferred.filter((m) => ordered.includes(m));
+  return [...head, ...ordered.filter((m) => !head.includes(m))];
+}
+
 async function listCandidates(): Promise<string[]> {
   const res = await fetch(`${BASE}/models?pageSize=1000`, {
     headers: { "x-goog-api-key": apiKey() },
@@ -54,7 +73,7 @@ async function listCandidates(): Promise<string[]> {
     throw new Error(`モデル一覧の取得に失敗: HTTP ${res.status} ${await res.text()}`);
   }
   const json = (await res.json()) as { models?: ModelInfo[] };
-  const ordered = orderCandidates(json.models ?? []);
+  const ordered = withPreferred(orderCandidates(json.models ?? []));
   if (ordered.length === 0) throw new Error("試行できるGeminiモデルが一覧にありません");
   return ordered;
 }
@@ -95,7 +114,8 @@ export async function generateWithFallback(
           },
         ],
         generationConfig: {
-          temperature: 0.2,
+          // 構造化タスクなので決め打ちの復号にする（同じメモは同じ振り分けになってほしい）
+          temperature: 0,
           response_mime_type: "application/json",
           maxOutputTokens: 16384,
         },

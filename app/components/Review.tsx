@@ -272,6 +272,19 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
   };
 
   /** suggest のないこぼれ: 表示中の項目から移動先を選ばせる */
+  /**
+   * こぼれの移動先の候補。
+   * [DECISION 2026-09-09] **提案が外れていても直せるように、移動先は常に選べる**。
+   *   並びは「AIの提案 → 表示中の項目（表示順） → オフの項目」。オフの項目も選べ、選ぶとオンになる
+   *   （`moveSpillTo` が enabled を立てる。従来どおり）。オフの項目は頭に「＋」を付けて区別する。
+   */
+  const spillOptions = (sug: string | null) => {
+    const off = ITEM_LIBRARY.map((l) => l.id).filter((id) => !acts.includes(id));
+    let ids = [...acts, ...off];
+    if (sug && ids.includes(sug)) ids = [sug, ...ids.filter((id) => id !== sug)];
+    return ids.map((id) => ({ id, label: itemById(id)!.label, off: !acts.includes(id) }));
+  };
+
   const onOpenSpillPicker = (index: number, el: HTMLElement) => {
     if (acts.length === 0) {
       toast("項目を追加すると移せます");
@@ -435,9 +448,20 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
                           <div className="tx">{it.text}</div>
                         )}
                         {def ? (
-                          <button className="mv" onClick={() => onAcceptSpill(idx)}>
-                            ＋ 「{def.label}」へ
-                          </button>
+                          <span className="sp-mv">
+                            <button className="mv" onClick={() => onAcceptSpill(idx)}>
+                              ＋ 「{def.label}」へ
+                            </button>
+                            {/* 提案が外れていることがあるので、常に他の項目も選べるようにする */}
+                            <button
+                              className="mv other"
+                              data-tip="他の項目へ移す"
+                              aria-label="他の項目へ移す"
+                              onClick={(e) => onOpenSpillPicker(idx, e.currentTarget)}
+                            >
+                              ⌄
+                            </button>
+                          </span>
                         ) : (
                           <button
                             className="mv"
@@ -525,7 +549,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
       {picker && (
         <Popover
           mode="picker"
-          options={acts.map((id) => ({ id, label: itemById(id)!.label }))}
+          options={spillOptions(rec.spill[picker.index]?.sug ?? null)}
           pos={{ left: picker.left, top: picker.top }}
           onPick={onPickSpillTarget}
           onClose={() => setPicker(null)}

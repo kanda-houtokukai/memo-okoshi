@@ -884,3 +884,10 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .dlg-line{display:block}
 .dlg-line + .dlg-line{margin-top:6px}
 .dlg p .dlg-line:last-child{color:var(--sub);font-size:.82rem;margin-top:10px}
+
+/* ---------- P7（2026-09-09）こぼれの移動先を常に選べるように ----------
+   提案は1タップのまま残し、その隣に「他の項目へ」を開く小さなボタンを足す。
+   選択肢のうち、いま表示していない項目は頭に「＋」を付ける（選ぶとオンになる）。 */
+.sp-mv{display:inline-flex;align-items:stretch;gap:4px;flex:0 0 auto}
+.sp-mv .mv.other{padding:4px 8px;font-size:.8rem;line-height:1}
+.pop button.pk-off{color:var(--sub)}
