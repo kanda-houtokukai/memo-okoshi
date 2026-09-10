@@ -26,12 +26,38 @@ function Paper({ items, lines }: { items: ItemDef[]; lines: number }) {
   return (
     <div className="paper">
       <div className="p-head">
-        <span className="p-title">面談記録メモ</span>
-        <span className="p-meta">
-          <span>日時</span>
-          <span>場所</span>
-          <span>参加者</span>
-        </span>
+        <div className="p-title">面談記録メモ</div>
+        {/* 記入欄。日時は数字だけを書くマス（表記の揺れを作らない）、参加者は3人ぶん並べる */}
+        <div className="p-fields">
+          <div className="f f-date">
+            <span className="lb">日時</span>
+            <span className="cel y" />
+            <span className="u">年</span>
+            <span className="cel" />
+            <span className="u">月</span>
+            <span className="cel" />
+            <span className="u">日</span>
+            <span className="cel" />
+            <span className="u">時</span>
+            <span className="cel" />
+            <span className="u">分</span>
+            <span className="u wave">〜</span>
+            <span className="cel" />
+            <span className="u">時</span>
+            <span className="cel" />
+            <span className="u">分</span>
+          </div>
+          <div className="f f-place">
+            <span className="lb">場所</span>
+            <span className="wr" />
+          </div>
+          <div className="f f-people">
+            <span className="lb">参加者</span>
+            <span className="wr" />
+            <span className="wr" />
+            <span className="wr" />
+          </div>
+        </div>
       </div>
       <div className="p-grid">
         {items.map((it) => (

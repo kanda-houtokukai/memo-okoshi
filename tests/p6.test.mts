@@ -13,8 +13,9 @@ const INSIGHT_CANARY = "INSIGHT_LEAK_CANARY";
 const SPILL_CANARY = "SPILL_LEAK_CANARY";
 
 function base(): RecordState {
+  // 既定オンは基本6だけ（2026-09-10）。この土台は所感と申し送りも使うので明示的にオンにする
   const enabled: Record<string, boolean> = {};
-  ITEM_LIBRARY.forEach((l) => (enabled[l.id] = l.defaultOn));
+  ITEM_LIBRARY.forEach((l) => (enabled[l.id] = l.defaultOn || l.id === "shokan" || l.id === "moushiokuri"));
   const data: ApiData = {
     sections: [
       { id: "gaiyou", tokens: [{ t: "p", s: "初回の概要" }] },

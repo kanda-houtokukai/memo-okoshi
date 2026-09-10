@@ -30,9 +30,16 @@ const INSIGHT_CANARY = "INSIGHT_LEAK_CANARY_気づきが混入している";
 const SPILL_CANARY = "SPILL_LEAK_CANARY_こぼれが混入している";
 const WHY_CANARY = "WHY_LEAK_CANARY_なぜそう見るか";
 
+/** 既定オンに加えて、そのテストが中身を入れる項目もオンにする
+ *  （2026-09-10に既定オンが基本6だけになったので、既定に寄りかからない） */
+function enabledFor(ids: string[]): Record<string, boolean> {
+  const e: Record<string, boolean> = {};
+  ITEM_LIBRARY.forEach((l) => (e[l.id] = l.defaultOn || ids.includes(l.id)));
+  return e;
+}
+
 function baseState(): RecordState {
-  const enabled: Record<string, boolean> = {};
-  ITEM_LIBRARY.forEach((l) => (enabled[l.id] = l.defaultOn));
+  const enabled = enabledFor(["shokan", "moushiokuri"]);
   return {
     tokens: {
       gaiyou: [{ t: "p", s: "8月17日、自宅にてモニタリング面談を実施。" }],
@@ -160,8 +167,7 @@ test("不変条件2: 表示していない（オフの）項目に残る赤は�
 /* ============ こぼれの拾い上げ（suggest が null の場合を含む） ============ */
 
 function nullSpillState(): RecordState {
-  const enabled: Record<string, boolean> = {};
-  ITEM_LIBRARY.forEach((l) => (enabled[l.id] = l.defaultOn));
+  const enabled = enabledFor(["shokan", "moushiokuri"]); // 締め（申し送り）の位置を見るのでオンにする
   return {
     tokens: { gaiyou: [{ t: "p", s: "8月17日、自宅にてモニタリング面談を実施。" }], shokan: [] },
     enabled,
@@ -196,10 +202,13 @@ test("こぼれ: 内容のある項目へ移しても既存の記録を上書き
 });
 
 test("こぼれ: オフの項目へ移すと、その項目がオンになり締めの手前に入る", () => {
-  const moved = moveSpillTo(nullSpillState(), 0, "kenko", ITEM_LIBRARY);
+  // 2026-09-10に既定オンが基本6だけになったので、確実にオフの項目（金銭管理）で試す
+  const before = nullSpillState();
+  assert.equal(before.enabled.kinsen, false, "土台でオフであること");
+  const moved = moveSpillTo(before, 0, "kinsen", ITEM_LIBRARY);
   const act = moved.order.filter((id) => moved.enabled[id]);
-  assert.ok(act.includes("kenko"));
-  assert.ok(act.indexOf("kenko") < act.indexOf("moushiokuri"), "締め（申し送り）より後ろに入った");
+  assert.ok(act.includes("kinsen"), "移した先がオンになっていない");
+  assert.ok(act.indexOf("kinsen") < act.indexOf("moushiokuri"), "締め（申し送り）より後ろに入った");
 });
 
 test("こぼれ: 降格分を別の項目へ移すと元項目に二重で残らない", () => {
@@ -244,8 +253,7 @@ test("不変条件: 人名の対応表（誰がどの記号か）はサーバー
 
 test("fromApi: 実際のAPI応答（開発用フィクスチャ）を取り込める", () => {
   const raw = JSON.parse(readFileSync(new URL("../public/dev-fixture.json", import.meta.url), "utf8")) as ApiData;
-  const enabled: Record<string, boolean> = {};
-  ITEM_LIBRARY.forEach((l) => (enabled[l.id] = l.defaultOn));
+  const enabled = enabledFor((raw.sections ?? []).map((x) => x.id));
   const s = fromApi(raw, ITEM_LIBRARY, enabled, ITEM_LIBRARY.map((l) => l.id));
 
   assert.equal(counts(s).r, 1, "人名（赤）が1件検知されているはず");

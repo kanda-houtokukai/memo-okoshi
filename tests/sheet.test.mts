@@ -13,7 +13,7 @@ import { paginate, sheetFileName, sheetLayout, SHEET } from "../lib/sheet.ts";
 
 /* ---------- 項目ライブラリの分類（2026-09-10に見直し） ---------- */
 
-test("項目の分類は基本6＋追加7で、既定オンは8項目（P7-e）", () => {
+test("項目の分類は基本6＋追加7で、既定オンは基本6だけ（P7-e/P7-f）", () => {
   const basic = ITEM_LIBRARY.filter((l) => l.group === "基本").map((l) => l.label);
   const extra = ITEM_LIBRARY.filter((l) => l.group === "追加項目").map((l) => l.label);
   assert.deepEqual(basic, [
@@ -33,9 +33,17 @@ test("項目の分類は基本6＋追加7で、既定オンは8項目（P7-e）"
     "関係機関との連携",
     "本人の希望・目標",
   ]);
-  // 所感と申し送りは追加項目へ移したが、使う場面が多いので既定はオンのまま
+  // [2026-09-10 P7-f] 分類と既定を一致させる: 基本はすべてオン、追加項目はすべてオフ
   const on = ITEM_LIBRARY.filter((l) => l.defaultOn).map((l) => l.id);
-  assert.deepEqual(on, ["gaiyou", "honnin", "kazoku", "kadai", "kenko", "seikatsu", "shokan", "moushiokuri"]);
+  assert.deepEqual(on, ["gaiyou", "honnin", "kazoku", "kadai", "kenko", "seikatsu"]);
+  assert.ok(
+    ITEM_LIBRARY.filter((l) => l.group === "基本").every((l) => l.defaultOn),
+    "基本はすべて既定オン"
+  );
+  assert.ok(
+    ITEM_LIBRARY.filter((l) => l.group === "追加項目").every((l) => !l.defaultOn),
+    "追加項目はすべて既定オフ"
+  );
   // 締めフラグは1つだけ（追加・復帰の差し込み先）
   assert.equal(ITEM_LIBRARY.filter((l) => l.closing).length, 1);
   assert.equal(ITEM_LIBRARY.find((l) => l.closing)?.id, "moushiokuri");
@@ -50,7 +58,7 @@ test("すでに保存されている選択は移行せず、そのまま尊重�
   assert.equal(s.enabled.kenko, false);
   assert.equal(s.enabled.seikatsu, false);
   // 触ったことがなければ新しい既定が出る
-  assert.equal(selectedIds(defaultSettings(ITEM_LIBRARY)).length, 8);
+  assert.equal(selectedIds(defaultSettings(ITEM_LIBRARY)).length, 6);
   // 知らない id は捨て、増えた id は末尾に足す
   const s2 = mergeSettings({ enabled: ["gaiyou", "no_such_item"], order: ["no_such_item", "gaiyou"] }, ITEM_LIBRARY);
   assert.deepEqual(selectedIds(s2), ["gaiyou"]);
@@ -60,8 +68,8 @@ test("すでに保存されている選択は移行せず、そのまま尊重�
 /* ---------- 用紙の割り付け ---------- */
 
 test("用紙は選んだ項目が増えても罫線を減らして1枚に収める（P7-e）", () => {
-  // 既定の8項目・全部の13項目、どちらも1枚
-  assert.equal(sheetLayout(8).pages, 1);
+  // 既定の6項目・全部の13項目、どちらも1枚
+  assert.equal(sheetLayout(6).pages, 1);
   assert.equal(sheetLayout(ITEM_LIBRARY.length).pages, 1, "全項目オンでも1枚に収まる");
   // 項目が増えるほど罫線は減る（単調）
   const lines = [2, 4, 6, 8, 10, 12, 13].map((n) => sheetLayout(n).lines);

@@ -6,8 +6,10 @@
 //   支援者の所感と次回への申し送りは、**面談中に聞き取るものではなく、書くときに整えるもの**なので追加項目へ。
 //   ただし**使う場面は多い**ので既定はオンのままにする（下の defaultOn）。
 //   **記録側と用紙側は同じこの分類・同じ選択を使う**（用紙と出力が食い違わないため）。
-// [DECISION 2026-09-10] **既定でオンは8項目**（基本6＋所感＋申し送り）。
-//   面談用紙で A4 1枚に無理なく収まる数でもある（`lib/sheet.ts`）。
+// [DECISION 2026-09-10] **既定でオンは基本6項目だけ**（追加項目はすべてオフ）。
+//   「基本＝面談の中で必ず聞き取る内容／追加項目＝書く人の判断で足すもの」という分類と、既定値を一致させる。
+//   ※ 同日いったん「基本6＋所感＋申し送り」の8項目にしたが、**分類と既定がずれていて分かりにくい**ため戻した。
+//   所感・申し送りを使う人は追加項目から自分でオンにする（用紙の画面でも記録の項目ドロワーでも1タップ）。
 //
 // - id: P1で確定したAPI契約の id（プロンプト・スキーマ・localStorageの正本）
 // - label / tab / color / group / defaultOn / closing:
@@ -42,10 +44,10 @@ export const ITEM_LIBRARY: ItemDef[] = [
     hint: "健康状態・受診・服薬に関すること" },
   { id: "seikatsu", label: "生活・住環境", tab: "生活", group: "基本", color: "var(--t8)", defaultOn: true,
     hint: "住まい・生活環境・日常生活動作に関すること" },
-  // ---- 追加項目（書く人の判断で足す。所感と申し送りは既定オン）----
-  { id: "shokan", label: "支援者の所感", tab: "所感", group: "追加項目", color: "var(--t4)", defaultOn: true,
+  // ---- 追加項目（書く人の判断で足す。既定はすべてオフ）----
+  { id: "shokan", label: "支援者の所感", tab: "所感", group: "追加項目", color: "var(--t4)", defaultOn: false,
     hint: "面談者（記録者）の受け止め・見立て・印象" },
-  { id: "moushiokuri", label: "次回への申し送り", tab: "申送", group: "追加項目", color: "var(--t6)", defaultOn: true, closing: true,
+  { id: "moushiokuri", label: "次回への申し送り", tab: "申送", group: "追加項目", color: "var(--t6)", defaultOn: false, closing: true,
     hint: "次回予定・他職員への引き継ぎ・今後の対応" },
   { id: "nicchu", label: "日中活動・就労", tab: "就労", group: "追加項目", color: "var(--t1)", defaultOn: false,
     hint: "日中活動・通所・就労・学校/園での活動に関すること" },

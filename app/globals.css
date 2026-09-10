@@ -966,10 +966,20 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .pv-inner{display:flex;flex-direction:column;gap:16px}
 .paper{width:390px;aspect-ratio:210/297;background:#fff;box-shadow:0 3px 16px rgba(43,42,37,.16);
   padding:13px 14px 12px;display:flex;flex-direction:column}
-.p-head{display:flex;align-items:flex-end;gap:8px;border-bottom:1.5px solid #3a3730;padding-bottom:5px;margin-bottom:8px;flex:0 0 auto}
-.p-title{font-family:var(--head);font-size:.76rem;font-weight:700;letter-spacing:.08em}
-.p-meta{margin-left:auto;display:flex;gap:7px;font-size:.52rem;color:#6f6a60}
-.p-meta span{border-bottom:1px solid #b8b2a6;padding:0 20px 1px 3px}
+.p-head{border-bottom:1.5px solid #3a3730;padding-bottom:5px;margin-bottom:7px;flex:0 0 auto}
+.p-title{font-family:var(--head);font-size:.76rem;font-weight:700;letter-spacing:.08em;margin-bottom:5px}
+/* 記入欄: 日時＝数字だけのマス／場所＝下線／参加者＝3人ぶん。**手で書ける高さと幅**を取る。
+   1行目に「日時」と「場所」、2行目に「参加者」を置く */
+.p-fields{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 10px;font-size:.5rem;color:#6f6a60}
+.p-fields .f{display:flex;align-items:flex-end;gap:3px;min-width:0}
+.p-fields .f-people{grid-column:1 / -1}
+.p-fields .lb{flex:0 0 auto;font-weight:700;color:#4a463e;letter-spacing:.04em;padding-bottom:2px}
+.p-fields .cel{flex:0 0 auto;width:15px;height:15px;border:1px solid #b8b2a6;border-radius:1px}
+.p-fields .cel.y{width:26px}
+.p-fields .u{flex:0 0 auto;padding-bottom:2px}
+.p-fields .u.wave{padding:0 2px 2px}
+.p-fields .wr{flex:1 1 0;height:15px;border-bottom:1px solid #b8b2a6;min-width:0}
+.p-fields .f-people .wr + .wr{margin-left:6px}
 .p-grid{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:5px}
 .p-box{border:1px solid #6f6a60;border-radius:2px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
 .p-box h4{font-family:var(--head);font-size:.55rem;font-weight:700;padding:2px 6px;background:#f0eee8;
@@ -995,17 +1005,30 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
     display:flex;flex-direction:column;break-after:page;
   }
   .print-sheet .paper:last-child{break-after:auto}
-  .print-sheet .p-head{border-bottom:0.6mm solid #000;padding-bottom:1.6mm;margin-bottom:2.4mm}
-  .print-sheet .p-title{font-size:12pt}
-  .print-sheet .p-meta{font-size:8pt;gap:4mm;color:#333}
-  .print-sheet .p-meta span{border-bottom:0.2mm solid #666;padding:0 14mm 0.4mm 1mm}
+  .print-sheet .p-head{border-bottom:0.5mm solid #000;padding-bottom:2mm;margin-bottom:2.4mm}
+  .print-sheet .p-title{font-size:12pt;margin-bottom:2mm}
+  /* 記入欄は手で書ける寸法にする: マスは7mm角、下線の欄は8mm高 */
+  .print-sheet .p-fields{font-size:8pt;gap:2.6mm 6mm;color:#333}
+  .print-sheet .p-fields .lb{color:#000;padding-bottom:1mm}
+  .print-sheet .p-fields .cel{width:7mm;height:7mm;border:0.2mm solid #999;border-radius:0.4mm}
+  .print-sheet .p-fields .cel.y{width:13mm}
+  .print-sheet .p-fields .u{padding-bottom:1mm}
+  .print-sheet .p-fields .u.wave{padding:0 1mm 1mm}
+  .print-sheet .p-fields .wr{height:8mm;border-bottom:0.2mm solid #999}
+  .print-sheet .p-fields .f-people .wr + .wr{margin-left:3mm}
   .print-sheet .p-grid{gap:2.4mm}
   .print-sheet .p-box{border:0.25mm solid #444;border-radius:0.6mm}
   .print-sheet .p-box h4{font-size:8.5pt;padding:0.8mm 1.6mm;background:#efece6;border-bottom:0.25mm solid #444;
     -webkit-print-color-adjust:exact;print-color-adjust:exact}
   .print-sheet .p-box h4::before{width:1mm;height:3mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .print-sheet .p-lines{padding:1mm 1.6mm 1.2mm}
-  .print-sheet .p-lines div{border-bottom:0.25mm dotted #8c8c8c}
+  /* [DECISION 2026-09-10] 罫線は **0.2mm 点線 #bdbdbd**（P7-f）。線の上に字を書かれても文字と混ざらないよう、
+     印刷で見える下限に寄せて薄くした。600dpi相当で描いて実測した比較（枠の中のインク量の平均）:
+       旧 0.25mm #8c8c8c → 0.80／**採用 0.2mm #bdbdbd → 0.46**（約4割減・最も濃い画素は 140→189）
+       0.2mm #cccccc → 0.36／0.2mm #d6d6d6 → 0.29（さらに薄いが、掠れの危険が上がる）
+     太さは 0.2mm＝600dpiで約4.7画素あり、細くて飛ぶ心配はない。効いているのは濃さのほう。
+     **点線のまま**にする（同じ見え方の実線は線が途切れないぶんインクが2倍で、手書きに重なりやすい）。 */
+  .print-sheet .p-lines div{border-bottom:0.2mm dotted #bdbdbd}
   .print-sheet .p-foot{font-size:6pt;color:#999;border-top:0.2mm solid #ddd;margin-top:1.2mm;padding-top:0.8mm}
   @page{size:A4 portrait;margin:9mm}
 }
