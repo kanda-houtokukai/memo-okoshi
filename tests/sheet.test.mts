@@ -167,3 +167,52 @@ test("作業中の内容が失われるときだけ確認を挟んでホーム�
   const restart = page.slice(page.indexOf("const restart = ()"), page.indexOf("const confirm = ("));
   assert.ok(restart.includes('setMode("home")'));
 });
+
+/* ---------- P7-g: ボタンの文言と、狭い画面の切り替え ---------- */
+
+test("用紙のボタンは「印刷」（押すと印刷ダイアログが開くので実際の動作に合わせる・P7-g）", () => {
+  const src = readFileSync("app/components/SheetMaker.tsx", "utf8");
+  const body = src.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  assert.ok(/className="dl"[\s\S]{0,120}印刷/.test(body), "ボタンの文言が「印刷」");
+  assert.ok(!body.includes("PDFで保存"), "保存されると誤解させる文言が残っていない");
+  assert.ok(body.includes("window.print()"), "実際に印刷ダイアログを開く");
+});
+
+test("狭い画面は項目と見本をタブで切り替える（確認画面と同じ作法・P7-g）", () => {
+  const src = readFileSync("app/components/SheetMaker.tsx", "utf8");
+  // 部品も閾値も増やさず、確認画面（元メモ／記録）と同じ .mobile-tabs を使う
+  assert.ok(src.includes('className="mobile-tabs"'), "確認画面と同じ切り替えの部品を使う");
+  assert.ok(src.includes('"cfg" + (tab === "items" ? " on" : "")'), "項目側の表示はタブに従う");
+  assert.ok(src.includes('"pv" + (tab === "paper" ? " on" : "")'), "見本側の表示はタブに従う");
+  // 選択そのものはタブと別に持つので、切り替えても状態が保たれる
+  const setTabCalls = [...src.matchAll(/setTab\(([^)]*)\)/g)].map((m) => m[1].trim());
+  assert.deepEqual(setTabCalls.sort(), ['"items"', '"paper"'], "タブの切り替えはタブだけを変える");
+  const toggle = src.slice(src.indexOf("const toggle ="), src.indexOf("const print ="));
+  assert.ok(!toggle.includes("setTab"), "選択を変えてもタブは動かさない");
+
+  const css = readFileSync("app/globals.css", "utf8");
+  // 閾値は確認画面と同じ 900px（760px の旧しきい値は残っていない）
+  const narrow = css.slice(css.indexOf("@media (max-width:900px){", css.indexOf(".sheet-cfg")));
+  assert.ok(narrow.includes(".cfg,.pv"), "狭い画面では両方を隠して .on のほうだけ出す");
+  assert.ok(narrow.includes(".cfg.on{display:flex}") && narrow.includes(".pv.on{display:flex}"));
+  // 用紙の節の中に、伏せる画面用の 760px のような別の閾値を持ち込まない
+  const sheetBlock = css.slice(css.indexOf("/* ---------- 用紙を作る"), css.indexOf("/* ---------- 印刷（PDFで保存）"));
+  const thresholds = [...sheetBlock.matchAll(/@media \(max-width:(\d+)px\)/g)].map((m) => m[1]);
+  assert.deepEqual(thresholds, ["900"], "用紙だけ別の閾値を持たない（確認画面と同じ900px）");
+});
+
+test("「印刷」はタブの外側にあり、画面が低くても押せる（P6-kと同種の押し出しを作らない・P7-g）", () => {
+  const src = readFileSync("app/components/SheetMaker.tsx", "utf8");
+  // cfg-foot が .cfg / .pv のどちらの中にも入っていないこと
+  const cfg = src.slice(src.indexOf('{"cfg" + (tab'), src.indexOf('{"pv" + (tab'));
+  const pv = src.slice(src.indexOf('{"pv" + (tab'), src.indexOf('className="cfg-foot"'));
+  assert.ok(!cfg.includes("cfg-foot") && !pv.includes("cfg-foot"), "「印刷」がタブの中に入っている");
+  assert.ok(src.indexOf('className="cfg-foot"') > src.indexOf('{"pv" + (tab'), "「印刷」は両方の後ろ＝外側にある");
+
+  const css = readFileSync("app/globals.css", "utf8");
+  const wide = css.slice(css.indexOf(".sheet-cfg{"), css.indexOf(".pv{"));
+  assert.ok(wide.includes("grid-template-rows:1fr auto"), "はみ出すのは中身側で、足元の帯は残る");
+  // 中身が長いときにスクロールするのは枠の中（帯を押し出さない）
+  assert.ok(/\.cfg\{[^}]*overflow:auto/.test(css), "項目の一覧は枠の中でスクロールする");
+  assert.ok(/\.pv\{[^}]*overflow:auto/.test(css), "見本は枠の中でスクロールする");
+});

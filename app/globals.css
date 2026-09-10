@@ -940,9 +940,12 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
   .hcard .ttl{text-align:left}
 }
 
-/* ---------- 用紙を作る ---------- */
-.sheet-cfg{flex:1;display:grid;grid-template-columns:minmax(230px,1fr) 1.5fr;min-height:0}
-.cfg{padding:18px 20px;background:var(--surface);border-right:1px solid var(--line);overflow:auto;display:flex;flex-direction:column}
+/* ---------- 用紙を作る ----------
+   広い画面は 左＝項目／右＝見本。footer（件数と「印刷」）は**枠の外**に置き、
+   狭い画面でタブを切り替えても、画面が低くても、常に押せるようにする（P6-k と同じ考え）。 */
+.sheet-cfg{flex:1;display:grid;grid-template-columns:minmax(230px,1fr) 1.5fr;grid-template-rows:1fr auto;min-height:0}
+.sheet-cfg .mobile-tabs{grid-column:1 / -1}
+.cfg{grid-column:1;grid-row:1;padding:18px 20px;background:var(--surface);border-right:1px solid var(--line);overflow:auto;display:flex;flex-direction:column}
 .cfg h2{font-family:var(--head);font-size:.8rem;letter-spacing:.14em;color:var(--sub);margin-bottom:12px}
 .grp-t{font-family:var(--head);font-size:.66rem;letter-spacing:.13em;color:#a8a297;margin:14px 0 6px;font-weight:700}
 .cfg .row{display:flex;align-items:center;gap:10px;padding:6px 9px;border-radius:8px;width:100%;text-align:left;border:none;background:none}
@@ -953,7 +956,8 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .cfg .row.on .sw::after{left:16px}
 .cfg .tg{width:4px;height:15px;border-radius:2px;background:var(--c);flex:0 0 auto}
 .cfg .nm{font-size:.86rem}
-.cfg-foot{border-top:1px solid var(--line);margin-top:auto;padding-top:14px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
+.cfg-foot{grid-column:1;grid-row:2;background:var(--surface);border-top:1px solid var(--line);border-right:1px solid var(--line);
+  padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .cfg-foot .cnt{font-size:.8rem;color:var(--sub)}
 .dl{margin-left:auto;background:var(--accent);color:#fff;border-radius:10px;padding:10px 22px 10px 18px;
   font-family:var(--head);font-size:.88rem;font-weight:700;letter-spacing:.06em;display:flex;align-items:center;gap:9px;border:none}
@@ -962,7 +966,7 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .dl:disabled{opacity:.45}
 
 /* 見本 */
-.pv{background:var(--desk);padding:20px;display:flex;align-items:flex-start;justify-content:center;overflow:auto}
+.pv{grid-column:2;grid-row:1 / -1;background:var(--desk);padding:20px;display:flex;align-items:flex-start;justify-content:center;overflow:auto}
 .pv-inner{display:flex;flex-direction:column;gap:16px}
 .paper{width:390px;aspect-ratio:210/297;background:#fff;box-shadow:0 3px 16px rgba(43,42,37,.16);
   padding:13px 14px 12px;display:flex;flex-direction:column}
@@ -988,11 +992,18 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .p-lines div{flex:1 1 0;border-bottom:1px dotted #c9c4b8;min-height:0}
 .p-foot{font-size:.46rem;color:#a8a297;text-align:right;margin-top:4px;border-top:1px solid #e3dfd6;padding-top:3px;flex:0 0 auto}
 
-/* 狭い画面: 設定を上、見本を下に積む */
-@media (max-width:760px){
-  .sheet-cfg{grid-template-columns:1fr;grid-template-rows:auto 1fr}
-  .cfg{border-right:none;border-bottom:1px solid var(--line)}
-  .paper{width:min(330px,86vw)}
+/* 狭い画面（確認画面と同じ 900px）: 項目と見本をタブで切り替える。
+   トグルの一覧が画面をほぼ占めて見本に辿り着けなかったため（P7-g）。 */
+@media (max-width:900px){
+  .sheet-cfg{grid-template-columns:1fr;grid-template-rows:auto 1fr auto}
+  .sheet-cfg .mobile-tabs{grid-row:1;margin:10px 12px 0}
+  .cfg,.pv{grid-column:1;grid-row:2;display:none}
+  .cfg.on{display:flex}
+  .pv.on{display:flex}
+  .cfg{border-right:none;padding:12px 16px}
+  .cfg-foot{grid-column:1;grid-row:3;border-right:none;padding:10px 16px}
+  .pv{padding:12px}
+  .paper{width:min(360px,88vw)}
 }
 
 /* ---------- 印刷（PDFで保存） ---------- */

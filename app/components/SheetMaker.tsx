@@ -11,6 +11,11 @@
 // [DECISION 2026-09-10] PDFは**ブラウザの印刷（PDFとして保存）**で作る。日本語フォントを積まずに済み、
 //   出力（Word/PDF）でも同じ手を使っている。ファイル名は `面談用紙_YYYYMMDD`。
 // [DECISION 2026-09-10] **説明文は置かない**（原則4）。見本そのものが説明になっている。
+// [DECISION 2026-09-10] ボタンは「PDFで保存」→**「印刷」**（P7-g）。押すと印刷ダイアログが開くので、
+//   保存されると思って押した人が戸惑う。印刷ダイアログからPDF保存も選べるので、文言としてもこちらが正確。
+// [DECISION 2026-09-10] **狭い画面（≤900px）は「項目」と「見本」をタブで切り替える**（P7-g）。
+//   トグルの一覧が画面をほぼ占めて見本に辿り着けなかった。作法・閾値は確認画面（元メモ／記録）と同じ `.mobile-tabs`。
+//   ⚠️ **「印刷」はタブの外側に置く**（どちらを表示していても押せる。P6-k の「次へ」が押し出された件と同種の問題を作らない）。
 
 import { useEffect, useMemo, useState } from "react";
 import { ITEM_LIBRARY, type ItemDef } from "@/lib/items";
@@ -76,6 +81,8 @@ function Paper({ items, lines }: { items: ItemDef[]; lines: number }) {
 
 export default function SheetMaker({ onHome, toast }: Props) {
   const [set, setSet] = useState<Settings | null>(null);
+  /** 狭い画面でどちらを見せるか。選択の状態はここでは持たないので、切り替えても中身は保たれる */
+  const [tab, setTab] = useState<"items" | "paper">("items");
   useEffect(() => setSet(loadSettings(ITEM_LIBRARY)), []);
 
   const ids = set ? selectedIds(set) : [];
@@ -128,7 +135,17 @@ export default function SheetMaker({ onHome, toast }: Props) {
       <StepHeader right={<VocabButton toast={toast} />} onHome={onHome} />
 
       <div className="sheet-cfg">
-        <div className="cfg">
+        {/* 狭い画面だけ出る切り替え（確認画面と同じ .mobile-tabs） */}
+        <div className="mobile-tabs">
+          <button className={tab === "items" ? "on" : ""} onClick={() => setTab("items")}>
+            項目
+          </button>
+          <button className={tab === "paper" ? "on" : ""} onClick={() => setTab("paper")}>
+            見本
+          </button>
+        </div>
+
+        <div className={"cfg" + (tab === "items" ? " on" : "")}>
           <h2>用紙に入れる項目</h2>
           {groups.map((g) => (
             <div key={g}>
@@ -152,22 +169,24 @@ export default function SheetMaker({ onHome, toast }: Props) {
               })}
             </div>
           ))}
-          <div className="cfg-foot">
-            <span className="cnt">
-              {items.length}項目・{layout.pages}枚
-            </span>
-            <button className="dl" onClick={print} disabled={items.length === 0}>
-              PDFで保存
-            </button>
-          </div>
         </div>
 
-        <div className="pv">
+        <div className={"pv" + (tab === "paper" ? " on" : "")}>
           <div className="pv-inner">
             {pages.map((p, i) => (
               <Paper key={i} items={p} lines={layout.lines} />
             ))}
           </div>
+        </div>
+
+        {/* 「印刷」はタブの外側。どちらを表示していても、画面が低くても押せる */}
+        <div className="cfg-foot">
+          <span className="cnt">
+            {items.length}項目・{layout.pages}枚
+          </span>
+          <button className="dl" onClick={print} disabled={items.length === 0}>
+            印刷
+          </button>
         </div>
       </div>
     </div>
