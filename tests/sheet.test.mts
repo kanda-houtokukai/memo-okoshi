@@ -90,13 +90,25 @@ test("用紙は8項目までが1枚・9項目以上は2枚（書く余裕を優�
   assert.equal(sheetLayout(SHEET.onePageMax).pages, 1, "8項目＋その他でも1枚");
 });
 
-test("2枚になるときは項目を均等に割り、枠は途中で分割しない（P7-g）", () => {
+test("2枚のとき1ページ目は偶数個・枠は途中で分割しない（P7-h）", () => {
+  // 2列組なので、1ページ目が奇数だと最後の行が片側だけ埋まって空白ができる
+  for (let n = SHEET.onePageMax + 1; n <= ITEM_LIBRARY.length; n++) {
+    const l = sheetLayout(n);
+    assert.equal(l.pages, 2);
+    assert.equal(l.perPage[0] % SHEET.cols, 0, `1ページ目が奇数 n=${n} → ${l.perPage.join("+")}`);
+    assert.ok(l.perPage[0] <= SHEET.onePageMax, `1ページ目が上限を超えた n=${n}`);
+    assert.ok(l.perPage[1] >= 1, `2ページ目が空 n=${n}`);
+    assert.ok(l.perPage[1] <= SHEET.onePageMax, `2ページ目が上限を超えた n=${n}`);
+    assert.equal(l.perPage[0] + l.perPage[1], n, `枠が落ちている n=${n}`);
+  }
+  // 設計側が示した想定どおりの割り振り
+  assert.deepEqual(sheetLayout(9).perPage, [6, 3]);
+  assert.deepEqual(sheetLayout(11).perPage, [6, 5]);
+  // 切り分けは割り振りに従い、順番も変わらない
   const items = Array.from({ length: 13 }, (_, i) => i);
-  const l = sheetLayout(items.length);
-  const pages = paginate(items, l.perPage);
-  assert.equal(pages.length, 2);
+  const pages = paginate(items, sheetLayout(13).perPage);
   assert.deepEqual(pages.flat(), items, "どの枠も落ちず、順番も変わらない");
-  assert.ok(Math.abs(pages[0].length - pages[1].length) <= 1, "均等に割れていない");
+  assert.deepEqual(pages.map((p) => p.length), sheetLayout(13).perPage);
   // 0項目でも落ちない
   assert.deepEqual(paginate([], [0]), [[]]);
 });

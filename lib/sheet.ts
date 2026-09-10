@@ -12,7 +12,11 @@
 //   幅は行を丸ごと使うので、場所の欄（82mm）の倍以上ある。
 // [DECISION 2026-09-10] **選んだ項目が8個までは1枚、9個以上は2枚**（P7-g。書く余裕を優先する）。
 //   以前は罫線を減らして13項目でも1枚に押し込んでいたが、13項目で罫線4本まで痩せて書けなかった。
-//   **枠は途中で分割しない**（現行の方針を維持）。項目は枚数で均等に割る。
+//   **枠は途中で分割しない**（現行の方針を維持）。
+// [DECISION 2026-09-10] 2枚になるとき、**1ページ目は偶数個にする**（P7-h）。
+//   用紙は2列組なので、奇数だと**最後の行が片側だけ埋まって1項目ぶんの空白**ができる。
+//   均等割り（`ceil(n/2)`）を**偶数へ切り上げ**、1ページの上限（8個）と「2ページ目を空にしない」で頭打ちにする。
+//   2ページ目が奇数になるのは許容する（最後のページで、横いっぱいの「その他」が下に来るので収まりが悪くない）。
 // [DECISION 2026-09-10] **「その他」の枠を常に最後に置く**（P7-g）。想定外の話が出たときの受け皿で、
 //   枠外に書き込まれて読み取りが乱れるのを防ぐ。**用紙だけの欄で、記録の項目ライブラリには足さない**
 //   （記録側には「こぼれ枠」という同じ役割の受け皿が既にある）。紙の「その他」に書かれた内容は、
@@ -85,12 +89,16 @@ export function sheetLayout(n: number): SheetLayout {
   if (count === 0) return { pages: 1, lines: SHEET.maxLines, perPage: [0] };
 
   const pages = count <= SHEET.onePageMax ? 1 : 2;
-  const perPage: number[] = [];
-  let left = count;
-  for (let i = 0; i < pages; i++) {
-    const take = Math.ceil(left / (pages - i));
-    perPage.push(take);
-    left -= take;
+  let perPage: number[];
+  if (pages === 1) {
+    perPage = [count];
+  } else {
+    // 均等割りを偶数へ切り上げ（2列組なので偶数なら行が埋まる）→ 上限と「2ページ目を空にしない」で抑える
+    const half = Math.ceil(count / 2);
+    let first = half % 2 === 0 ? half : half + 1;
+    first = Math.min(first, SHEET.onePageMax, count - 1);
+    if (first % 2 !== 0) first -= 1; // 頭打ちで奇数になったら1つ戻す
+    perPage = [first, count - first];
   }
   // 「その他」は最後のページに載る
   const lines = Math.min(
