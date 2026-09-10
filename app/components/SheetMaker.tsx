@@ -27,7 +27,7 @@ function Paper({ items, lines }: { items: ItemDef[]; lines: number }) {
     <div className="paper">
       <div className="p-head">
         <div className="p-title">面談記録メモ</div>
-        {/* 記入欄。日時は数字だけを書くマス（表記の揺れを作らない）、参加者は3人ぶん並べる */}
+        {/* 記入欄。日時は数字だけを書くマス（表記の揺れを作らない）、参加者は1行ぶんの長い下線 */}
         <div className="p-fields">
           <div className="f f-date">
             <span className="lb">日時</span>
@@ -53,8 +53,6 @@ function Paper({ items, lines }: { items: ItemDef[]; lines: number }) {
           </div>
           <div className="f f-people">
             <span className="lb">参加者</span>
-            <span className="wr" />
-            <span className="wr" />
             <span className="wr" />
           </div>
         </div>
