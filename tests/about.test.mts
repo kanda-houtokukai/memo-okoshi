@@ -18,9 +18,10 @@ const GOLDEN = {
   pageTitle: "メモおこし — このアプリについて",
   h1: "メモおこしについて",
   lead: "面談中に書いたメモを撮ると、記録の形に整います。清書にかかっていた時間を減らせます。",
-  headings: { who: "使う場面", flow: "5つの工程", marks: "確認画面の印", cautions: "注意事項" },
+  headings: { who: "使う場面", sheet: "面談用紙", flow: "5つの工程", marks: "確認画面の印", cautions: "注意事項" },
   who: "相談支援、ケアマネジメント、サービス管理、生活相談など、面談やモニタリングの記録を書く仕事で使えます。走り書きのメモから、面談の様子や家族の話、課題、申し送りといった形に起こします。",
   whoAlso: "教育相談や三者面談、退院支援の面談でも同じように使えます。記録の項目は事業所ごとに選べます。",
+  sheet: "項目に沿って書いておくと、読み取りが安定します。ホームの「面談用紙を印刷」から、必要な項目を選んで印刷できます。",
   steps: [
     ["取り込み", "メモを撮るか、写真やPDFから選びます。複数枚をまとめて1件の記録にできます。読む順番は後から並べ替えられます。"],
     ["伏せる", "氏名などを指でなぞって隠します。送られるのは隠したあとの画像だけで、元の画像は端末から出ません。"],
@@ -39,6 +40,7 @@ const GOLDEN = {
     ["AIの気づき", "支援の方針を示すものではありません。見落としを探すきっかけとして使ってください。記録には入りません。"],
     ["データの保存", "内容は保存されません。途中で閉じたり戻ったりすると、それまでの作業は失われます。"],
     ["辞書の登録", "よく使う言葉を登録すると読み取りが良くなります。ただし人の名前は登録しないでください。"],
+    ["用紙の管理", "印刷した用紙には氏名などをそのまま書きます。保管や廃棄は事業所の規程に従ってください。"],
   ],
   footer: "試験運用中です。うまくいかない点や気づいたことがあれば教えてください。",
 };
@@ -50,6 +52,7 @@ test("使い方ページの文面が承認済みのものと一致する", () =>
   assert.deepEqual({ ...ABOUT.headings }, GOLDEN.headings);
   assert.equal(ABOUT.who, GOLDEN.who);
   assert.equal(ABOUT.whoAlso, GOLDEN.whoAlso);
+  assert.equal(ABOUT.sheet, GOLDEN.sheet);
   assert.deepEqual(ABOUT.steps.map((s) => [s.h, s.p]), GOLDEN.steps);
   assert.deepEqual(ABOUT.marks.map((m) => [m.label, m.text]), GOLDEN.marks);
   assert.deepEqual(ABOUT.cautions.map((c) => [c.b, c.s]), GOLDEN.cautions);
@@ -75,6 +78,7 @@ test("本文はすべて述語で終える（体言止めを使わない）", ()
     ABOUT.lead,
     ABOUT.who,
     ABOUT.whoAlso,
+    ABOUT.sheet,
     ...ABOUT.steps.map((s) => s.p),
     ...ABOUT.marks.map((m) => m.text),
     ...ABOUT.cautions.map((c) => c.s),
@@ -90,6 +94,15 @@ test("本文はすべて述語で終える（体言止めを使わない）", ()
       assert.ok(sentence.length <= 60, `一文が長い → ${sentence}。`);
     }
   }
+});
+
+test("節の順は 使う場面 → 面談用紙 → 5つの工程 → 確認画面の印 → 注意事項", () => {
+  // 面談用紙は「5つの工程」より手前の準備なので、工程の説明の前に置く（2026-09-10）。
+  const src = readFileSync("app/about/page.tsx", "utf8");
+  const order = [...src.matchAll(/ABOUT\.headings\.(\w+)/g)].map((m) => m[1]);
+  assert.deepEqual(order, ["who", "sheet", "flow", "marks", "cautions"]);
+  // 用紙の管理は注意事項の末尾
+  assert.equal(ABOUT.cautions[ABOUT.cautions.length - 1].b, "用紙の管理");
 });
 
 test("使い方ページの器は文字を持たず、文面は正本から読む", () => {

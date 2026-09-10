@@ -39,6 +39,15 @@ export default function AboutPage() {
           </div>
         </section>
 
+        {/* 面談用紙は5つの工程より手前の準備なので、工程の説明の前に置く（2026-09-10）。
+            色は --t3 で、ホームの「面談用紙を印刷」カードのインデックスタブと呼応させる。 */}
+        <section>
+          <h2 style={{ ["--c" as string]: "var(--t3)" }}>{ABOUT.headings.sheet}</h2>
+          <div className="who">
+            <p>{ABOUT.sheet}</p>
+          </div>
+        </section>
+
         <section>
           <h2 style={{ ["--c" as string]: "var(--t1)" }}>{ABOUT.headings.flow}</h2>
           <div className="flow">
