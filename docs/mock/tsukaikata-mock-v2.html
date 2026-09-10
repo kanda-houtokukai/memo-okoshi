@@ -1,0 +1,427 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メモおこし — 使い方</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f1eb; --surface:#ffffff; --ink:#2b2a25; --sub:#7b766c; --line:#e3dfd6; --faint:#faf9f5;
+  --accent:#33566b; --accent-deep:#274456;
+  --t1:#8fae9d; --t2:#93a9c0; --t3:#cbb478; --t4:#c39a8a; --t5:#a89bb5; --t6:#9db3ae;
+  --y:#f6e5ae; --y-ink:#7a5e10; --b:#dbe7f2; --b-ink:#2f5a80; --r:#f5d6d1; --r-ink:#9c352b;
+  --head:"Zen Kaku Gothic New","Hiragino Sans",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{
+  font-family:"Hiragino Sans","Yu Gothic UI",Meiryo,system-ui,sans-serif;
+  background:var(--bg);color:var(--ink);line-height:1.8;-webkit-font-smoothing:antialiased;
+}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+
+header{background:var(--surface);border-bottom:1px solid var(--line);position:sticky;top:0;z-index:30}
+.h-in{max-width:880px;margin:0 auto;display:flex;align-items:center;gap:14px;padding:10px 24px}
+.brand{font-family:var(--head);font-weight:700;font-size:1rem;letter-spacing:.06em;display:flex;align-items:center;gap:8px}
+.brand::before{content:"";width:8px;height:20px;border-radius:3px;background:linear-gradient(180deg,var(--t1),var(--t2))}
+.close{margin-left:auto;font-size:.83rem;color:var(--sub);border:1px solid var(--line);border-radius:9px;padding:7px 15px;background:var(--faint)}
+.close:hover{border-color:var(--accent);color:var(--accent)}
+
+main{max-width:880px;margin:0 auto;padding:36px 24px 90px}
+
+/* 冒頭 */
+.lead{margin-bottom:16px}
+h1{font-family:var(--head);font-size:1.6rem;letter-spacing:.08em;margin-bottom:12px}
+.lead p{font-size:1rem;color:#4a463e;max-width:42em}
+
+/* 目次 */
+.toc{
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  padding:14px 18px;display:flex;flex-wrap:wrap;gap:6px 8px;margin-bottom:44px;
+}
+.toc a{
+  font-size:.8rem;color:var(--sub);text-decoration:none;padding:5px 12px 5px 9px;
+  border-radius:99px;background:var(--faint);border:1px solid var(--line);
+  display:inline-flex;align-items:center;gap:7px;
+}
+.toc a::before{content:"";width:3px;height:12px;border-radius:2px;background:var(--c,var(--t1))}
+.toc a:hover{border-color:var(--accent);color:var(--accent)}
+
+/* 章 */
+section{margin-bottom:52px;scroll-margin-top:60px}
+h2{
+  font-family:var(--head);font-size:1.12rem;letter-spacing:.06em;margin-bottom:6px;
+  padding-left:15px;position:relative;
+}
+h2::before{content:"";position:absolute;left:0;top:.2em;width:6px;height:1.15em;border-radius:2px;background:var(--c,var(--t1))}
+.sec-lead{font-size:.92rem;color:var(--sub);margin:0 0 18px 15px}
+
+/* 手順 */
+.steps{display:flex;flex-direction:column;gap:14px}
+.step{
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  padding:16px 20px 18px;display:flex;gap:16px;align-items:flex-start;
+}
+.step .n{
+  width:24px;height:24px;border-radius:50%;background:var(--c,var(--t1));color:#fff;
+  font-family:var(--head);font-size:.72rem;font-weight:700;
+  display:flex;align-items:center;justify-content:center;flex:0 0 auto;margin-top:2px;
+}
+.step .body{flex:1;min-width:0}
+.step h3{font-family:var(--head);font-size:.98rem;margin-bottom:3px}
+.step p{font-size:.92rem;color:#4a463e}
+.step p + p{margin-top:6px}
+
+/* ラベル＋説明の対 */
+.pairs{margin-top:11px;display:flex;flex-direction:column;gap:7px}
+.pair{display:flex;gap:12px;align-items:baseline;font-size:.9rem}
+.pair .lb{
+  font-family:var(--head);font-size:.78rem;font-weight:700;color:var(--sub);
+  background:var(--faint);border:1px solid var(--line);border-radius:6px;
+  padding:1px 9px;flex:0 0 auto;min-width:96px;text-align:center;
+}
+.pair .tx{color:#4a463e;flex:1}
+
+/* マーカー凡例 */
+.mk{border-radius:6px;padding:1px 10px;font-size:.78rem;font-weight:700;font-family:var(--head);flex:0 0 auto;min-width:96px;text-align:center}
+.mk.y{background:var(--y);color:var(--y-ink)}
+.mk.b{background:var(--b);color:var(--b-ink)}
+.mk.r{background:var(--r);color:var(--r-ink)}
+
+/* スクショ枠 */
+.shot{
+  margin-top:12px;border:1.5px dashed #cfc9bc;border-radius:10px;background:var(--faint);
+  aspect-ratio:16/8;display:flex;align-items:center;justify-content:center;
+  color:#b3ada1;font-size:.78rem;font-family:var(--head);letter-spacing:.06em;
+}
+.shot.tall{aspect-ratio:16/11}
+
+/* 補足の帯 */
+.tip{
+  margin-top:11px;background:#f5f7f4;border-left:3px solid var(--t1);border-radius:0 8px 8px 0;
+  padding:9px 14px;font-size:.87rem;color:#4a463e;
+}
+.tip.warn{background:#fdf6f4;border-left-color:var(--r-ink)}
+
+/* 注意事項 */
+.cautions{background:var(--surface);border:1px solid #e8d3ce;border-left:5px solid #d98a80;border-radius:12px;padding:4px 22px 6px}
+.cautions .item{padding:13px 0;border-bottom:1px dashed var(--line)}
+.cautions .item:last-child{border-bottom:none}
+.cautions b{font-family:var(--head);font-size:.94rem;display:block;margin-bottom:1px}
+.cautions span{font-size:.9rem;color:#4a463e}
+
+/* 困ったとき */
+.qa{display:flex;flex-direction:column;gap:10px}
+.q{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:13px 18px}
+.q b{font-family:var(--head);font-size:.92rem;display:block;margin-bottom:2px}
+.q span{font-size:.9rem;color:#4a463e}
+
+footer{border-top:1px solid var(--line);margin-top:8px;padding-top:20px;font-size:.82rem;color:#a8a297}
+
+@media (max-width:620px){
+  main{padding:26px 18px 70px}
+  h1{font-size:1.35rem}
+  .pair{flex-direction:column;gap:2px}
+  .pair .lb,.mk{min-width:0;align-self:flex-start}
+  .step{padding:14px 15px 16px;gap:12px}
+}
+</style>
+</head>
+<body>
+
+<header><div class="h-in">
+  <div class="brand">メモおこし</div>
+  <button class="close">閉じる</button>
+</div></header>
+
+<main>
+  <div class="lead">
+    <h1>使い方</h1>
+    <p>面談中に書いたメモを撮ると、記録の形に整います。清書にかかっていた時間を減らせます。ここでは印刷から転記までの流れを説明します。</p>
+  </div>
+
+  <nav class="toc">
+    <a href="#prep" style="--c:var(--t3)">用紙を印刷する</a>
+    <a href="#take" style="--c:var(--t1)">1 取り込み</a>
+    <a href="#mask" style="--c:var(--t4)">2 伏せる</a>
+    <a href="#conv" style="--c:var(--t3)">3 変換</a>
+    <a href="#check" style="--c:var(--t2)">4 確認</a>
+    <a href="#out" style="--c:var(--t6)">5 出力</a>
+    <a href="#dict" style="--c:var(--t5)">辞書</a>
+    <a href="#caution" style="--c:var(--t4)">注意事項</a>
+    <a href="#trouble" style="--c:var(--t2)">困ったとき</a>
+  </nav>
+
+  <!-- ============ 準備 ============ -->
+  <section id="prep" style="--c:var(--t3)">
+    <h2>用紙を印刷する</h2>
+    <p class="sec-lead">項目の枠に沿って書くと、読み取りが安定します。</p>
+    <div class="steps">
+      <div class="step" style="--c:var(--t3)">
+        <span class="n">1</span>
+        <div class="body">
+          <h3>ホームで「面談用紙を印刷」を選ぶ</h3>
+          <div class="shot">ホーム画面</div>
+        </div>
+      </div>
+      <div class="step" style="--c:var(--t3)">
+        <span class="n">2</span>
+        <div class="body">
+          <h3>項目を選ぶ</h3>
+          <p>左のつまみで切り替えると、右の見本がその場で変わります。</p>
+          <div class="pairs">
+            <div class="pair"><span class="lb">基本</span><span class="tx">面談で必ず聞く内容です。最初はすべて入っています。</span></div>
+            <div class="pair"><span class="lb">追加項目</span><span class="tx">必要に応じて足します。</span></div>
+            <div class="pair"><span class="lb">その他</span><span class="tx">用紙の最後に必ず付きます。どの項目にも当てはまらない話を書けます。</span></div>
+          </div>
+          <div class="shot">用紙を作る画面</div>
+        </div>
+      </div>
+      <div class="step" style="--c:var(--t3)">
+        <span class="n">3</span>
+        <div class="body">
+          <h3>「印刷」を押す</h3>
+          <p>8項目までは1枚、9項目以上は2枚になります。</p>
+          <div class="tip">ここで選んだ項目は、記録の項目としてもそのまま使われます。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 1 取り込み ============ -->
+  <section id="take" style="--c:var(--t1)">
+    <h2>1 取り込み</h2>
+    <p class="sec-lead">書いたメモをアプリに入れます。</p>
+    <div class="steps">
+      <div class="step" style="--c:var(--t1)">
+        <span class="n">1</span>
+        <div class="body">
+          <h3>「＋」からメモを選ぶ</h3>
+          <div class="pairs">
+            <div class="pair"><span class="lb">カメラで撮影</span><span class="tx">その場で撮ります。</span></div>
+            <div class="pair"><span class="lb">写真から選ぶ</span><span class="tx">撮ってある写真を使います。</span></div>
+            <div class="pair"><span class="lb">ファイルを選ぶ</span><span class="tx">スキャンした画像やPDFを使います。</span></div>
+          </div>
+          <div class="tip">パソコンでは、メモの画像を画面にドラッグしても入ります。</div>
+          <div class="shot">取り込み画面</div>
+        </div>
+      </div>
+      <div class="step" style="--c:var(--t1)">
+        <span class="n">2</span>
+        <div class="body">
+          <h3>順番を整える</h3>
+          <p>複数枚は1件の記録にまとまります。読む順番が内容に影響するので、並びを確かめてください。</p>
+          <div class="pairs">
+            <div class="pair"><span class="lb">つまみ</span><span class="tx">掴んで動かします。</span></div>
+            <div class="pair"><span class="lb">←→</span><span class="tx">1つずつ動かします。</span></div>
+            <div class="pair"><span class="lb">✕</span><span class="tx">外します。</span></div>
+          </div>
+        </div>
+      </div>
+      <div class="step" style="--c:var(--t1)">
+        <span class="n">3</span>
+        <div class="body">
+          <h3>「次へ」を押す</h3>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 2 伏せる ============ -->
+  <section id="mask" style="--c:var(--t4)">
+    <h2>2 伏せる</h2>
+    <p class="sec-lead">氏名などを隠します。隠したあとの画像だけが送られます。</p>
+    <div class="steps">
+      <div class="step" style="--c:var(--t4)">
+        <span class="n">1</span>
+        <div class="body">
+          <h3>道具を選ぶ</h3>
+          <div class="pairs">
+            <div class="pair"><span class="lb">ペン</span><span class="tx">なぞって隠します。太さは3段階です。</span></div>
+            <div class="pair"><span class="lb">四角</span><span class="tx">広い範囲を一度に隠します。</span></div>
+            <div class="pair"><span class="lb">消す</span><span class="tx">塗りすぎたところを消します。</span></div>
+            <div class="pair"><span class="lb">戻す</span><span class="tx">1つ前に戻します。</span></div>
+          </div>
+          <div class="shot tall">伏せる画面</div>
+        </div>
+      </div>
+      <div class="step" style="--c:var(--t4)">
+        <span class="n">2</span>
+        <div class="body">
+          <h3>拡大して細かいところを塗る</h3>
+          <div class="pairs">
+            <div class="pair"><span class="lb">＋ −</span><span class="tx">拡大と縮小をします。</span></div>
+            <div class="pair"><span class="lb">全体</span><span class="tx">画面に収まる大きさに戻します。</span></div>
+            <div class="pair"><span class="lb">移動</span><span class="tx">拡大したまま見る場所を変えます。</span></div>
+          </div>
+          <div class="tip">画面を2本の指で広げても拡大できます。</div>
+        </div>
+      </div>
+      <div class="step" style="--c:var(--t4)">
+        <span class="n">3</span>
+        <div class="body">
+          <h3>「次へ」を押して確認する</h3>
+          <p>伏せた数と、伏せていないページが出ます。ここから先はAIに画像が渡ります。</p>
+          <div class="tip warn">送る前にもう一度、隠し忘れがないか画面を見てください。</div>
+          <div class="shot">送信前の確認</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 3 変換 ============ -->
+  <section id="conv" style="--c:var(--t3)">
+    <h2>3 変換</h2>
+    <p class="sec-lead">読み取りと振り分けをします。30秒ほどかかります。</p>
+    <div class="steps">
+      <div class="step" style="--c:var(--t3)">
+        <span class="n">1</span>
+        <div class="body">
+          <h3>待つ</h3>
+          <p>画面はそのままにしてください。閉じるとやり直しになります。</p>
+          <div class="shot">変換中の画面</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 4 確認 ============ -->
+  <section id="check" style="--c:var(--t2)">
+    <h2>4 確認</h2>
+    <p class="sec-lead">元のメモと見比べて直します。一番大事な工程です。</p>
+    <div class="steps">
+      <div class="step" style="--c:var(--t2)">
+        <span class="n">1</span>
+        <div class="body">
+          <h3>印の付いた箇所を直す</h3>
+          <p>印を押すと、直し方が出ます。</p>
+          <div class="pairs">
+            <div class="pair"><span class="mk y">黄</span><span class="tx">読み取れなかった箇所です。そのままでよければ確定し、違っていれば候補から選ぶか自分で直します。</span></div>
+            <div class="pair"><span class="mk b">青</span><span class="tx">メモにない内容を前後から推測した箇所です。確定するか、書き換えるか、削除します。</span></div>
+            <div class="pair"><span class="mk r">赤</span><span class="tx">人名かもしれない語です。記号か「担当」に置き換えます。置き換えるまで完成できません。</span></div>
+          </div>
+          <div class="shot tall">確認画面</div>
+        </div>
+      </div>
+      <div class="step" style="--c:var(--t2)">
+        <span class="n">2</span>
+        <div class="body">
+          <h3>文章を直す</h3>
+          <p>項目ごとに書き直せます。右上の鉛筆から開きます。</p>
+        </div>
+      </div>
+      <div class="step" style="--c:var(--t2)">
+        <span class="n">3</span>
+        <div class="body">
+          <h3>拾いきれなかった内容を移す</h3>
+          <p>どの項目にも入らなかった内容は、下にまとめて出ます。「＋」から項目を選んで移せます。</p>
+          <div class="shot">こぼれ枠</div>
+        </div>
+      </div>
+      <div class="step" style="--c:var(--t2)">
+        <span class="n">4</span>
+        <div class="body">
+          <h3>AIの気づきを読む</h3>
+          <p>見落としがないか考えるための参考です。記録には入りません。</p>
+        </div>
+      </div>
+      <div class="step" style="--c:var(--t2)">
+        <span class="n">5</span>
+        <div class="body">
+          <h3>「完成」を押す</h3>
+          <p>赤い印が残っていると押せません。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 5 出力 ============ -->
+  <section id="out" style="--c:var(--t6)">
+    <h2>5 出力</h2>
+    <p class="sec-lead">普段の記録システムに移します。</p>
+    <div class="steps">
+      <div class="step" style="--c:var(--t6)">
+        <span class="n">1</span>
+        <div class="body">
+          <h3>コピーして貼り付ける</h3>
+          <div class="pairs">
+            <div class="pair"><span class="lb">項目ごと</span><span class="tx">項目の右上のボタンでコピーします。</span></div>
+            <div class="pair"><span class="lb">全文</span><span class="tx">完成の画面からまとめてコピーします。</span></div>
+          </div>
+          <div class="shot">出力画面</div>
+        </div>
+      </div>
+      <div class="step" style="--c:var(--t6)">
+        <span class="n">2</span>
+        <div class="body">
+          <h3>ファイルで保存する</h3>
+          <p>WordとPDFで書き出せます。</p>
+        </div>
+      </div>
+      <div class="step" style="--c:var(--t6)">
+        <span class="n">3</span>
+        <div class="body">
+          <h3>次の記録を始める</h3>
+          <p>コピーしたあとに出る「新しい変換を始める」から進みます。</p>
+          <div class="tip warn">この画面を閉じると内容は消えます。貼り付けてから閉じてください。</div>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 辞書 ============ -->
+  <section id="dict" style="--c:var(--t5)">
+    <h2>辞書</h2>
+    <p class="sec-lead">事業所で使う言葉を登録すると、読み取りが良くなります。</p>
+    <div class="steps">
+      <div class="step" style="--c:var(--t5)">
+        <span class="n">1</span>
+        <div class="body">
+          <h3>言葉を登録する</h3>
+          <p>ヘッダーの「辞書」から開きます。略語や事業所でよく使う言い方を入れてください。</p>
+          <div class="tip warn">人の名前は登録しないでください。</div>
+          <div class="shot">辞書の画面</div>
+        </div>
+      </div>
+      <div class="step" style="--c:var(--t5)">
+        <span class="n">2</span>
+        <div class="body">
+          <h3>他の端末に移す</h3>
+          <p>辞書はこの端末の中だけに残ります。別の端末で使うときは書き出して読み込みます。</p>
+        </div>
+      </div>
+    </div>
+  </section>
+
+  <!-- ============ 注意事項 ============ -->
+  <section id="caution" style="--c:var(--t4)">
+    <h2>注意事項</h2>
+    <div class="cautions">
+      <div class="item"><b>記録の下書き</b><span>そのまま記録にはできません。内容を確かめて、必要なら書き直してから仕上げてください。記録の責任は書いた人にあります。</span></div>
+      <div class="item"><b>伏せ忘れの確認</b><span>赤い印は保険であり、完全ではありません。送る前に隠し忘れがないか見てください。</span></div>
+      <div class="item"><b>AIの気づき</b><span>支援の方針を示すものではありません。見落としを探すきっかけとして使ってください。記録には入りません。</span></div>
+      <div class="item"><b>データの保存</b><span>内容は保存されません。途中で閉じたり戻ったりすると、それまでの作業は失われます。</span></div>
+      <div class="item"><b>辞書の登録</b><span>よく使う言葉を登録すると読み取りが良くなります。ただし人の名前は登録しないでください。</span></div>
+      <div class="item"><b>用紙の管理</b><span>印刷した用紙には氏名などをそのまま書きます。保管や廃棄は事業所の規程に従ってください。</span></div>
+    </div>
+  </section>
+
+  <!-- ============ 困ったとき ============ -->
+  <section id="trouble" style="--c:var(--t2)">
+    <h2>困ったとき</h2>
+    <div class="qa">
+      <div class="q"><b>読み取りが合っていない</b><span>元のメモと見比べて直してください。よく使う言葉は辞書に登録すると次から良くなります。</span></div>
+      <div class="q"><b>「本日の利用上限に達しました」と出る</b><span>1日に使える回数を超えています。翌日また試してください。</span></div>
+      <div class="q"><b>「いま混み合っています」と出る</b><span>少し待ってからもう一度試してください。メモと伏せた箇所は残っています。</span></div>
+      <div class="q"><b>作業の途中で内容が消えた</b><span>このアプリは内容を保存しません。画面を閉じたり戻ったりすると最初からになります。</span></div>
+      <div class="q"><b>項目を足したい</b><span>確認画面の「項目」から足せます。足したあとに変換をやり直すと、その項目にも内容が入ります。直した内容はそのまま残ります。</span></div>
+    </div>
+  </section>
+
+  <footer>試験運用中です。うまくいかない点や気づいたことがあれば教えてください。</footer>
+</main>
+
+</body>
+</html>
