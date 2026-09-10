@@ -60,14 +60,23 @@ export function fromApi(
   lib.forEach((l) => {
     tokens[l.id] = [];
   });
+  // [DECISION 2026-09-10] **知らない id の節が来ても黙って捨てない**（原則2）。
+  //   プロンプトは選んだ id しか渡していないが、用紙に「その他」の枠を常設した（P7-g）ので、
+  //   AIが勝手な id（"sonota" など）を作る可能性がゼロではない。落とさずこぼれ枠へ回す。
+  const strays: { text: string; sug: string | null }[] = [];
   data.sections.forEach((s) => {
-    if (s.id in tokens) tokens[s.id] = s.tokens ?? [];
+    if (s.id in tokens) {
+      tokens[s.id] = s.tokens ?? [];
+      return;
+    }
+    const text = flatten(s.tokens ?? []).trim();
+    if (text) strays.push({ text, sug: null });
   });
   return {
     tokens,
     enabled,
     order,
-    spill: (data.spill ?? []).map((s) => ({ text: s.text, sug: s.suggest })),
+    spill: [...(data.spill ?? []).map((s) => ({ text: s.text, sug: s.suggest })), ...strays],
     insights: (data.insights ?? []).map((i) => ({ s: i.text, why: i.why, refs: i.refs ?? [] })),
     converted: data.sections.map((s) => s.id),
   };

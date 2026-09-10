@@ -10,10 +10,15 @@
 //   はじめ3人ぶんの欄を横に並べたが、**欄の数がそのまま「3人まで」という制約になる**。
 //   1本にしておけば、書ける範囲で何人でも書ける。柔軟性を優先する。
 //   幅は行を丸ごと使うので、場所の欄（82mm）の倍以上ある。
-// [DECISION 2026-09-10] **収まらないときは罫線の本数を減らして1枚に収める**（枠は必ず全部載せる）。
-//   面談中に使う紙なので、**項目が抜けるより行が短いほうがまし**。
-//   罫線が下限（3本）を割るときだけ2枚目に送る。枠は途中で分割しない。
-//   いまの項目ライブラリ（13項目）は**全部オンでも1枚に収まる**（`sheetLayout(13).pages === 1`）。
+// [DECISION 2026-09-10] **選んだ項目が8個までは1枚、9個以上は2枚**（P7-g。書く余裕を優先する）。
+//   以前は罫線を減らして13項目でも1枚に押し込んでいたが、13項目で罫線4本まで痩せて書けなかった。
+//   **枠は途中で分割しない**（現行の方針を維持）。項目は枚数で均等に割る。
+// [DECISION 2026-09-10] **「その他」の枠を常に最後に置く**（P7-g）。想定外の話が出たときの受け皿で、
+//   枠外に書き込まれて読み取りが乱れるのを防ぐ。**用紙だけの欄で、記録の項目ライブラリには足さない**
+//   （記録側には「こぼれ枠」という同じ役割の受け皿が既にある）。紙の「その他」に書かれた内容は、
+//   AIが読み取って適切な項目かこぼれ枠へ振り分ける（`lib/prompt.ts` は選んだ id しか渡さない）。
+//   **枚数の判定には数えない**（利用者が選んだ数と画面の「N項目」が食い違わないため）。
+//   場所は取るので、**他の枠より低い横いっぱいの枠**（罫線3本ぶん）にして、項目の枠を痩せさせない。
 // [DECISION 2026-09-10] 用紙に**氏名をイニシャルにする注記は入れない**。面談中は正確な内容が必要で、
 //   伏せるのは撮影後の工程（原則5はそこで守る）。紙そのものの扱いは各事業所の規程に従う。
 
@@ -38,65 +43,74 @@ export const SHEET = {
   minLines: 3,
   maxLines: 14,
   cols: 2,
+  /** 「その他」の枠の罫線の本数（他の枠より低くする） */
+  otherLines: 3,
+  /** 選んだ項目がこの数までなら1枚（超えたら2枚） */
+  onePageMax: 8,
 } as const;
+
+/** 用紙にいつも入る「その他」の枠。**記録の項目ライブラリには入れない**（用紙だけの欄） */
+export const OTHER_BOX = { id: "__other", label: "その他" } as const;
 
 export type SheetLayout = {
   /** 用紙の枚数 */
   pages: number;
-  /** 1枚あたりの枠の段数 */
-  rows: number;
-  /** 1つの枠に引く罫線の本数 */
+  /** 1つの枠に引く罫線の本数（どの枚でも同じ） */
   lines: number;
-  /** 1枚に載せる枠の数 */
-  perPage: number;
+  /** 各ページに載せる項目の数（「その他」は含まない） */
+  perPage: number[];
 };
 
-/** 枠1つに使える高さ（mm）から、引ける罫線の本数を出す */
-function linesFor(boxH: number): number {
-  const usable = boxH - SHEET.boxHead - SHEET.boxPad;
-  return Math.floor(usable / SHEET.line);
+/** 「その他」の枠が取る高さ（見出し＋余白＋罫線3本） */
+const otherH = SHEET.boxHead + SHEET.boxPad + SHEET.otherLines * SHEET.line;
+
+/** 1ページに count 個の枠を置いたときに引ける罫線の本数（hasOther ならその高さを先に引く） */
+function linesOn(count: number, hasOther: boolean): number {
+  if (count === 0) return SHEET.maxLines;
+  const rows = Math.ceil(count / SHEET.cols);
+  let usable = SHEET.pageH - SHEET.margin * 2 - SHEET.headH;
+  if (hasOther) usable -= otherH + SHEET.gap;
+  const boxH = (usable - SHEET.gap * (rows - 1)) / rows;
+  return Math.floor((boxH - SHEET.boxHead - SHEET.boxPad) / SHEET.line);
 }
 
 /**
  * 項目の数から割り付けを決める。
- * 段数は `ceil(n / 2)`。1枚に使える高さを段数で割り、その高さに入る本数だけ罫線を引く。
- * 下限（3本）を割るときは、下限を満たす段数まで戻して2枚目へ送る。
+ * 枚数は **8個までなら1枚・9個以上は2枚**（`SHEET.onePageMax`）。項目は枚数で均等に割る。
+ * 罫線は**どの枠も同じ本数**にしたいので、いちばん詰まるページに合わせて決める
+ * （「その他」が載る最後のページは、その枠のぶん狭い）。
  */
 export function sheetLayout(n: number): SheetLayout {
   const count = Math.max(0, Math.floor(n));
-  const usableH = SHEET.pageH - SHEET.margin * 2 - SHEET.headH;
-  /** 段数 r のときの枠の高さ */
-  const boxH = (r: number) => (usableH - SHEET.gap * (r - 1)) / r;
-  /** 罫線が下限を満たす最大の段数 */
-  let maxRows = 1;
-  while (linesFor(boxH(maxRows + 1)) >= SHEET.minLines) maxRows++;
+  if (count === 0) return { pages: 1, lines: SHEET.maxLines, perPage: [0] };
 
-  if (count === 0) return { pages: 1, rows: 1, lines: SHEET.maxLines, perPage: 0 };
-
-  const rows = Math.ceil(count / SHEET.cols);
-  if (rows <= maxRows) {
-    return {
-      pages: 1,
-      rows,
-      lines: Math.min(SHEET.maxLines, linesFor(boxH(rows))),
-      perPage: count,
-    };
+  const pages = count <= SHEET.onePageMax ? 1 : 2;
+  const perPage: number[] = [];
+  let left = count;
+  for (let i = 0; i < pages; i++) {
+    const take = Math.ceil(left / (pages - i));
+    perPage.push(take);
+    left -= take;
   }
-  // 1枚に収まらない: 下限を満たす段数で切って次の枚へ送る（枠は分割しない）
-  const perPage = maxRows * SHEET.cols;
+  // 「その他」は最後のページに載る
+  const lines = Math.min(
+    ...perPage.map((c, i) => linesOn(c, i === perPage.length - 1))
+  );
   return {
-    pages: Math.ceil(count / perPage),
-    rows: maxRows,
-    lines: Math.max(SHEET.minLines, linesFor(boxH(maxRows))),
+    pages,
+    lines: Math.max(SHEET.minLines, Math.min(SHEET.maxLines, lines)),
     perPage,
   };
 }
 
-/** 項目を1枚ぶんずつに切り分ける */
-export function paginate<T>(items: T[], perPage: number): T[][] {
-  if (perPage <= 0) return [[]];
+/** 項目を1枚ぶんずつに切り分ける（`sheetLayout` が決めた各ページの数に従う） */
+export function paginate<T>(items: T[], perPage: number[]): T[][] {
   const out: T[][] = [];
-  for (let i = 0; i < items.length; i += perPage) out.push(items.slice(i, i + perPage));
+  let i = 0;
+  for (const n of perPage) {
+    out.push(items.slice(i, i + n));
+    i += n;
+  }
   return out.length ? out : [[]];
 }
 

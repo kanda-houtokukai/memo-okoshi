@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { ITEM_LIBRARY } from "../lib/items.ts";
 import { defaultSettings, mergeSettings, selectedIds } from "../lib/settings.ts";
-import { paginate, sheetFileName, sheetLayout, SHEET } from "../lib/sheet.ts";
+import { OTHER_BOX, paginate, sheetFileName, sheetLayout, SHEET } from "../lib/sheet.ts";
 
 /* ---------- 項目ライブラリの分類（2026-09-10に見直し） ---------- */
 
@@ -67,35 +67,54 @@ test("すでに保存されている選択は移行せず、そのまま尊重�
 
 /* ---------- 用紙の割り付け ---------- */
 
-test("用紙は選んだ項目が増えても罫線を減らして1枚に収める（P7-e）", () => {
-  // 既定の6項目・全部の13項目、どちらも1枚
-  assert.equal(sheetLayout(6).pages, 1);
-  assert.equal(sheetLayout(ITEM_LIBRARY.length).pages, 1, "全項目オンでも1枚に収まる");
-  // 項目が増えるほど罫線は減る（単調）
-  const lines = [2, 4, 6, 8, 10, 12, 13].map((n) => sheetLayout(n).lines);
-  for (let i = 1; i < lines.length; i++) assert.ok(lines[i] <= lines[i - 1], `罫線が増えている: ${lines}`);
-  // 下限を割らない・上限を超えない
-  for (let n = 1; n <= 30; n++) {
+test("用紙は8項目までが1枚・9項目以上は2枚（書く余裕を優先・P7-g）", () => {
+  // [2026-09-10 P7-g] 以前は罫線を減らして13項目でも1枚に押し込んでいた（罫線4本まで痩せた）
+  for (let n = 1; n <= SHEET.onePageMax; n++) assert.equal(sheetLayout(n).pages, 1, `n=${n} は1枚`);
+  for (let n = SHEET.onePageMax + 1; n <= ITEM_LIBRARY.length; n++) {
+    assert.equal(sheetLayout(n).pages, 2, `n=${n} は2枚`);
+  }
+  // 2枚に分かれると枠が大きくなる＝罫線が増える（8項目→9項目でむしろ余裕が出る）
+  assert.ok(
+    sheetLayout(9).lines > sheetLayout(8).lines,
+    `2枚に分けたのに余裕が増えていない: 8→${sheetLayout(8).lines} / 9→${sheetLayout(9).lines}`
+  );
+  // どの項目数でも書ける本数を保つ（下限・上限）
+  for (let n = 1; n <= ITEM_LIBRARY.length; n++) {
     const l = sheetLayout(n);
     assert.ok(l.lines >= SHEET.minLines, `罫線が下限を割った n=${n}`);
     assert.ok(l.lines <= SHEET.maxLines, `罫線が上限を超えた n=${n}`);
+    assert.equal(l.perPage.reduce((a, b) => a + b, 0), n, `枠が落ちている n=${n}`);
+    assert.equal(l.perPage.length, l.pages);
   }
-  // 下限を割るところまで増やしたら2枚目に送る（枠は分割しない）
-  const many = sheetLayout(30);
-  assert.ok(many.pages >= 2);
-  assert.equal(many.lines, SHEET.minLines);
-  assert.equal(many.perPage % SHEET.cols, 0, "1枚に載る枠の数は2列で割り切れる");
+  // 「その他」は枚数の判定に数えない（画面の「N項目」と食い違わせない）
+  assert.equal(sheetLayout(SHEET.onePageMax).pages, 1, "8項目＋その他でも1枚");
 });
 
-test("2枚目に送るときも枠は途中で分割しない（P7-e）", () => {
-  const items = Array.from({ length: 25 }, (_, i) => i);
+test("2枚になるときは項目を均等に割り、枠は途中で分割しない（P7-g）", () => {
+  const items = Array.from({ length: 13 }, (_, i) => i);
   const l = sheetLayout(items.length);
   const pages = paginate(items, l.perPage);
-  assert.equal(pages.length, l.pages);
+  assert.equal(pages.length, 2);
   assert.deepEqual(pages.flat(), items, "どの枠も落ちず、順番も変わらない");
-  assert.ok(pages.every((p) => p.length <= l.perPage));
+  assert.ok(Math.abs(pages[0].length - pages[1].length) <= 1, "均等に割れていない");
   // 0項目でも落ちない
-  assert.deepEqual(paginate([], 0), [[]]);
+  assert.deepEqual(paginate([], [0]), [[]]);
+});
+
+test("「その他」は用紙だけの欄で、記録の項目ライブラリには足さない（P7-g）", () => {
+  // 記録側には「こぼれ枠」という同じ役割の受け皿が既にある
+  assert.ok(!ITEM_LIBRARY.some((l) => l.id === OTHER_BOX.id || l.label === OTHER_BOX.label));
+  const src = readFileSync("app/components/SheetMaker.tsx", "utf8");
+  // 常に最後のページの最後に置く（項目のループの外）
+  assert.ok(src.includes("other={i === pages.length - 1}"), "「その他」は最後のページだけ");
+  assert.ok(src.indexOf('className="p-box other"') > src.indexOf('className="p-grid"'), "項目の枠より後ろ");
+  // トグルの一覧には出さない（常設なので選ぶ必要がない）
+  const cfg = src.slice(src.indexOf('className="cfg"'), src.indexOf('className="pv"'));
+  assert.ok(!cfg.includes("OTHER_BOX"), "「その他」をトグルの一覧に出さない");
+  // プロンプトは選んだ項目からしか作らない＝用紙に「その他」と刷っても項目は増えない
+  const prompt = readFileSync("lib/prompt.ts", "utf8");
+  assert.ok(!prompt.includes("その他"), "プロンプトに「その他」を持ち込まない");
+  assert.ok(prompt.includes("sections はこの id のみ"), "使ってよい id を明示している");
 });
 
 test("PDFの名前は日付ベース（P7-e）", () => {

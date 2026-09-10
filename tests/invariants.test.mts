@@ -282,3 +282,32 @@ test("fromApi: suggest が null のこぼれも落とさずに保持する", () 
   // 完成時の警告には件数が出る（残っていることが見える）
   assert.ok(outputWarnings(s).some((w) => w.startsWith("こぼれ枠")));
 });
+
+test("不変条件2の周辺: 知らない id の節が来ても黙って捨てない（P7-g）", () => {
+  // 用紙に「その他」の枠を常設したので、AIが勝手な id を作る可能性がゼロではない。
+  // プロンプトは選んだ id しか渡していないが、来てしまったときに内容を落とさないこと。
+  const raw = {
+    sections: [
+      { id: "gaiyou", tokens: [{ t: "p" as const, s: "面談を実施。" }] },
+      { id: "sonota", tokens: [{ t: "p" as const, s: "枠の外に書かれた話。" }] },
+    ],
+    spill: [{ text: "元からのこぼれ", suggest: null }],
+    insights: [],
+  };
+  const enabled = enabledFor([]);
+  const s = fromApi(raw, ITEM_LIBRARY, enabled, ITEM_LIBRARY.map((l) => l.id));
+  assert.ok(!("sonota" in s.tokens), "知らない id は項目にしない");
+  assert.deepEqual(
+    s.spill.map((x) => x.text),
+    ["元からのこぼれ", "枠の外に書かれた話。"],
+    "知らない id の中身がこぼれ枠へ回っていない（黙って捨てた）"
+  );
+  // 中身が空なら足さない（空のこぼれを作らない）
+  const empty = fromApi(
+    { sections: [{ id: "nazo", tokens: [] }], spill: [], insights: [] },
+    ITEM_LIBRARY,
+    enabled,
+    ITEM_LIBRARY.map((l) => l.id)
+  );
+  assert.deepEqual(empty.spill, []);
+});

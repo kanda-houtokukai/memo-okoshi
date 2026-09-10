@@ -20,14 +20,15 @@
 import { useEffect, useMemo, useState } from "react";
 import { ITEM_LIBRARY, type ItemDef } from "@/lib/items";
 import { loadSettings, saveSettings, selectedIds, type Settings } from "@/lib/settings";
-import { paginate, sheetFileName, sheetLayout } from "@/lib/sheet";
+import { OTHER_BOX, paginate, sheetFileName, sheetLayout, SHEET } from "@/lib/sheet";
 import StepHeader from "./StepHeader";
 import VocabButton from "./VocabButton";
 
 type Props = { onHome: () => void; toast: (m: string) => void };
 
-/** 用紙1枚ぶん。画面の見本と印刷で同じものを使う（食い違わせない） */
-function Paper({ items, lines }: { items: ItemDef[]; lines: number }) {
+/** 用紙1枚ぶん。画面の見本と印刷で同じものを使う（食い違わせない）。
+ *  `other` は最後のページだけ true（「その他」の枠は常に最後） */
+function Paper({ items, lines, other }: { items: ItemDef[]; lines: number; other?: boolean }) {
   return (
     <div className="paper">
       <div className="p-head">
@@ -74,6 +75,17 @@ function Paper({ items, lines }: { items: ItemDef[]; lines: number }) {
           </div>
         ))}
       </div>
+      {other && (
+        // 想定外の話の受け皿。横いっぱい・他の枠より低くして、項目の枠を痩せさせない
+        <div className="p-box other" style={{ ["--c" as string]: "var(--sub)" }}>
+          <h4>{OTHER_BOX.label}</h4>
+          <div className="p-lines">
+            {Array.from({ length: SHEET.otherLines }, (_, i) => (
+              <div key={i} />
+            ))}
+          </div>
+        </div>
+      )}
       <div className="p-foot">メモおこし</div>
     </div>
   );
@@ -91,7 +103,7 @@ export default function SheetMaker({ onHome, toast }: Props) {
     [ids.join(",")]
   );
   const layout = sheetLayout(items.length);
-  const pages = paginate(items, layout.perPage || items.length);
+  const pages = paginate(items, layout.perPage);
 
   const toggle = (id: string) => {
     setSet((s) => {
@@ -174,7 +186,7 @@ export default function SheetMaker({ onHome, toast }: Props) {
         <div className={"pv" + (tab === "paper" ? " on" : "")}>
           <div className="pv-inner">
             {pages.map((p, i) => (
-              <Paper key={i} items={p} lines={layout.lines} />
+              <Paper key={i} items={p} lines={layout.lines} other={i === pages.length - 1} />
             ))}
           </div>
         </div>

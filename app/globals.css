@@ -990,6 +990,9 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .p-box h4::before{content:"";width:3px;height:9px;border-radius:1px;background:var(--c);flex:0 0 auto}
 .p-lines{flex:1;min-height:0;padding:3px 6px 4px;display:flex;flex-direction:column}
 .p-lines div{flex:1 1 0;border-bottom:1px dotted #c9c4b8;min-height:0}
+/* 「その他」は常に最後・横いっぱい。他の枠より低くして、項目の枠を痩せさせない */
+.p-box.other{flex:0 0 auto;margin-top:5px}
+.p-box.other .p-lines div{flex:0 0 auto;height:11px}
 .p-foot{font-size:.46rem;color:#a8a297;text-align:right;margin-top:4px;border-top:1px solid #e3dfd6;padding-top:3px;flex:0 0 auto}
 
 /* 狭い画面（確認画面と同じ 900px）: 項目と見本をタブで切り替える。
@@ -1031,6 +1034,8 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
     -webkit-print-color-adjust:exact;print-color-adjust:exact}
   .print-sheet .p-box h4::before{width:1mm;height:3mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .print-sheet .p-lines{padding:1mm 1.6mm 1.2mm}
+  .print-sheet .p-box.other{margin-top:2.4mm}
+  .print-sheet .p-box.other .p-lines div{flex:0 0 auto;height:5.6mm}
   /* [DECISION 2026-09-10] 罫線は **0.2mm 点線 #bdbdbd**（P7-f）。線の上に字を書かれても文字と混ざらないよう、
      印刷で見える下限に寄せて薄くした。600dpi相当で描いて実測した比較（枠の中のインク量の平均）:
        旧 0.25mm #8c8c8c → 0.80／**採用 0.2mm #bdbdbd → 0.46**（約4割減・最も濃い画素は 140→189）
