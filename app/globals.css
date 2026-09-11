@@ -1002,6 +1002,11 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .cfg{grid-column:1;grid-row:1;padding:18px 20px;background:var(--surface);border-right:1px solid var(--line);overflow:auto;display:flex;flex-direction:column}
 .cfg h2{font-family:var(--head);font-size:.8rem;letter-spacing:.14em;color:var(--sub);margin-bottom:12px}
 .grp-t{font-family:var(--head);font-size:.66rem;letter-spacing:.13em;color:#a8a297;margin:14px 0 6px;font-weight:700}
+/* 第3の群。基本／追加項目とは別ものなので区切り線で切る */
+.grp-t.free{border-top:1px dashed var(--line);padding-top:14px;margin-top:16px}
+/* 自由形式のあいだ、項目のトグルは押せない（用紙に出ないことを形で示す） */
+.cfg .row:disabled{opacity:.4;cursor:default}
+.cfg .row:disabled:hover{background:none}
 .cfg .row{display:flex;align-items:center;gap:10px;padding:6px 9px;border-radius:8px;width:100%;text-align:left;border:none;background:none}
 .cfg .row:hover{background:var(--faint)}
 .cfg .sw{width:33px;height:19px;border-radius:99px;background:#d8d3c8;position:relative;flex:0 0 auto;transition:background .2s}
@@ -1022,7 +1027,9 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 /* 見本 */
 .pv{grid-column:2;grid-row:1 / -1;background:var(--desk);padding:20px;display:flex;align-items:flex-start;justify-content:center;overflow:auto}
 .pv-inner{display:flex;flex-direction:column;gap:16px}
-.paper{width:390px;aspect-ratio:210/297;background:#fff;box-shadow:0 3px 16px rgba(43,42,37,.16);
+/* 見本は A4 の縮尺模型。--mm が 1mm ぶんの画面上の長さ（罫線の間隔を印刷と揃えるため） */
+.paper{--pw:390px;--mm:calc(var(--pw) / 210);
+  width:var(--pw);aspect-ratio:210/297;background:#fff;box-shadow:0 3px 16px rgba(43,42,37,.16);
   padding:13px 14px 12px;display:flex;flex-direction:column}
 .p-head{border-bottom:1.5px solid #3a3730;padding-bottom:5px;margin-bottom:7px;flex:0 0 auto}
 .p-title{font-family:var(--head);font-size:.76rem;font-weight:700;letter-spacing:.08em;margin-bottom:5px}
@@ -1043,10 +1050,14 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
   border-bottom:1px solid #6f6a60;letter-spacing:.05em;display:flex;align-items:center;gap:5px;flex:0 0 auto}
 .p-box h4::before{content:"";width:3px;height:9px;border-radius:1px;background:var(--c);flex:0 0 auto}
 .p-lines{flex:1;min-height:0;padding:3px 6px 4px;display:flex;flex-direction:column}
-.p-lines div{flex:1 1 0;border-bottom:1px dotted #c9c4b8;min-height:0}
+/* [DECISION 2026-09-11] 罫線の間隔は固定（6mm）。引き伸ばさず、余りは枠の下に残す */
+.p-lines div{flex:0 0 auto;height:calc(6 * var(--mm));border-bottom:1px dotted #c9c4b8}
 /* 「その他」は常に最後・横いっぱい。他の枠より低くして、項目の枠を痩せさせない */
-.p-box.other{flex:0 0 auto;margin-top:5px}
-.p-box.other .p-lines div{flex:0 0 auto;height:11px}
+.p-box.other{flex:0 0 auto;margin-top:calc(2.4 * var(--mm))}
+
+/* 自由形式: 枠なしの罫線だけ。間隔は枠のときと同じ */
+.p-free{flex:1;min-height:0;display:flex;flex-direction:column;padding:2px 4px 0}
+.p-free div{flex:0 0 auto;height:calc(6 * var(--mm));border-bottom:1px dotted #c9c4b8}
 .p-foot{font-size:.46rem;color:#a8a297;text-align:right;margin-top:4px;border-top:1px solid #e3dfd6;padding-top:3px;flex:0 0 auto}
 
 /* 狭い画面（確認画面と同じ 900px）: 項目と見本をタブで切り替える。
@@ -1060,7 +1071,7 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
   .cfg{border-right:none;padding:12px 16px}
   .cfg-foot{grid-column:1;grid-row:3;border-right:none;padding:10px 16px}
   .pv{padding:12px}
-  .paper{width:min(360px,88vw)}
+  .paper{--pw:min(360px,88vw)}
 }
 
 /* ---------- 印刷（PDFで保存） ---------- */
@@ -1089,14 +1100,15 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
   .print-sheet .p-box h4::before{width:1mm;height:3mm;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .print-sheet .p-lines{padding:1mm 1.6mm 1.2mm}
   .print-sheet .p-box.other{margin-top:2.4mm}
-  .print-sheet .p-box.other .p-lines div{flex:0 0 auto;height:5.6mm}
   /* [DECISION 2026-09-10] 罫線は **0.2mm 点線 #bdbdbd**（P7-f）。線の上に字を書かれても文字と混ざらないよう、
      印刷で見える下限に寄せて薄くした。600dpi相当で描いて実測した比較（枠の中のインク量の平均）:
        旧 0.25mm #8c8c8c → 0.80／**採用 0.2mm #bdbdbd → 0.46**（約4割減・最も濃い画素は 140→189）
        0.2mm #cccccc → 0.36／0.2mm #d6d6d6 → 0.29（さらに薄いが、掠れの危険が上がる）
      太さは 0.2mm＝600dpiで約4.7画素あり、細くて飛ぶ心配はない。効いているのは濃さのほう。
      **点線のまま**にする（同じ見え方の実線は線が途切れないぶんインクが2倍で、手書きに重なりやすい）。 */
-  .print-sheet .p-lines div{border-bottom:0.2mm dotted #bdbdbd}
+  .print-sheet .p-lines div{height:6mm;border-bottom:0.2mm dotted #bdbdbd}
+  .print-sheet .p-free{flex:1;display:flex;flex-direction:column;padding:0.5mm 1mm 0}
+  .print-sheet .p-free div{flex:0 0 auto;height:6mm;border-bottom:0.2mm dotted #bdbdbd}
   .print-sheet .p-foot{font-size:6pt;color:#999;border-top:0.2mm solid #ddd;margin-top:1.2mm;padding-top:0.8mm}
   @page{size:A4 portrait;margin:9mm}
 }

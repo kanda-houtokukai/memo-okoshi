@@ -19,16 +19,41 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { ITEM_LIBRARY, type ItemDef } from "@/lib/items";
-import { loadSettings, saveSettings, selectedIds, type Settings } from "@/lib/settings";
-import { OTHER_BOX, paginate, sheetFileName, sheetLayout, SHEET } from "@/lib/sheet";
+import {
+  loadSettings,
+  loadSheetFree,
+  saveSettings,
+  saveSheetFree,
+  selectedIds,
+  type Settings,
+} from "@/lib/settings";
+import {
+  freeSheetLines,
+  OTHER_BOX,
+  paginate,
+  sheetFileName,
+  sheetLayout,
+  SHEET,
+} from "@/lib/sheet";
 import StepHeader from "./StepHeader";
 import VocabButton from "./VocabButton";
 
 type Props = { onHome: () => void; toast: (m: string) => void };
 
 /** 用紙1枚ぶん。画面の見本と印刷で同じものを使う（食い違わせない）。
- *  `other` は最後のページだけ true（「その他」の枠は常に最後） */
-function Paper({ items, lines, other }: { items: ItemDef[]; lines: number; other?: boolean }) {
+ *  `other` は最後のページだけ true（「その他」の枠は常に最後）。
+ *  `free` は自由形式（枠なしの罫線だけ・「その他」も出さない）。 */
+function Paper({
+  items,
+  lines,
+  other,
+  free,
+}: {
+  items: ItemDef[];
+  lines: number;
+  other?: boolean;
+  free?: boolean;
+}) {
   return (
     <div className="paper">
       <div className="p-head">
@@ -63,28 +88,46 @@ function Paper({ items, lines, other }: { items: ItemDef[]; lines: number; other
           </div>
         </div>
       </div>
-      <div className="p-grid">
-        {items.map((it) => (
-          <div className="p-box" key={it.id} style={{ ["--c" as string]: it.color }}>
-            <h4>{it.label}</h4>
-            <div className="p-lines">
-              {Array.from({ length: lines }, (_, i) => (
-                <div key={i} />
-              ))}
-            </div>
-          </div>
-        ))}
-      </div>
-      {other && (
-        // 想定外の話の受け皿。横いっぱい・他の枠より低くして、項目の枠を痩せさせない
-        <div className="p-box other" style={{ ["--c" as string]: "var(--sub)" }}>
-          <h4>{OTHER_BOX.label}</h4>
-          <div className="p-lines">
-            {Array.from({ length: SHEET.otherLines }, (_, i) => (
-              <div key={i} />
+      {free ? (
+        // 枠なし・罫線だけ。間隔は枠のときと同じ
+        <div className="p-free">
+          {Array.from({ length: lines }, (_, i) => (
+            <div key={i} />
+          ))}
+        </div>
+      ) : (
+        <>
+          <div className="p-grid">
+            {items.map((it) => (
+              <div
+                className="p-box"
+                key={it.id}
+                style={{ ["--c" as string]: it.color }}
+              >
+                <h4>{it.label}</h4>
+                <div className="p-lines">
+                  {Array.from({ length: lines }, (_, i) => (
+                    <div key={i} />
+                  ))}
+                </div>
+              </div>
             ))}
           </div>
-        </div>
+          {other && (
+            // 想定外の話の受け皿。横いっぱい・他の枠より低くして、項目の枠を痩せさせない
+            <div
+              className="p-box other"
+              style={{ ["--c" as string]: "var(--sub)" }}
+            >
+              <h4>{OTHER_BOX.label}</h4>
+              <div className="p-lines">
+                {Array.from({ length: SHEET.otherLines }, (_, i) => (
+                  <div key={i} />
+                ))}
+              </div>
+            </div>
+          )}
+        </>
       )}
       <div className="p-foot">メモおこし</div>
     </div>
@@ -95,17 +138,32 @@ export default function SheetMaker({ onHome, toast }: Props) {
   const [set, setSet] = useState<Settings | null>(null);
   /** 狭い画面でどちらを見せるか。選択の状態はここでは持たないので、切り替えても中身は保たれる */
   const [tab, setTab] = useState<"items" | "paper">("items");
-  useEffect(() => setSet(loadSettings(ITEM_LIBRARY)), []);
+  /** 自由形式。**用紙の見た目だけ**を切り替える（記録側の選択には触れない） */
+  const [free, setFree] = useState(false);
+  useEffect(() => {
+    setSet(loadSettings(ITEM_LIBRARY));
+    setFree(loadSheetFree());
+  }, []);
 
   const ids = set ? selectedIds(set) : [];
   const items = useMemo(
-    () => ids.map((id) => ITEM_LIBRARY.find((l) => l.id === id)!).filter(Boolean),
-    [ids.join(",")]
+    () =>
+      ids.map((id) => ITEM_LIBRARY.find((l) => l.id === id)!).filter(Boolean),
+    [ids.join(",")],
   );
   const layout = sheetLayout(items.length);
-  const pages = paginate(items, layout.perPage);
+  const pages = free ? [[]] : paginate(items, layout.perPage);
+  const freeLines = freeSheetLines();
+
+  const toggleFree = () => {
+    setFree((f) => {
+      saveSheetFree(!f);
+      return !f;
+    });
+  };
 
   const toggle = (id: string) => {
+    if (free) return; // 自由形式のあいだは項目を触らせない（用紙に出ないため）
     setSet((s) => {
       if (!s) return s;
       const next = { ...s, enabled: { ...s.enabled, [id]: !s.enabled[id] } };
@@ -149,10 +207,16 @@ export default function SheetMaker({ onHome, toast }: Props) {
       <div className="sheet-cfg">
         {/* 狭い画面だけ出る切り替え（確認画面と同じ .mobile-tabs） */}
         <div className="mobile-tabs">
-          <button className={tab === "items" ? "on" : ""} onClick={() => setTab("items")}>
+          <button
+            className={tab === "items" ? "on" : ""}
+            onClick={() => setTab("items")}
+          >
             項目
           </button>
-          <button className={tab === "paper" ? "on" : ""} onClick={() => setTab("paper")}>
+          <button
+            className={tab === "paper" ? "on" : ""}
+            onClick={() => setTab("paper")}
+          >
             見本
           </button>
         </div>
@@ -171,6 +235,7 @@ export default function SheetMaker({ onHome, toast }: Props) {
                     style={{ ["--c" as string]: l.color }}
                     role="switch"
                     aria-checked={on}
+                    disabled={free}
                     onClick={() => toggle(l.id)}
                   >
                     <span className="sw" aria-hidden />
@@ -181,12 +246,32 @@ export default function SheetMaker({ onHome, toast }: Props) {
               })}
             </div>
           ))}
+
+          {/* 第3の群。選ぶと上のトグルが押せなくなる（用紙に出ないため） */}
+          <div className="grp-t free">{OTHER_BOX.freeLabel}</div>
+          <button
+            className={"row" + (free ? " on" : "")}
+            style={{ ["--c" as string]: "var(--sub)" }}
+            role="switch"
+            aria-checked={free}
+            onClick={toggleFree}
+          >
+            <span className="sw" aria-hidden />
+            <span className="tg" aria-hidden />
+            <span className="nm">{OTHER_BOX.freeLabel}</span>
+          </button>
         </div>
 
         <div className={"pv" + (tab === "paper" ? " on" : "")}>
           <div className="pv-inner">
             {pages.map((p, i) => (
-              <Paper key={i} items={p} lines={layout.lines} other={i === pages.length - 1} />
+              <Paper
+                key={i}
+                items={p}
+                lines={free ? freeLines : layout.linesPerPage[i]}
+                other={!free && i === pages.length - 1}
+                free={free}
+              />
             ))}
           </div>
         </div>
@@ -194,9 +279,15 @@ export default function SheetMaker({ onHome, toast }: Props) {
         {/* 「印刷」はタブの外側。どちらを表示していても、画面が低くても押せる */}
         <div className="cfg-foot">
           <span className="cnt">
-            {items.length}項目・{layout.pages}枚
+            {free
+              ? `${OTHER_BOX.freeLabel}・1枚`
+              : `${items.length}項目・${layout.pages}枚`}
           </span>
-          <button className="dl" onClick={print} disabled={items.length === 0}>
+          <button
+            className="dl"
+            onClick={print}
+            disabled={!free && items.length === 0}
+          >
             印刷
           </button>
         </div>

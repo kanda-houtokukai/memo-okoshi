@@ -10,6 +10,13 @@
 //   はじめ3人ぶんの欄を横に並べたが、**欄の数がそのまま「3人まで」という制約になる**。
 //   1本にしておけば、書ける範囲で何人でも書ける。柔軟性を優先する。
 //   幅は行を丸ごと使うので、場所の欄（82mm）の倍以上ある。
+// [DECISION 2026-09-11] **罫線の間隔は固定（6mm）**（P8-b）。書く字の大きさは項目数と関係ないので、
+//   行間が項目数で変わるのはおかしい。枠の高さに**入るだけ**引く（項目が少なければ行数が増える）。
+//   6mm は日本のノートの **B罫と同じ**で、大人が普段書いている間隔。
+//   それまでは本数を先に決めて引き伸ばしていたため、実測で **2項目=15.1mm / 6項目=5.7mm** と3倍近く開いていた。
+// [DECISION 2026-09-11] **自由形式の用紙**（P8-b）。上の記入欄はそのままで、下は**枠なしの罫線だけ**。
+//   「その他」は出さず、**1枚固定**（複数欲しいときは印刷の部数で足りる）。
+//   枠に収まらない人と、項目にとらわれず書きたい人のための逃げ道。
 // [DECISION 2026-09-10] **選んだ項目が8個までは1枚、9個以上は2枚**（P7-g。書く余裕を優先する）。
 //   以前は罫線を減らして13項目でも1枚に押し込んでいたが、13項目で罫線4本まで痩せて書けなかった。
 //   **枠は途中で分割しない**（現行の方針を維持）。
@@ -42,10 +49,9 @@ export const SHEET = {
   boxHead: 6.2,
   /** 枠の内側の余白（上下あわせて） */
   boxPad: 3.4,
-  /** 罫線1本ぶんの高さ */
-  line: 5.6,
+  /** 罫線の間隔（mm）。**固定値**。B罫と同じで、大人が普段書いている間隔 */
+  line: 6,
   minLines: 3,
-  maxLines: 14,
   cols: 2,
   /** 「その他」の枠の罫線の本数（他の枠より低くする） */
   otherLines: 3,
@@ -54,28 +60,44 @@ export const SHEET = {
 } as const;
 
 /** 用紙にいつも入る「その他」の枠。**記録の項目ライブラリには入れない**（用紙だけの欄） */
-export const OTHER_BOX = { id: "__other", label: "その他" } as const;
+export const OTHER_BOX = { id: "__other", label: "その他", freeLabel: "自由形式" } as const;
 
 export type SheetLayout = {
   /** 用紙の枚数 */
   pages: number;
-  /** 1つの枠に引く罫線の本数（どの枚でも同じ） */
-  lines: number;
   /** 各ページに載せる項目の数（「その他」は含まない） */
   perPage: number[];
+  /** 各ページの枠に引く罫線の本数（枠の高さに入るだけ引く） */
+  linesPerPage: number[];
+  /** 罫線の間隔（mm・どの用紙でも同じ） */
+  pitch: number;
 };
 
 /** 「その他」の枠が取る高さ（見出し＋余白＋罫線3本） */
 const otherH = SHEET.boxHead + SHEET.boxPad + SHEET.otherLines * SHEET.line;
 
-/** 1ページに count 個の枠を置いたときに引ける罫線の本数（hasOther ならその高さを先に引く） */
-function linesOn(count: number, hasOther: boolean): number {
-  if (count === 0) return SHEET.maxLines;
+/** 記入欄より下に使える高さ（mm） */
+function usableH(): number {
+  return SHEET.pageH - SHEET.margin * 2 - SHEET.headH;
+}
+
+/** 1ページに count 個の枠を置いたときの、枠1つの高さ（mm）。hasOther ならその高さを先に引く */
+export function boxHeight(count: number, hasOther: boolean): number {
   const rows = Math.ceil(count / SHEET.cols);
-  let usable = SHEET.pageH - SHEET.margin * 2 - SHEET.headH;
-  if (hasOther) usable -= otherH + SHEET.gap;
-  const boxH = (usable - SHEET.gap * (rows - 1)) / rows;
-  return Math.floor((boxH - SHEET.boxHead - SHEET.boxPad) / SHEET.line);
+  const usable = usableH() - (hasOther ? otherH + SHEET.gap : 0);
+  return (usable - SHEET.gap * (rows - 1)) / rows;
+}
+
+/** その高さの枠に**入るだけ**罫線を引く（間隔は固定なので、枠が高いほど本数が増える） */
+function linesOn(count: number, hasOther: boolean): number {
+  if (count === 0) return 0;
+  const inner = boxHeight(count, hasOther) - SHEET.boxHead - SHEET.boxPad;
+  return Math.max(0, Math.floor(inner / SHEET.line));
+}
+
+/** 自由形式（枠なし・罫線だけ）の用紙に引く本数。紙面いっぱいに同じ間隔で引く */
+export function freeSheetLines(): number {
+  return Math.floor(usableH() / SHEET.line);
 }
 
 /**
@@ -86,7 +108,7 @@ function linesOn(count: number, hasOther: boolean): number {
  */
 export function sheetLayout(n: number): SheetLayout {
   const count = Math.max(0, Math.floor(n));
-  if (count === 0) return { pages: 1, lines: SHEET.maxLines, perPage: [0] };
+  if (count === 0) return { pages: 1, perPage: [0], linesPerPage: [0], pitch: SHEET.line };
 
   const pages = count <= SHEET.onePageMax ? 1 : 2;
   let perPage: number[];
@@ -100,15 +122,9 @@ export function sheetLayout(n: number): SheetLayout {
     if (first % 2 !== 0) first -= 1; // 頭打ちで奇数になったら1つ戻す
     perPage = [first, count - first];
   }
-  // 「その他」は最後のページに載る
-  const lines = Math.min(
-    ...perPage.map((c, i) => linesOn(c, i === perPage.length - 1))
-  );
-  return {
-    pages,
-    lines: Math.max(SHEET.minLines, Math.min(SHEET.maxLines, lines)),
-    perPage,
-  };
+  // 罫線は**ページごとに**入るだけ引く（間隔は固定なので、枠が高いページほど行数が多くなる）
+  const linesPerPage = perPage.map((c, i) => linesOn(c, i === perPage.length - 1));
+  return { pages, perPage, linesPerPage, pitch: SHEET.line };
 }
 
 /** 項目を1枚ぶんずつに切り分ける（`sheetLayout` が決めた各ページの数に従う） */

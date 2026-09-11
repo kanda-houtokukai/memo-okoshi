@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { ITEM_LIBRARY } from "../lib/items.ts";
 import { defaultSettings, mergeSettings, selectedIds } from "../lib/settings.ts";
-import { OTHER_BOX, paginate, sheetFileName, sheetLayout, SHEET } from "../lib/sheet.ts";
+import { boxHeight, freeSheetLines, OTHER_BOX, paginate, sheetFileName, sheetLayout, SHEET } from "../lib/sheet.ts";
 
 /* ---------- 項目ライブラリの分類（2026-09-10に見直し） ---------- */
 
@@ -68,26 +68,80 @@ test("すでに保存されている選択は移行せず、そのまま尊重�
 /* ---------- 用紙の割り付け ---------- */
 
 test("用紙は8項目までが1枚・9項目以上は2枚（書く余裕を優先・P7-g）", () => {
-  // [2026-09-10 P7-g] 以前は罫線を減らして13項目でも1枚に押し込んでいた（罫線4本まで痩せた）
   for (let n = 1; n <= SHEET.onePageMax; n++) assert.equal(sheetLayout(n).pages, 1, `n=${n} は1枚`);
   for (let n = SHEET.onePageMax + 1; n <= ITEM_LIBRARY.length; n++) {
     assert.equal(sheetLayout(n).pages, 2, `n=${n} は2枚`);
   }
   // 2枚に分かれると枠が大きくなる＝罫線が増える（8項目→9項目でむしろ余裕が出る）
   assert.ok(
-    sheetLayout(9).lines > sheetLayout(8).lines,
-    `2枚に分けたのに余裕が増えていない: 8→${sheetLayout(8).lines} / 9→${sheetLayout(9).lines}`
+    sheetLayout(9).linesPerPage[0] > sheetLayout(8).linesPerPage[0],
+    `2枚に分けたのに余裕が増えていない: 8→${sheetLayout(8).linesPerPage} / 9→${sheetLayout(9).linesPerPage}`
   );
-  // どの項目数でも書ける本数を保つ（下限・上限）
   for (let n = 1; n <= ITEM_LIBRARY.length; n++) {
     const l = sheetLayout(n);
-    assert.ok(l.lines >= SHEET.minLines, `罫線が下限を割った n=${n}`);
-    assert.ok(l.lines <= SHEET.maxLines, `罫線が上限を超えた n=${n}`);
     assert.equal(l.perPage.reduce((a, b) => a + b, 0), n, `枠が落ちている n=${n}`);
     assert.equal(l.perPage.length, l.pages);
+    assert.equal(l.linesPerPage.length, l.pages);
+    for (const lines of l.linesPerPage) assert.ok(lines >= SHEET.minLines, `罫線が下限を割った n=${n}`);
   }
-  // 「その他」は枚数の判定に数えない（画面の「N項目」と食い違わせない）
   assert.equal(sheetLayout(SHEET.onePageMax).pages, 1, "8項目＋その他でも1枚");
+});
+
+test("罫線の間隔はどの項目数でも同じ（P8-b）", () => {
+  // 書く字の大きさは項目数と関係ない。行間が項目数で変わるのはおかしい
+  for (let n = 1; n <= ITEM_LIBRARY.length; n++) {
+    assert.equal(sheetLayout(n).pitch, SHEET.line, `行間が変わっている n=${n}`);
+  }
+  // 枠の高さに**入るだけ**引く＝枠が高いほど本数が多い（引き伸ばさない）
+  for (let n = 1; n <= ITEM_LIBRARY.length; n++) {
+    const l = sheetLayout(n);
+    l.perPage.forEach((c, i) => {
+      const inner = boxHeight(c, i === l.perPage.length - 1) - SHEET.boxHead - SHEET.boxPad;
+      assert.equal(l.linesPerPage[i], Math.floor(inner / SHEET.line), `本数が高さと合わない n=${n}`);
+      // 引いた罫線は必ず枠に収まる
+      assert.ok(l.linesPerPage[i] * SHEET.line <= inner + 0.001, `枠からはみ出している n=${n}`);
+    });
+  }
+  // 項目が少ないほど枠が高く、行数が増える（単調・逆転しない）
+  const oneP = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => sheetLayout(n).linesPerPage[0]);
+  for (let i = 1; i < oneP.length; i++) assert.ok(oneP[i] <= oneP[i - 1], `行数が増えている: ${oneP}`);
+  // 2項目のときに余白が無駄にならない（以前は14本しか引かず行間が15mmまで開いていた）
+  assert.ok(sheetLayout(2).linesPerPage[0] >= 30, `少ない項目で余白が余っている: ${sheetLayout(2).linesPerPage}`);
+});
+
+test("自由形式は枠なしの罫線だけ・1枚固定（P8-b）", () => {
+  // 紙面いっぱいに同じ間隔で引く
+  const lines = freeSheetLines();
+  const usable = SHEET.pageH - SHEET.margin * 2 - SHEET.headH;
+  assert.equal(lines, Math.floor(usable / SHEET.line));
+  assert.ok(lines * SHEET.line <= usable + 0.001, "紙からはみ出している");
+  assert.ok(lines >= 30, "自由形式なのに行が少ない");
+
+  const src = readFileSync("app/components/SheetMaker.tsx", "utf8");
+  // 用紙の見た目だけを切り替える。1枚固定で、「その他」も出さない
+  assert.ok(src.includes("free ? [[]] : paginate("), "自由形式は1枚固定");
+  assert.ok(src.includes("other={!free &&"), "自由形式では「その他」を出さない");
+  assert.ok(src.includes('className="p-free"'), "枠なしの罫線だけを描く");
+  // 記入欄（日時・場所・参加者）は残す
+  const paper = src.slice(src.indexOf("function Paper("), src.indexOf("export default function"));
+  assert.ok(paper.indexOf('className="p-head"') < paper.indexOf("free ?"), "記入欄は自由形式でも出す");
+});
+
+test("自由形式は記録側の項目選択に触れない（P8-b）", () => {
+  const src = readFileSync("app/components/SheetMaker.tsx", "utf8");
+  // 切り替えは専用の鍵だけを書く。項目の選択（saveSettings）は呼ばない
+  const toggleFree = src.slice(src.indexOf("const toggleFree ="), src.indexOf("const toggle ="));
+  assert.ok(toggleFree.includes("saveSheetFree"), "自由形式は専用の鍵に持つ");
+  assert.ok(!toggleFree.includes("saveSettings") && !toggleFree.includes("setSet"), "項目の選択を書き換えない");
+  // 自由形式のあいだは項目を触らせない（押せなくする＋念のため関数側でも弾く）
+  const toggle = src.slice(src.indexOf("const toggle ="), src.indexOf("const print ="));
+  assert.ok(toggle.includes("if (free) return"), "自由形式のあいだは項目を変えない");
+  assert.ok(src.includes("disabled={free}"), "項目のトグルを押せなくする");
+  // 鍵の定義は lib/settings.ts にだけ置く
+  const sheetMaker = src.match(/memo-okoshi:/g) ?? [];
+  assert.deepEqual(sheetMaker, [], "画面側に鍵を書かない");
+  const settings = readFileSync("lib/settings.ts", "utf8");
+  assert.equal((settings.match(/"memo-okoshi:[^"]+"/g) ?? []).length, 2, "鍵の定義は settings.ts の2つだけ");
 });
 
 test("2枚のとき1ページ目は偶数個・枠は途中で分割しない（P7-h）", () => {
@@ -118,7 +172,7 @@ test("「その他」は用紙だけの欄で、記録の項目ライブラリ�
   assert.ok(!ITEM_LIBRARY.some((l) => l.id === OTHER_BOX.id || l.label === OTHER_BOX.label));
   const src = readFileSync("app/components/SheetMaker.tsx", "utf8");
   // 常に最後のページの最後に置く（項目のループの外）
-  assert.ok(src.includes("other={i === pages.length - 1}"), "「その他」は最後のページだけ");
+  assert.ok(src.includes("other={!free && i === pages.length - 1}"), "「その他」は最後のページだけ");
   assert.ok(src.indexOf('className="p-box other"') > src.indexOf('className="p-grid"'), "項目の枠より後ろ");
   // トグルの一覧には出さない（常設なので選ぶ必要がない）
   const cfg = src.slice(src.indexOf('className="cfg"'), src.indexOf('className="pv"'));
@@ -141,12 +195,12 @@ test("用紙は記録と同じ項目ライブラリ・同じ選択を使う（P7
   assert.ok(src.includes('from "@/lib/items"'), "項目は記録と同じライブラリから取る");
   assert.ok(src.includes('from "@/lib/settings"'), "選択も記録と同じところから取る");
   assert.ok(!/ITEM_LIBRARY\s*=|const\s+SHEET_ITEMS/.test(src), "用紙だけの項目表を作らない");
-  assert.ok(!src.includes('localStorage'), "保存は lib/settings.ts に集約する（鍵を増やさない）");
+  assert.ok(!src.includes("localStorage"), "保存は lib/settings.ts に集約する（画面側に鍵を書かない）");
   // 記録側も同じ鍵を使う
   const review = readFileSync("app/components/Review.tsx", "utf8");
   assert.ok(review.includes('from "@/lib/settings"'), "記録側も同じ鍵を共有する");
   const settings = readFileSync("lib/settings.ts", "utf8");
-  assert.equal((settings.match(/memo-okoshi:items/g) ?? []).length, 1, "鍵の定義は1か所");
+  assert.equal((settings.match(/memo-okoshi:items/g) ?? []).length, 1, "項目の鍵の定義は1か所");
 });
 
 test("用紙に氏名の注記を入れない／説明文を置かない（P7-e）", () => {

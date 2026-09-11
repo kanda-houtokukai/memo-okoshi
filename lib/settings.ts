@@ -14,6 +14,33 @@ import type { ItemDef } from "./items";
 
 export const SETTINGS_KEY = "memo-okoshi:items";
 
+/**
+ * 面談用紙を「自由形式」（枠なしの罫線だけ）にするか。**用紙の見た目だけ**の切り替え。
+ *
+ * [DECISION 2026-09-11] ⚠️ **記録側の項目選択（`SETTINGS_KEY`）には触れない**。
+ *   用紙と記録は同じ選択を共有しているので、ここを書き換えると**変換時の項目構成まで消えてしまう**。
+ *   自由形式は別の鍵に持ち、外せば元の選択がそのまま戻る。
+ *   鍵の定義はこのファイルにだけ置く（散らかさない）。
+ */
+export const SHEET_FREE_KEY = "memo-okoshi:sheet-free";
+
+export function loadSheetFree(): boolean {
+  try {
+    return localStorage.getItem(SHEET_FREE_KEY) === "1";
+  } catch {
+    return false;
+  }
+}
+
+export function saveSheetFree(free: boolean): void {
+  try {
+    if (free) localStorage.setItem(SHEET_FREE_KEY, "1");
+    else localStorage.removeItem(SHEET_FREE_KEY);
+  } catch {
+    /* プライベートブラウズ等では保存できないが動作は続ける */
+  }
+}
+
 export type Settings = { enabled: Record<string, boolean>; order: string[] };
 
 export function defaultSettings(lib: ItemDef[]): Settings {
