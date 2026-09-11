@@ -11,6 +11,9 @@
 // [DECISION 2026-09-10] 狭い画面（≤620px）では**横長の一列**に切り替える（縦長3枚だと1枚も収まらない）。
 // [DECISION 2026-09-10] ホームでは**ヘッダーに使い方の入口を出さない**（カードと二重になるため）。
 //   作業画面（取り込み・伏せる・確認・用紙）では従来どおりヘッダー右に固定する。
+// [DECISION 2026-09-11] 題の下に **「面談記録のための文字おこしツール」** の一文を置く（P8-c）。
+//   「メモおこし」だけでは**文字起こしツール**と思われる。実際には面談の記録として項目ごとに整理する
+//   ところまでやるので、用途を一言で伝える。⚠️ **例外はここだけ**で、カードには説明文を置かない（引き算原則）。
 
 import StepHeader from "./StepHeader";
 import VocabButton from "./VocabButton";
@@ -29,6 +32,7 @@ export default function Home({ onMemo, onSheet, toast }: Props) {
       <div className="home">
         <div className="home-in">
           <div className="hero">メモおこし</div>
+          <p className="hero-sub">面談記録のための文字おこしツール</p>
           <div className="cards">
             <button className="hcard" style={{ ["--c" as string]: "var(--t1)" }} onClick={onMemo}>
               <div className="art" aria-hidden>

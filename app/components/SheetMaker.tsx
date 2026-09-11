@@ -34,6 +34,7 @@ import {
   sheetFileName,
   sheetLayout,
   SHEET,
+  wideLast,
 } from "@/lib/sheet";
 import StepHeader from "./StepHeader";
 import VocabButton from "./VocabButton";
@@ -98,9 +99,10 @@ function Paper({
       ) : (
         <>
           <div className="p-grid">
-            {items.map((it) => (
+            {items.map((it, i) => (
               <div
-                className="p-box"
+                // 最後の行に1つしか入らないときは横いっぱいに広げる（右半分を空けない）
+                className={"p-box" + (wideLast(items.length) && i === items.length - 1 ? " wide" : "")}
                 key={it.id}
                 style={{ ["--c" as string]: it.color }}
               >

@@ -968,7 +968,9 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .home::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
   background-image:repeating-linear-gradient(92deg,rgba(150,138,118,.028) 0 2px,transparent 2px 7px,rgba(150,138,118,.018) 7px 8px,transparent 8px 19px)}
 .home-in{position:relative;z-index:2;max-width:720px;margin:0 auto}
-.hero{font-family:var(--head);font-size:1.6rem;letter-spacing:.12em;margin-bottom:34px;text-align:center}
+.hero{font-family:var(--head);font-size:1.6rem;letter-spacing:.12em;text-align:center}
+/* 何をする道具かを一言。題より小さく控えめに（カードには説明文を置かない） */
+.hero-sub{margin-top:7px;margin-bottom:34px;text-align:center;font-size:.84rem;color:var(--sub);letter-spacing:.04em}
 .cards{display:grid;grid-template-columns:repeat(3,1fr);gap:16px}
 .hcard{
   background:var(--surface);border:1px solid var(--line);border-radius:12px;
@@ -1052,6 +1054,8 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .p-lines{flex:1;min-height:0;padding:3px 6px 4px;display:flex;flex-direction:column}
 /* [DECISION 2026-09-11] 罫線の間隔は固定（6mm）。引き伸ばさず、余りは枠の下に残す */
 .p-lines div{flex:0 0 auto;height:calc(6 * var(--mm));border-bottom:1px dotted #c9c4b8}
+/* 最後の行に1つしか入らない枠は横いっぱいに広げる（右半分を空けない） */
+.p-box.wide{grid-column:1 / -1}
 /* 「その他」は常に最後・横いっぱい。他の枠より低くして、項目の枠を痩せさせない */
 .p-box.other{flex:0 0 auto;margin-top:calc(2.4 * var(--mm))}
 

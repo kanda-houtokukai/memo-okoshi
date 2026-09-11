@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { ITEM_LIBRARY } from "../lib/items.ts";
 import { defaultSettings, mergeSettings, selectedIds } from "../lib/settings.ts";
-import { boxHeight, freeSheetLines, OTHER_BOX, paginate, sheetFileName, sheetLayout, SHEET } from "../lib/sheet.ts";
+import { boxHeight, freeSheetLines, OTHER_BOX, paginate, sheetFileName, sheetLayout, SHEET, wideLast } from "../lib/sheet.ts";
 
 /* ---------- 項目ライブラリの分類（2026-09-10に見直し） ---------- */
 
@@ -107,6 +107,28 @@ test("罫線の間隔はどの項目数でも同じ（P8-b）", () => {
   for (let i = 1; i < oneP.length; i++) assert.ok(oneP[i] <= oneP[i - 1], `行数が増えている: ${oneP}`);
   // 2項目のときに余白が無駄にならない（以前は14本しか引かず行間が15mmまで開いていた）
   assert.ok(sheetLayout(2).linesPerPage[0] >= 30, `少ない項目で余白が余っている: ${sheetLayout(2).linesPerPage}`);
+});
+
+test("最後の行に1つしか入らない枠は横いっぱいにする（P8-c）", () => {
+  // 1項目だと左半分だけに枠ができて右が丸ごと空いていた。3・5・7でも最後の行の片側が空く
+  for (let n = 1; n <= ITEM_LIBRARY.length; n++) {
+    const l = sheetLayout(n);
+    l.perPage.forEach((c, i) => {
+      assert.equal(wideLast(c), c % 2 === 1, `n=${n} ページ${i + 1}（${c}個）の判定が違う`);
+    });
+    // 1ページ目は必ず偶数なので広げない（P7-h の割り振りとかみ合っていること）
+    if (l.pages === 2) assert.equal(wideLast(l.perPage[0]), false, `n=${n} の1ページ目が奇数`);
+  }
+  // 横に広げても行の高さは変わらない＝罫線の本数も間隔も変わらない
+  for (const n of [1, 3, 5, 7]) {
+    assert.equal(sheetLayout(n).pitch, SHEET.line);
+    assert.equal(sheetLayout(n).linesPerPage[0], sheetLayout(n + 1).linesPerPage[0], `n=${n} と ${n + 1} で本数が違う`);
+  }
+
+  const src = readFileSync("app/components/SheetMaker.tsx", "utf8");
+  assert.ok(src.includes("wideLast(items.length) && i === items.length - 1"), "最後の枠だけ広げる");
+  const css = readFileSync("app/globals.css", "utf8");
+  assert.ok(css.includes(".p-box.wide{grid-column:1 / -1}"), "横いっぱいにする指定がある");
 });
 
 test("自由形式は枠なしの罫線だけ・1枚固定（P8-b）", () => {
@@ -232,7 +254,14 @@ test("ホームが起点で、カードは3枚・説明文なし（P7-e）", () 
   // タイトル以外の文字を置かない
   const body = home.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
   const words = (body.match(/>[^<>{}]*[ぁ-んァ-ヶ一-龥][^<>{}]*</g) ?? []).map((w) => w.slice(1, -1).trim());
-  assert.deepEqual(words, ["メモおこし", "メモをおこす", "面談用紙を印刷", "使い方"], `説明文がある → ${words.join(" / ")}`);
+  // 題の下の一文だけが例外（名前だけだと文字起こしツールと思われるため）。カードには説明文を置かない
+  assert.deepEqual(
+    words,
+    ["メモおこし", "面談記録のための文字おこしツール", "メモをおこす", "面談用紙を印刷", "使い方"],
+    `説明文がある → ${words.join(" / ")}`
+  );
+  const cards = home.slice(home.indexOf('className="cards"'));
+  assert.ok(!/className="(ttl|hcard)"[^>]*>[^<]*[ぁ-ん]{10,}/.test(cards), "カードに説明文を足さない");
 
   // 狭い画面では横長の一列にする
   const css = readFileSync("app/globals.css", "utf8");
