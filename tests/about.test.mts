@@ -3,7 +3,7 @@
 // /about は合言葉ゲートの外に出しているので、**載ってよい文面は承認済みのものだけ**。
 // このファイルが承認済みの文面（ゴールデン）を控えていて、1文字でも変わると落ちる。
 // 文面を変えるときは、設計側の承認を取ってから lib/about-copy.ts とここを一緒に直すこと。
-// （2026-09-11に手順書へ作り直した。体裁の正本は docs/mock/tsukaikata-mock-v2.html で凍結してあり、
+// （2026-09-11に手順書へ作り直した。体裁の正本は 2026-09-12 から docs/mock/tsukaikata-mock-v3.html（凍結）で、
 //   文面が食い違ったら実装が正しい。）
 //
 // あわせて次を検査する:
@@ -11,6 +11,7 @@
 //   - 章の順序（目次のとおりに並んでいること）
 //   - 画面写真12枚がすべて参照され、配信の場所に実在すること
 //   - ゲートの外に出す道が増えていないこと
+//   - 体裁の構造（手順が縦線でつながる・章の頭がある等）と、横あふれを防ぐ指定（P8-h）
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -232,3 +233,79 @@ test("合言葉ゲートの外に出す道は、決めたものだけ（前方�
   assert.ok(src.includes('new NextResponse("unauthorized", { status: 401 })'));
   assert.ok(src.includes('NextResponse.redirect(new URL("/gate", req.url))'));
 });
+
+/* ---------------- 体裁（P8-h・docs/mock/tsukaikata-mock-v3.html） ---------------- */
+
+const aboutCss = () => {
+  const css = readFileSync("app/globals.css", "utf8");
+  const start = css.indexOf("使い方ページ /about");
+  // 注釈（原因の説明に規則そのものを書いている）は検査の対象から外す
+  return css.slice(start, css.indexOf("/* 作業画面ヘッダーの入口", start)).replace(/\/\*[\s\S]*?\*\//g, "").replace(/^[\s\S]*?\*\//, "");
+};
+
+test("体裁: 手順は縦の一本線でつなぎ、章の頭と表組みがある（v3）", () => {
+  const page = readFileSync("app/about/page.tsx", "utf8");
+  const css = aboutCss();
+  // 手順: 番号が左端に一列、右に内容。カードにしない（背景・枠を付けない）
+  assert.ok(page.includes('className="ab-steps"') && page.includes('className="step"') && page.includes('className="n"'));
+  assert.ok(/\.about \.ab-steps::before\{[^}]*position:absolute[^}]*width:2px/.test(css), "手順をつなぐ縦線がない");
+  assert.ok(/\.about \.step \.n\{[^}]*position:absolute/.test(css), "番号が左端の列にない");
+  const step = css.match(/\.about \.step\{[^}]*\}/)?.[0] ?? "";
+  assert.ok(!/background|border:/.test(step), "手順をカードにしている");
+  // 章の頭: 番号の四角＋見出し＋右に一行の説明、下に章の色の太線
+  assert.ok(page.includes('className="sec-head"') && page.includes('className="sec-no"') && page.includes('className="sub"'));
+  assert.ok(/\.about \.sec-head\{[^}]*border-bottom:2px solid var\(--c/.test(css), "章の頭の下に章の色の線がない");
+  // どの章にも章の頭がある（手順の7章・注意事項・困ったとき）
+  assert.equal((page.match(/<SecHead /g) ?? []).length, 3, "章の頭を出す場所（手順の章・注意事項・困ったとき）");
+  // ラベルと説明は表組み（dl/dt/dd）。黄・青・赤はラベルに色
+  assert.ok(page.includes('<dl className="pairs">') && page.includes("<dt className={pr.mk}>") && page.includes("<dd>"));
+  for (const k of ["y", "b", "r"]) assert.ok(css.includes(`.about .pairs dt.${k}{`), `ラベル ${k} の色がない`);
+  // 画像は本文より控えめ（最大520px・縦長は330px）
+  assert.ok(/\.about \.shot\{[^}]*max-width:520px/.test(css) && css.includes(".about .shot.narrow{max-width:330px}"));
+  const narrow = ABOUT.chapters.flatMap((c) => c.steps.flatMap((s) => s.shots ?? [])).filter((s) => s.h / s.w >= 0.9);
+  assert.deepEqual(narrow.map((s) => s.src), ["/help/10-spill-picker.png", "/help/12-vocab.png"], "縦長として狭くする写真");
+  // 注意事項と困ったときは、区切り線でつないだ一枚の表
+  assert.ok(/\.about \.cautions,\.about \.qa\{[^}]*display:grid;gap:1px;background:var\(--line\)/.test(css));
+});
+
+test("横あふれを防ぐ指定が入っている（P8-h）", () => {
+  const css = aboutCss();
+  // 長い英数字（URL など）も折り返す
+  assert.ok(/\.about\{[^}]*overflow-wrap:anywhere/.test(css), "長い文字列が折り返さない");
+  // 画像は枠より広がらない。寸法の属性は位置ずれ防止のため残し、CSS で抑える
+  assert.ok(css.includes(".about img{display:block;max-width:100%;height:auto}"));
+  const page = readFileSync("app/about/page.tsx", "utf8");
+  assert.ok(page.includes("width={s.w}") && page.includes("height={s.h}"), "寸法の属性を外さない");
+  // 表組みの説明の列は縮められる（1fr のままだと中身の最小幅より縮まない）
+  assert.ok(css.includes("grid-template-columns:auto minmax(0,1fr)") && /\.about \.pairs dd\{[^}]*min-width:0/.test(css));
+  // 折り返さない指定は短いラベル（dt）だけ。本文にはかけない
+  const nowrap = [...css.matchAll(/([^{}]+)\{[^}]*white-space:nowrap/g)].map((m) => m[1].trim());
+  assert.deepEqual(nowrap, [".about .pairs dt"], "本文に折り返さない指定がある");
+  // 文字を極端に小さくしない（0.72rem 未満を使わない）
+  for (const m of css.matchAll(/font-size:([\d.]+)rem/g)) assert.ok(Number(m[1]) >= 0.72, `文字が小さすぎる → ${m[0]}`);
+});
+
+test("使い方ページの部品名が、他の画面の規則とぶつからない（横あふれの原因になった・P8-h）", () => {
+  // 2026-09-12: 手順の入れ物を .steps にしていたため、作業画面の工程表示の規則
+  // （.steps{display:flex;...} と .steps span{white-space:nowrap}）が使い方ページにまで効き、
+  // 説明文が折り返さずに 375px で 192px はみ出していた。部品名が他の画面の規則の先頭に来ていないことを見張る。
+  const page = readFileSync("app/about/page.tsx", "utf8");
+  const classes = new Set<string>(["y", "b", "r", "warn", "narrow"]);
+  for (const m of page.matchAll(/className=(?:"([^"]+)"|\{([^}]*)\})/g)) {
+    const lit = m[1] ? [m[1]] : [...(m[2] ?? "").matchAll(/"([^"]*)"/g)].map((x) => x[1]);
+    for (const l of lit) for (const c of l.split(/\s+/)) if (c) classes.add(c);
+  }
+  const shared = new Set(["brand", "h-in"]); // ヘッダーは作業画面と共有する（意図どおり）
+  const css = readFileSync("app/globals.css", "utf8").replace(/\/\*[\s\S]*?\*\//g, "");
+  const clash: string[] = [];
+  for (const m of css.matchAll(/([^{}]+)\{[^{}]*\}/g)) {
+    for (const sel of m[1].split(",").map((x) => x.trim())) {
+      if (!sel || sel.startsWith("@") || sel.startsWith(".about")) continue;
+      const first = sel.match(/^\.([\w-]+)/)?.[1];
+      if (first && classes.has(first) && !shared.has(first)) clash.push(sel);
+    }
+  }
+  assert.deepEqual(clash, [], `他の画面の規則が使い方ページに効く → ${clash.join(" / ")}`);
+  assert.ok(!classes.has("steps") && !classes.has("note") && !classes.has("mk"), "ぶつかると分かっている名前を使っている");
+});
+
