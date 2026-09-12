@@ -16,12 +16,13 @@
 //   2枚のときは**ページごとに**判定する（1ページ目は必ず偶数なので、効くのは最後のページ）。
 // [DECISION 2026-09-11] **罫線の間隔は固定（6mm）**（P8-b）。書く字の大きさは項目数と関係ないので、
 //   行間が項目数で変わるのはおかしい。枠の高さに**入るだけ**引く（項目が少なければ行数が増える）。
+//   枠の高さは印刷の実測から出す（P8-g・`PRINT`）。
 //   6mm は日本のノートの **B罫と同じ**で、大人が普段書いている間隔。
 //   それまでは本数を先に決めて引き伸ばしていたため、実測で **2項目=15.1mm / 6項目=5.7mm** と3倍近く開いていた。
 // [DECISION 2026-09-11] **自由形式の用紙**（P8-b）。上の記入欄はそのままで、下は**枠なしの罫線だけ**。
 //   「その他」は出さず、**1枚固定**（複数欲しいときは印刷の部数で足りる）。
 //   枠に収まらない人と、項目にとらわれず書きたい人のための逃げ道。
-//   本数は実際に書ける高さに入るだけ（P8-f・`freeSheetLines`）。
+//   本数は実際に書ける高さに入るだけ（P8-f・`freeSheetLines`。高さは `PRINT`）。
 // [DECISION 2026-09-10] **選んだ項目が8個までは1枚、9個以上は2枚**（P7-g。書く余裕を優先する）。
 //   以前は罫線を減らして13項目でも1枚に押し込んでいたが、13項目で罫線4本まで痩せて書けなかった。
 //   **枠は途中で分割しない**（現行の方針を維持）。
@@ -42,18 +43,8 @@
 export const SHEET = {
   pageH: 297,
   margin: 9,
-  /**
-   * 見出し（面談記録メモ）＋記入欄（日時・場所・参加者）の高さ。
-   * [DECISION 2026-09-10] 記入欄は**手で書ける高さ**を確保する（下線1本では狭くて書けなかった）。
-   *   題1行（約7mm）＋日時と場所の行（9mm）＋参加者の行（10mm）＋区切りと余白（約3mm）。
-   */
-  headH: 29,
-  /** 枠のあいだの隙間 */
+  /** 枠のあいだの隙間（「その他」の上の余白も同じ） */
   gap: 2.4,
-  /** 枠の見出し帯の高さ */
-  boxHead: 6.2,
-  /** 枠の内側の余白（上下あわせて） */
-  boxPad: 3.4,
   /** 罫線の間隔（mm）。**固定値**。B罫と同じで、大人が普段書いている間隔 */
   line: 6,
   minLines: 3,
@@ -78,26 +69,56 @@ export type SheetLayout = {
   pitch: number;
 };
 
-/** 「その他」の枠が取る高さ（見出し＋余白＋罫線3本） */
-const otherH = SHEET.boxHead + SHEET.boxPad + SHEET.otherLines * SHEET.line;
+/**
+ * 印刷を実測した寸法（mm）。割り付けは**枠ありも自由形式もこの値で**決める（P8-f・P8-g）。
+ *
+ * [DECISION 2026-09-12] 罫線の本数は**印刷の実際の高さに入るだけ**引く（間隔 6mm は固定）。
+ *   以前は見出し・記入欄を 29mm と見積もり、下の行（メモおこし）を数えない高さ（250mm）で割り付けていた。
+ *   実際に罫線を引ける高さはそれより 6〜10mm 低く、自由形式は最後の線が下の行に重なり（P8-f で直した）、
+ *   枠ありは最後の罫線が枠の外に出て印刷されない回があった（1〜2項目で下の約2本・9〜12項目の1枚目で1本）。
+ * [DECISION 2026-09-12] **最後の罫線は枠の下の余白に入れない**（`boxBottom`＝下の余白 1.2＋枠線 0.25）。
+ *   枠の縁ぎりぎり（3〜4項目で 0.03mm・5〜6項目で 0.48mm）になっていたのを、ここで無くす。
+ * 実測は画面で 2倍の細かさで測った値で、細い線（0.25mm）が実際より薄く描かれるぶん小さく出る。
+ *   **少し大きめに丸めて**、本数が多すぎる側に倒れないようにしてある。
+ * ⚠️ 印刷の見出し・記入欄・枠の見出し帯・下の行の CSS を変えたら、ここを測り直す。
+ * （記入欄の寸法そのものの決定は、このファイル冒頭の [DECISION 2026-09-10] を参照）
+ */
+export const PRINT = {
+  /** 見出し・記入欄（下の余白 2.4mm を含む）。実測 32.8 */
+  head: 33,
+  /** 下の行「メモおこし」（上の余白 1.2mm を含む）。実測 5.84 */
+  foot: 6,
+  /** 枠の上端から1本目の罫線まで（枠線＋見出し帯＋上の余白 1mm）。実測 8.11・線の太さどおりなら 8.35 */
+  boxTop: 8.4,
+  /** 最後の罫線の下端から枠の下端まで、最低これだけ空ける（下の余白 1.2＋枠線 0.25） */
+  boxBottom: 1.45,
+  /** 自由形式の罫線の欄の上の余白 */
+  freePad: 0.5,
+} as const;
 
-/** 記入欄より下に使える高さ（mm） */
-function usableH(): number {
-  return SHEET.pageH - SHEET.margin * 2 - SHEET.headH;
+/** 「その他」の枠（罫線3本）と、その上の余白 */
+const otherH = PRINT.boxTop + SHEET.otherLines * SHEET.line + PRINT.boxBottom + SHEET.gap;
+
+/** 見出し・記入欄と下の行を除いた、枠を並べられる高さ（mm）。hasOther なら「その他」のぶんも引く */
+function gridH(hasOther: boolean): number {
+  return SHEET.pageH - SHEET.margin * 2 - PRINT.head - PRINT.foot - (hasOther ? otherH : 0);
 }
 
-/** 1ページに count 個の枠を置いたときの、枠1つの高さ（mm）。hasOther ならその高さを先に引く */
+/** 1ページに count 個の枠を置いたときの、枠1つの高さ（mm） */
 export function boxHeight(count: number, hasOther: boolean): number {
   const rows = Math.ceil(count / SHEET.cols);
-  const usable = usableH() - (hasOther ? otherH + SHEET.gap : 0);
-  return (usable - SHEET.gap * (rows - 1)) / rows;
+  return (gridH(hasOther) - SHEET.gap * (rows - 1)) / rows;
 }
 
-/** その高さの枠に**入るだけ**罫線を引く（間隔は固定なので、枠が高いほど本数が増える） */
+/** 高さ boxH の枠に**入るだけ**罫線を引く（1本目は `boxTop` から・最後の線は `boxBottom` より上） */
+export function linesIn(boxH: number): number {
+  return Math.max(0, Math.floor((boxH - PRINT.boxTop - PRINT.boxBottom) / SHEET.line));
+}
+
+/** その高さの枠に入る本数（間隔は固定なので、枠が高いほど本数が増える） */
 function linesOn(count: number, hasOther: boolean): number {
   if (count === 0) return 0;
-  const inner = boxHeight(count, hasOther) - SHEET.boxHead - SHEET.boxPad;
-  return Math.max(0, Math.floor(inner / SHEET.line));
+  return linesIn(boxHeight(count, hasOther));
 }
 
 /**
@@ -109,21 +130,11 @@ export function wideLast(countOnPage: number): boolean {
 }
 
 /**
- * 自由形式の罫線の欄（P8-f）。**印刷を実測した寸法**から、罫線を引ける高さを出す。
- *
- * [DECISION 2026-09-12] 自由形式の本数は**実際に書ける高さに入るだけ**引く（間隔 6mm は固定のまま。枠ありと同じ考え方）。
- *   以前は見出しを 29mm と見積もった高さ（250mm・`usableH`）で 41本（246mm）を引いていたが、実際に書ける高さは
- *   約 240mm で、最後の線が下の行（メモおこし）に重なり、印字できる範囲も 0.24mm 越えていた。
- *   見出し・記入欄は下の余白を含めて 32.8mm、下の行は上の余白を含めて 5.84mm（どちらも印刷の実測）、
- *   罫線の欄の上の余白 0.5mm を引く。→ 39本（234mm）。下の行との間に 5.9mm の余裕が残る。
- * ⚠️ 枠ありの割り付け（`usableH`・`sheetLayout`）には使わない。使うと枠ありの本数が変わる。
- * ⚠️ 印刷の見出し・記入欄・下の行の CSS を変えたら、ここを測り直す。
+ * 自由形式の罫線の欄の高さ（mm）。`PRINT` の見出し・記入欄と下の行、欄の上の余白を引く（P8-f）。
+ * → 39本（234mm）。下の行との間に約 5.5mm の余裕が残る。
  */
-export const FREE_AREA = { head: 32.8, foot: 5.84, pad: 0.5 } as const;
-
-/** 自由形式の罫線の欄の高さ（mm） */
 export function freeAreaH(): number {
-  return SHEET.pageH - SHEET.margin * 2 - FREE_AREA.head - FREE_AREA.foot - FREE_AREA.pad;
+  return SHEET.pageH - SHEET.margin * 2 - PRINT.head - PRINT.foot - PRINT.freePad;
 }
 
 /** 自由形式（枠なし・罫線だけ）の用紙に引く本数。書ける高さに同じ間隔で入るだけ引く */

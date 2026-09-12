@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { ITEM_LIBRARY } from "../lib/items.ts";
 import { defaultSettings, mergeSettings, selectedIds } from "../lib/settings.ts";
-import { boxHeight, FREE_AREA, freeAreaH, freeSheetLines, OTHER_BOX, paginate, sheetFileName, sheetLayout, SHEET, wideLast } from "../lib/sheet.ts";
+import { boxHeight, freeAreaH, freeSheetLines, linesIn, OTHER_BOX, paginate, PRINT, sheetFileName, sheetLayout, SHEET, wideLast } from "../lib/sheet.ts";
 
 /* ---------- 項目ライブラリの分類（2026-09-10に見直し） ---------- */
 
@@ -96,10 +96,12 @@ test("罫線の間隔はどの項目数でも同じ（P8-b）", () => {
   for (let n = 1; n <= ITEM_LIBRARY.length; n++) {
     const l = sheetLayout(n);
     l.perPage.forEach((c, i) => {
-      const inner = boxHeight(c, i === l.perPage.length - 1) - SHEET.boxHead - SHEET.boxPad;
-      assert.equal(l.linesPerPage[i], Math.floor(inner / SHEET.line), `本数が高さと合わない n=${n}`);
+      const h = boxHeight(c, i === l.perPage.length - 1);
+      const room = h - PRINT.boxTop - PRINT.boxBottom;
+      assert.equal(l.linesPerPage[i], Math.floor(room / SHEET.line), `本数が高さと合わない n=${n}`);
+      assert.equal(l.linesPerPage[i], linesIn(h));
       // 引いた罫線は必ず枠に収まる
-      assert.ok(l.linesPerPage[i] * SHEET.line <= inner + 0.001, `枠からはみ出している n=${n}`);
+      assert.ok(l.linesPerPage[i] * SHEET.line <= room + 0.001, `枠からはみ出している n=${n}`);
     });
   }
   // 項目が少ないほど枠が高く、行数が増える（単調・逆転しない）
@@ -150,8 +152,8 @@ test("自由形式は枠なしの罫線だけ・1枚固定（P8-b）", () => {
 test("自由形式の罫線は下の行（メモおこし）に重ならず、印字できる範囲に収まる（P8-f）", () => {
   const printable = SHEET.pageH - SHEET.margin * 2; // 279mm
   const lines = freeSheetLines();
-  // 見出し・記入欄（実測 32.8mm）＋罫線の欄の上の余白＋罫線＋下の行（実測 5.84mm）が 279mm に収まる
-  const used = FREE_AREA.head + FREE_AREA.pad + lines * SHEET.line + FREE_AREA.foot;
+  // 見出し・記入欄（実測 32.8→33mm）＋罫線の欄の上の余白＋罫線＋下の行（実測 5.84→6mm）が 279mm に収まる
+  const used = PRINT.head + PRINT.freePad + lines * SHEET.line + PRINT.foot;
   assert.ok(used <= printable, `印字できる範囲を越える（${used}mm）`);
   // 最後の線と下の行のあいだに余裕がある（2mm 以上）
   assert.ok(printable - used >= 2, `下の行との余裕が少ない（${(printable - used).toFixed(2)}mm）`);
@@ -162,17 +164,36 @@ test("自由形式の罫線は下の行（メモおこし）に重ならず、�
   assert.equal(SHEET.line, 6);
 });
 
-test("枠ありの用紙の割り付けは変わらない（自由形式の直しは枠ありに使わない・P8-f）", () => {
-  // 2026-09-12 時点の本数（P8-b〜P8-e）。自由形式の高さを枠ありへ持ち込むとここが変わる
+test("枠ありの罫線は全項目数で枠に収まり、縁ぎりぎりにならない（各ページで判定・P8-g）", () => {
+  // 2026-09-12 P8-g の本数（印刷の実測から決めた枠の高さに入るだけ）
   const want: Record<number, number[]> = {
-    1: [35], 2: [35], 3: [16], 4: [16], 5: [10], 6: [10], 7: [7], 8: [7],
-    9: [12, 16], 10: [12, 16], 11: [12, 10], 12: [12, 10], 13: [8, 10],
+    1: [33], 2: [33], 3: [15], 4: [15], 5: [9], 6: [9], 7: [6], 8: [6],
+    9: [11, 15], 10: [11, 15], 11: [11, 9], 12: [11, 9], 13: [8, 9],
   };
-  for (let n = 1; n <= 13; n++) assert.deepEqual(sheetLayout(n).linesPerPage, want[n], `n=${n}`);
-  const src = readFileSync("lib/sheet.ts", "utf8");
-  const layout = src.slice(src.indexOf("export function sheetLayout"), src.indexOf("export function paginate"));
-  assert.ok(!layout.includes("FREE_AREA") && !layout.includes("freeAreaH"), "枠ありの割り付けが自由形式の高さを使っている");
+  // 印刷で実測した枠の並びの高さ（「その他」のあるページ／ないページ）と、線の太さどおりの1本目の位置
+  const MEASURED = { gridWithOther: 210.53, gridNoOther: 240.36, boxTop: 8.35 };
+  for (let n = 1; n <= 13; n++) {
+    const l = sheetLayout(n);
+    assert.deepEqual(l.linesPerPage, want[n], `n=${n}`);
+    l.perPage.forEach((c, i) => {
+      const hasOther = i === l.perPage.length - 1;
+      const lines = l.linesPerPage[i];
+      // 割り付けの寸法で: 最後の線から枠の下端まで、下の余白＋枠線（1.45mm）以上あいている
+      const h = boxHeight(c, hasOther);
+      assert.ok(h - PRINT.boxTop - lines * SHEET.line >= PRINT.boxBottom - 1e-9, `n=${n} p${i + 1}: 縁ぎりぎり`);
+      // 実測の寸法でも: 枠に収まり、下の余白に罫線が入らない
+      const rows = Math.ceil(c / SHEET.cols);
+      const realH = ((hasOther ? MEASURED.gridWithOther : MEASURED.gridNoOther) - SHEET.gap * (rows - 1)) / rows;
+      const clear = realH - MEASURED.boxTop - lines * SHEET.line;
+      assert.ok(clear >= PRINT.boxBottom, `n=${n} p${i + 1}: 実測では最後の線から下端まで ${clear.toFixed(2)}mm`);
+      // 1本足すと入らない＝入るだけ引いている
+      assert.ok(h - PRINT.boxTop - (lines + 1) * SHEET.line < PRINT.boxBottom, `n=${n} p${i + 1}: まだ1本入る`);
+    });
+  }
+  // 割り付けの見積もりは実測より小さくない（本数が多すぎる側に倒れない）
+  assert.ok(PRINT.head >= 32.8 && PRINT.foot >= 5.84 && PRINT.boxTop >= 8.35);
 });
+
 
 test("自由形式は記録側の項目選択に触れない（P8-b）", () => {
   const src = readFileSync("app/components/SheetMaker.tsx", "utf8");
