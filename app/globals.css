@@ -214,17 +214,57 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 .dr-f b{color:var(--accent)}
 
 /* ---------- output ---------- */
-.ovl{position:fixed;inset:0;background:rgba(43,42,37,.45);z-index:80;display:none;align-items:flex-start;justify-content:center;padding:32px 16px;overflow:auto}
+/* ---------- 転記用テキスト（P8-j・2026-09-13 に大きくした） ----------
+   [DECISION 2026-09-13] **画面いっぱいに近い大きさ**にする。この画面ですることは、貼り付ける前に中身を通して確かめる・
+   コピーする・保存するの3つで、全文が見えているほうが確実（使い方にも「内容を確かめて」と書いている）。
+   以前は幅650px・テキスト欄は画面の高さの44%までで、背後の確認画面のほうが大きく見えていた。
+   [DECISION 2026-09-13] **テキストだけがスクロールし、ボタンは下に固定**（どの高さでも見えて押せる）。
+   幅の上限は 1200px（アプリ全体の内容の幅と同じ。広い画面で1行が長すぎて読み返しにくくならないように）。
+   [DECISION 2026-09-13] 背後は今より暗く（0.45→0.62）して主従をはっきりさせる。
+   狭い画面（≤620px）は画面のほぼ全面（余白 8px）。iPhone の下端の帯にボタンが隠れないよう安全域のぶん空ける。 */
+.ovl{
+  position:fixed;inset:0;background:rgba(43,42,37,.62);z-index:80;display:none;justify-content:center;
+  padding:24px 24px max(24px,env(safe-area-inset-bottom));overflow:hidden;
+}
+/* スマホのブラウザの帯が出入りしても、ボタンが画面の下に隠れないよう実際に見えている高さに合わせる */
+@supports (height:100dvh){.ovl{bottom:auto;height:100dvh}}
 .ovl.on{display:flex}
-.out-card{background:var(--surface);border-radius:14px;max-width:650px;width:100%;padding:24px 26px;position:relative}
-.out-card h2{font-family:var(--head);font-size:1rem;letter-spacing:.08em;margin-bottom:4px}
-.out-card .od{font-size:.75rem;color:var(--sub);margin-bottom:12px}
-.out-card pre{white-space:pre-wrap;font-family:inherit;font-size:.88rem;background:var(--faint);border:1px solid var(--line);border-radius:10px;padding:15px 17px;max-height:44vh;overflow:auto}
-.out-btns{display:flex;gap:10px;margin-top:15px;align-items:center;flex-wrap:wrap}
+.out-card{
+  background:var(--surface);border-radius:14px;width:100%;max-width:1200px;height:100%;min-height:0;
+  padding:22px 26px 18px;position:relative;display:flex;flex-direction:column;
+  box-shadow:0 18px 60px rgba(0,0,0,.28);
+}
+.out-card h2{font-family:var(--head);font-size:1rem;letter-spacing:.08em;margin-bottom:4px;flex:0 0 auto}
+.out-card .od{font-size:.75rem;color:var(--sub);margin-bottom:12px;flex:0 0 auto}
+.out-card .warnline{flex:0 0 auto}
+/* テキスト欄がカードの高さのほとんどを占める。長い英数字も折り返し、横にははみ出さない */
+.out-card pre{
+  flex:1 1 auto;min-height:0;white-space:pre-wrap;overflow-wrap:anywhere;font-family:inherit;font-size:.88rem;
+  background:var(--faint);border:1px solid var(--line);border-radius:10px;padding:16px 20px;overflow:auto;
+}
+.out-btns{flex:0 0 auto;display:flex;gap:10px;margin-top:14px;align-items:center;flex-wrap:wrap}
 .out-btns .copy{background:var(--accent);color:#fff;border:none;border-radius:9px;padding:10px 24px;font-weight:700;font-size:.9rem;font-family:var(--head)}
 .out-btns .back{background:none;border:1px solid var(--line);border-radius:9px;padding:10px 16px;font-size:.85rem;color:var(--sub)}
 .out-btns .copied{font-size:.8rem;color:var(--ok);font-weight:700;opacity:0;transition:opacity .3s}
 .out-btns .copied.on{opacity:1}
+@media (max-width:620px){
+  .ovl{padding:8px 8px max(8px,env(safe-area-inset-bottom))}
+  .out-card{border-radius:12px;padding:16px 14px 12px}
+  .out-card pre{padding:12px 14px}
+  .out-btns{gap:8px;margin-top:10px}
+  .out-btns .copy{padding:10px 18px}
+}
+/* 縦の低い画面（スマホの横向き等）: 見出し・注意・ボタンのまわりの余白だけを詰めて、テキスト欄に高さを回す */
+@media (max-height:520px){
+  .ovl{padding:8px 8px max(8px,env(safe-area-inset-bottom))}
+  .out-card{padding:10px 16px 10px}
+  .out-card h2{margin-bottom:0}
+  .out-card .od{margin-bottom:6px}
+  .out-card .warnline{padding:5px 11px;margin-bottom:6px;line-height:1.5}
+  .out-card pre{padding:10px 14px}
+  .out-btns{margin-top:8px}
+  .out-btns .copy,.out-btns .back{padding-top:7px;padding-bottom:7px}
+}
 .out-note{margin-top:13px;font-size:.7rem;color:#a8a297;border-top:1px dashed var(--line);padding-top:11px}
 .warnline{font-size:.78rem;color:var(--r-ink);background:var(--r-bg);border-radius:9px;padding:9px 13px;margin-bottom:10px;display:none}
 .warnline.on{display:block}
