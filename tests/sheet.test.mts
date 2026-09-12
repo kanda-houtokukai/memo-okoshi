@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { ITEM_LIBRARY } from "../lib/items.ts";
 import { defaultSettings, mergeSettings, selectedIds } from "../lib/settings.ts";
-import { boxHeight, freeSheetLines, OTHER_BOX, paginate, sheetFileName, sheetLayout, SHEET, wideLast } from "../lib/sheet.ts";
+import { boxHeight, FREE_AREA, freeAreaH, freeSheetLines, OTHER_BOX, paginate, sheetFileName, sheetLayout, SHEET, wideLast } from "../lib/sheet.ts";
 
 /* ---------- 項目ライブラリの分類（2026-09-10に見直し） ---------- */
 
@@ -132,11 +132,9 @@ test("最後の行に1つしか入らない枠は横いっぱいにする（P8-c
 });
 
 test("自由形式は枠なしの罫線だけ・1枚固定（P8-b）", () => {
-  // 紙面いっぱいに同じ間隔で引く
+  // 書ける高さに同じ間隔で入るだけ引く（P8-f）
   const lines = freeSheetLines();
-  const usable = SHEET.pageH - SHEET.margin * 2 - SHEET.headH;
-  assert.equal(lines, Math.floor(usable / SHEET.line));
-  assert.ok(lines * SHEET.line <= usable + 0.001, "紙からはみ出している");
+  assert.equal(lines, Math.floor(freeAreaH() / SHEET.line));
   assert.ok(lines >= 30, "自由形式なのに行が少ない");
 
   const src = readFileSync("app/components/SheetMaker.tsx", "utf8");
@@ -147,6 +145,33 @@ test("自由形式は枠なしの罫線だけ・1枚固定（P8-b）", () => {
   // 記入欄（日時・場所・参加者）は残す
   const paper = src.slice(src.indexOf("function Paper("), src.indexOf("export default function"));
   assert.ok(paper.indexOf('className="p-head"') < paper.indexOf("free ?"), "記入欄は自由形式でも出す");
+});
+
+test("自由形式の罫線は下の行（メモおこし）に重ならず、印字できる範囲に収まる（P8-f）", () => {
+  const printable = SHEET.pageH - SHEET.margin * 2; // 279mm
+  const lines = freeSheetLines();
+  // 見出し・記入欄（実測 32.8mm）＋罫線の欄の上の余白＋罫線＋下の行（実測 5.84mm）が 279mm に収まる
+  const used = FREE_AREA.head + FREE_AREA.pad + lines * SHEET.line + FREE_AREA.foot;
+  assert.ok(used <= printable, `印字できる範囲を越える（${used}mm）`);
+  // 最後の線と下の行のあいだに余裕がある（2mm 以上）
+  assert.ok(printable - used >= 2, `下の行との余裕が少ない（${(printable - used).toFixed(2)}mm）`);
+  // 1本足すと入らない＝入るだけ引いている
+  assert.ok(used + SHEET.line > printable, "まだ1本入る");
+  assert.equal(lines, 39);
+  // 間隔は 6mm のまま
+  assert.equal(SHEET.line, 6);
+});
+
+test("枠ありの用紙の割り付けは変わらない（自由形式の直しは枠ありに使わない・P8-f）", () => {
+  // 2026-09-12 時点の本数（P8-b〜P8-e）。自由形式の高さを枠ありへ持ち込むとここが変わる
+  const want: Record<number, number[]> = {
+    1: [35], 2: [35], 3: [16], 4: [16], 5: [10], 6: [10], 7: [7], 8: [7],
+    9: [12, 16], 10: [12, 16], 11: [12, 10], 12: [12, 10], 13: [8, 10],
+  };
+  for (let n = 1; n <= 13; n++) assert.deepEqual(sheetLayout(n).linesPerPage, want[n], `n=${n}`);
+  const src = readFileSync("lib/sheet.ts", "utf8");
+  const layout = src.slice(src.indexOf("export function sheetLayout"), src.indexOf("export function paginate"));
+  assert.ok(!layout.includes("FREE_AREA") && !layout.includes("freeAreaH"), "枠ありの割り付けが自由形式の高さを使っている");
 });
 
 test("自由形式は記録側の項目選択に触れない（P8-b）", () => {

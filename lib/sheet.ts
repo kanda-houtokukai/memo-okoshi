@@ -21,6 +21,7 @@
 // [DECISION 2026-09-11] **自由形式の用紙**（P8-b）。上の記入欄はそのままで、下は**枠なしの罫線だけ**。
 //   「その他」は出さず、**1枚固定**（複数欲しいときは印刷の部数で足りる）。
 //   枠に収まらない人と、項目にとらわれず書きたい人のための逃げ道。
+//   本数は実際に書ける高さに入るだけ（P8-f・`freeSheetLines`）。
 // [DECISION 2026-09-10] **選んだ項目が8個までは1枚、9個以上は2枚**（P7-g。書く余裕を優先する）。
 //   以前は罫線を減らして13項目でも1枚に押し込んでいたが、13項目で罫線4本まで痩せて書けなかった。
 //   **枠は途中で分割しない**（現行の方針を維持）。
@@ -107,9 +108,27 @@ export function wideLast(countOnPage: number): boolean {
   return countOnPage % SHEET.cols === 1;
 }
 
-/** 自由形式（枠なし・罫線だけ）の用紙に引く本数。紙面いっぱいに同じ間隔で引く */
+/**
+ * 自由形式の罫線の欄（P8-f）。**印刷を実測した寸法**から、罫線を引ける高さを出す。
+ *
+ * [DECISION 2026-09-12] 自由形式の本数は**実際に書ける高さに入るだけ**引く（間隔 6mm は固定のまま。枠ありと同じ考え方）。
+ *   以前は見出しを 29mm と見積もった高さ（250mm・`usableH`）で 41本（246mm）を引いていたが、実際に書ける高さは
+ *   約 240mm で、最後の線が下の行（メモおこし）に重なり、印字できる範囲も 0.24mm 越えていた。
+ *   見出し・記入欄は下の余白を含めて 32.8mm、下の行は上の余白を含めて 5.84mm（どちらも印刷の実測）、
+ *   罫線の欄の上の余白 0.5mm を引く。→ 39本（234mm）。下の行との間に 5.9mm の余裕が残る。
+ * ⚠️ 枠ありの割り付け（`usableH`・`sheetLayout`）には使わない。使うと枠ありの本数が変わる。
+ * ⚠️ 印刷の見出し・記入欄・下の行の CSS を変えたら、ここを測り直す。
+ */
+export const FREE_AREA = { head: 32.8, foot: 5.84, pad: 0.5 } as const;
+
+/** 自由形式の罫線の欄の高さ（mm） */
+export function freeAreaH(): number {
+  return SHEET.pageH - SHEET.margin * 2 - FREE_AREA.head - FREE_AREA.foot - FREE_AREA.pad;
+}
+
+/** 自由形式（枠なし・罫線だけ）の用紙に引く本数。書ける高さに同じ間隔で入るだけ引く */
 export function freeSheetLines(): number {
-  return Math.floor(usableH() / SHEET.line);
+  return Math.floor(freeAreaH() / SHEET.line);
 }
 
 /**
