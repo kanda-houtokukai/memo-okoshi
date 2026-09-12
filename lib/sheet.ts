@@ -155,3 +155,38 @@ export function sheetFileName(d = new Date()): string {
   const p = (n: number) => String(n).padStart(2, "0");
   return `面談用紙_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
 }
+
+/**
+ * 画面の見本の大きさ（P8-e）。見本は基準の幅 `baseW` で作った A4 の縮尺模型で、**それを丸ごと拡大・縮小する**
+ * （中の文字・マス・罫線どうしの比率は一切変えない＝印刷との見え方の関係を崩さない）。
+ * `baseW` は globals.css の `.paper{--pw:390px}` と同じ値にしておく（`tests/preview.test.mts` が見張る）。
+ *
+ * [DECISION 2026-09-12] **表示領域に収まる最大の倍率**にする。幅と高さの両方を見て、はみ出さない側で決める。
+ *   固定値ではなく、表示領域の寸法から毎回計算する（画面の大きさ・向きが変われば倍率も変わる）。
+ * [DECISION 2026-09-12] **2枚のとき**: 2枚を横に並べても、縦に重ねた場合と同じか大きくできるなら**横並び**
+ *   （2枚とも一度に見える）。そうでなければ**縦に重ね、2枚目の頭が少し覗く大きさ**にする（スクロールで見る）。
+ *   2枚目のために1枚あたりを常に小さくすると、見出しや罫線が読めないという元の問題に戻るため。
+ *   覗かせるのは、下にもう1枚あることを説明文なしで伝えるため。
+ */
+export const PREVIEW = {
+  baseW: 390,
+  /** 2枚を縦に重ねるとき、2枚目の頭を覗かせる高さ（px・ページのあいだの隙間は別） */
+  peek: 36,
+} as const;
+
+export type PreviewFit = { k: number; side: boolean };
+
+/**
+ * 表示領域（余白を除いた幅 w・高さ h・ページのあいだの隙間 gap）に収まる最大の倍率 k を返す。
+ * side は2枚を横に並べるか。k は小数3桁で切り捨てる（丸めで1pxはみ出してスクロールが出ないように）。
+ */
+export function previewFit(w: number, h: number, pages: number, gap: number): PreviewFit {
+  if (!(w > 0 && h > 0)) return { k: 1, side: false };
+  const baseH = (PREVIEW.baseW * 297) / 210;
+  const down = (k: number) => Math.max(0.1, Math.floor(k * 1000) / 1000);
+  const one = Math.min(w / PREVIEW.baseW, h / baseH);
+  if (pages < 2) return { k: down(one), side: false };
+  const side = Math.min((w - gap) / (2 * PREVIEW.baseW), h / baseH);
+  const stack = Math.min(w / PREVIEW.baseW, (h - gap - PREVIEW.peek) / baseH);
+  return side >= stack ? { k: down(side), side: true } : { k: down(stack), side: false };
+}

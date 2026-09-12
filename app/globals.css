@@ -1045,42 +1045,55 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .dl:disabled{opacity:.45}
 
 /* 見本 */
-.pv{grid-column:2;grid-row:1 / -1;background:var(--desk);padding:20px;display:flex;align-items:flex-start;justify-content:center;overflow:auto}
+/* 見本は表示領域に収まる最大の大きさ（倍率 --k は画面側が領域の寸法から計算する）。
+   余白は影が見える程度だけ。スクロールバーの有無で幅が揺れて倍率が行き来しないよう、溝を常に確保する */
+.pv{grid-column:2;grid-row:1 / -1;background:var(--desk);padding:12px;display:flex;align-items:flex-start;justify-content:center;overflow:auto;scrollbar-gutter:stable}
 .pv-inner{display:flex;flex-direction:column;gap:16px}
-/* 見本は A4 の縮尺模型。--mm が 1mm ぶんの画面上の長さ（罫線の間隔を印刷と揃えるため） */
-.paper{--pw:390px;--mm:calc(var(--pw) / 210);
-  width:var(--pw);aspect-ratio:210/297;background:#fff;box-shadow:0 3px 16px rgba(43,42,37,.16);
-  padding:13px 14px 12px;display:flex;flex-direction:column}
-.p-head{border-bottom:1.5px solid #3a3730;padding-bottom:5px;margin-bottom:7px;flex:0 0 auto}
-.p-title{font-family:var(--head);font-size:.76rem;font-weight:700;letter-spacing:.08em;margin-bottom:5px}
-/* 記入欄: 日時＝数字だけのマス／場所＝下線／参加者＝3人ぶん。**手で書ける高さと幅**を取る。
+.pv.side .pv-inner{flex-direction:row}
+/* 見本は A4 の縮尺模型。--mm が 1mm ぶんの画面上の長さ。
+   [DECISION 2026-09-12] 寸法は**印刷と同じ mm の値**を --mm で書く（下の @media print の規則と1対1。P8-e）。
+   こうすると見本の中身が印刷と同じ割り付けになり、紙は常に A4 の縦横比に収まる
+   （以前は文字やマスを px で書いていたため、項目が多いと紙が A4 より縦に伸びていた）。
+   倍率 --k は画面側が表示領域から計算し、基準の幅 390px（lib/sheet.ts の PREVIEW.baseW）に掛ける。
+   印刷の規則が上書きしない値（隙間など）は px に --k を掛けて書く（印刷の複製には --k が無いので元の px のまま）。
+   線は細すぎると画面で消えるので、最低 1px にする（印刷では mm の値で上書きされる） */
+.paper{--pw:calc(390px * var(--k,1));--mm:calc(var(--pw) / 210);
+  flex:0 0 auto;width:var(--pw);height:calc(297 * var(--mm));aspect-ratio:210/297;background:#fff;
+  box-shadow:0 3px 16px rgba(43,42,37,.16);padding:calc(9 * var(--mm));display:flex;flex-direction:column}
+.p-head{border-bottom:max(1px,calc(0.5 * var(--mm))) solid #3a3730;padding-bottom:calc(2 * var(--mm));margin-bottom:calc(2.4 * var(--mm));flex:0 0 auto}
+.p-title{font-family:var(--head);font-size:calc(4.233 * var(--mm));font-weight:700;letter-spacing:.08em;margin-bottom:calc(2 * var(--mm))}
+/* 記入欄: 日時＝数字だけのマス／場所＝下線／参加者＝1本の長い下線。**手で書ける高さと幅**を取る。
    1行目に「日時」と「場所」、2行目に「参加者」を置く */
-.p-fields{display:grid;grid-template-columns:auto minmax(0,1fr);gap:5px 10px;font-size:.5rem;color:#6f6a60}
-.p-fields .f{display:flex;align-items:flex-end;gap:3px;min-width:0}
+.p-fields{display:grid;grid-template-columns:auto minmax(0,1fr);gap:calc(2.6 * var(--mm)) calc(6 * var(--mm));font-size:calc(2.822 * var(--mm));color:#6f6a60}
+.p-fields .f{display:flex;align-items:flex-end;gap:calc(3px * var(--k,1));min-width:0}
 .p-fields .f-people{grid-column:1 / -1}
-.p-fields .lb{flex:0 0 auto;font-weight:700;color:#4a463e;letter-spacing:.04em;padding-bottom:2px}
-.p-fields .cel{flex:0 0 auto;width:15px;height:15px;border:1px solid #b8b2a6;border-radius:1px}
-.p-fields .cel.y{width:26px}
-.p-fields .u{flex:0 0 auto;padding-bottom:2px}
-.p-fields .u.wave{padding:0 2px 2px}
-.p-fields .wr{flex:1 1 0;height:15px;border-bottom:1px solid #b8b2a6;min-width:0}
-.p-grid{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:5px}
-.p-box{border:1px solid #6f6a60;border-radius:2px;overflow:hidden;display:flex;flex-direction:column;min-height:0}
-.p-box h4{font-family:var(--head);font-size:.55rem;font-weight:700;padding:2px 6px;background:#f0eee8;
-  border-bottom:1px solid #6f6a60;letter-spacing:.05em;display:flex;align-items:center;gap:5px;flex:0 0 auto}
-.p-box h4::before{content:"";width:3px;height:9px;border-radius:1px;background:var(--c);flex:0 0 auto}
-.p-lines{flex:1;min-height:0;padding:3px 6px 4px;display:flex;flex-direction:column}
+.p-fields .lb{flex:0 0 auto;font-weight:700;color:#4a463e;letter-spacing:.04em;padding-bottom:calc(1 * var(--mm))}
+.p-fields .cel{flex:0 0 auto;width:calc(7 * var(--mm));height:calc(7 * var(--mm));border:max(1px,calc(0.2 * var(--mm))) solid #b8b2a6;border-radius:calc(0.4 * var(--mm))}
+.p-fields .cel.y{width:calc(13 * var(--mm))}
+.p-fields .u{flex:0 0 auto;padding-bottom:calc(1 * var(--mm))}
+.p-fields .u.wave{padding:0 calc(1 * var(--mm)) calc(1 * var(--mm))}
+.p-fields .wr{flex:1 1 0;height:calc(8 * var(--mm));border-bottom:max(1px,calc(0.2 * var(--mm))) solid #b8b2a6;min-width:0}
+.p-grid{flex:1;min-height:0;display:grid;grid-template-columns:1fr 1fr;grid-auto-rows:1fr;gap:calc(2.4 * var(--mm))}
+.p-box{border:max(1px,calc(0.25 * var(--mm))) solid #6f6a60;border-radius:calc(0.6 * var(--mm));overflow:hidden;display:flex;flex-direction:column;min-height:0}
+.p-box h4{font-family:var(--head);font-size:calc(2.999 * var(--mm));font-weight:700;padding:calc(0.8 * var(--mm)) calc(1.6 * var(--mm));background:#f0eee8;
+  border-bottom:max(1px,calc(0.25 * var(--mm))) solid #6f6a60;letter-spacing:.05em;display:flex;align-items:center;gap:calc(5px * var(--k,1));flex:0 0 auto}
+.p-box h4::before{content:"";width:calc(1 * var(--mm));height:calc(3 * var(--mm));border-radius:calc(1px * var(--k,1));background:var(--c);flex:0 0 auto}
+.p-lines{flex:1;min-height:0;padding:calc(1 * var(--mm)) calc(1.6 * var(--mm)) calc(1.2 * var(--mm));display:flex;flex-direction:column}
 /* [DECISION 2026-09-11] 罫線の間隔は固定（6mm）。引き伸ばさず、余りは枠の下に残す */
-.p-lines div{flex:0 0 auto;height:calc(6 * var(--mm));border-bottom:1px dotted #c9c4b8}
+.p-lines div{flex:0 0 auto;height:calc(6 * var(--mm));border-bottom:max(1px,calc(0.2 * var(--mm))) dotted #c9c4b8}
+/* 画面の見本だけ: 枠と見出しの線は**場所を取らない描き方**にする。画面では線を最低1pxにするので印刷の0.25mmより太く、
+   場所を取ると罫線の最後の1本を押し出してしまう（小さく表示するほど差が開く）。印刷の複製は .pv の外なので従来どおり */
+.pv .p-box{border:none;outline:max(1px,calc(0.25 * var(--mm))) solid #6f6a60;outline-offset:calc(-1 * max(1px,calc(0.25 * var(--mm))))}
+.pv .p-box h4{border-bottom:none;box-shadow:0 max(1px,calc(0.25 * var(--mm))) 0 #6f6a60}
 /* 最後の行に1つしか入らない枠は横いっぱいに広げる（右半分を空けない） */
 .p-box.wide{grid-column:1 / -1}
 /* 「その他」は常に最後・横いっぱい。他の枠より低くして、項目の枠を痩せさせない */
 .p-box.other{flex:0 0 auto;margin-top:calc(2.4 * var(--mm))}
 
 /* 自由形式: 枠なしの罫線だけ。間隔は枠のときと同じ */
-.p-free{flex:1;min-height:0;display:flex;flex-direction:column;padding:2px 4px 0}
-.p-free div{flex:0 0 auto;height:calc(6 * var(--mm));border-bottom:1px dotted #c9c4b8}
-.p-foot{font-size:.46rem;color:#a8a297;text-align:right;margin-top:4px;border-top:1px solid #e3dfd6;padding-top:3px;flex:0 0 auto}
+.p-free{flex:1;min-height:0;display:flex;flex-direction:column;padding:calc(0.5 * var(--mm)) calc(1 * var(--mm)) 0}
+.p-free div{flex:0 0 auto;height:calc(6 * var(--mm));border-bottom:max(1px,calc(0.2 * var(--mm))) dotted #c9c4b8}
+.p-foot{font-size:calc(2.117 * var(--mm));color:#a8a297;text-align:right;margin-top:calc(1.2 * var(--mm));border-top:max(1px,calc(0.2 * var(--mm))) solid #e3dfd6;padding-top:calc(0.8 * var(--mm));flex:0 0 auto}
 
 /* 狭い画面（確認画面と同じ 900px）: 項目と見本をタブで切り替える。
    トグルの一覧が画面をほぼ占めて見本に辿り着けなかったため（P7-g）。 */
@@ -1093,8 +1106,6 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
   .cfg{border-right:none;padding:12px 16px}
   .cfg .grip{width:44px}
   .cfg-foot{grid-column:1;grid-row:3;border-right:none;padding:10px 16px}
-  .pv{padding:12px}
-  .paper{--pw:min(360px,88vw)}
 }
 
 /* ---------- 印刷（PDFで保存） ---------- */

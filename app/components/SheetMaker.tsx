@@ -26,8 +26,10 @@
 //   掴んだ行は指に付いて浮き（群の範囲から出ない＝群をまたげないことが形で分かる）、**他の行がよけて落ちる位置が空く**。
 //   線で示す形は採らない: 縦の一覧では線がちょうど指の下＝掴んだ行の真下に来て、隠れて見えない。
 //   並べ替えの計算は取り込み画面と同じ `moveTo`（`lib/reorder.ts`）。説明文は足さない。
+// [DECISION 2026-09-12] **見本は表示領域に収まる最大の大きさ**（P8-e）。縮尺模型を丸ごと拡大・縮小するだけで、
+//   中の比率も印刷も変えない。2枚のときの並べ方は `lib/sheet.ts` の `previewFit`。
 
-import { useEffect, useMemo, useRef, useState } from "react";
+import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
 import { ITEM_LIBRARY, type ItemDef } from "@/lib/items";
 import {
   groupIds,
@@ -47,6 +49,7 @@ import {
   freeSheetLines,
   OTHER_BOX,
   paginate,
+  previewFit,
   sheetFileName,
   sheetLayout,
   SHEET,
@@ -189,6 +192,32 @@ export default function SheetMaker({ onHome, toast }: Props) {
   const layout = sheetLayout(items.length);
   const pages = free ? [[]] : paginate(items, layout.perPage);
   const freeLines = freeSheetLines();
+
+  // 見本は表示領域に収まる最大の大きさにする（倍率の決め方は `previewFit`）。
+  // 領域の寸法を測って倍率を出し、`.pv` に置く。⚠️ `.pv-inner` には置かない（印刷はそこを複製するので、
+  // 画面の倍率を印刷へ持ち込まないため）。タブで隠れている間（寸法0）は測らない。
+  const pvRef = useRef<HTMLDivElement>(null);
+  const [fit, setFit] = useState({ k: 1, side: false });
+  const pageCount = pages.length;
+  useLayoutEffect(() => {
+    const el = pvRef.current;
+    if (!el) return;
+    const measure = () => {
+      const cs = getComputedStyle(el);
+      const w = el.clientWidth - parseFloat(cs.paddingLeft) - parseFloat(cs.paddingRight);
+      const h = el.clientHeight - parseFloat(cs.paddingTop) - parseFloat(cs.paddingBottom);
+      if (w <= 0 || h <= 0) return;
+      const inner = el.firstElementChild as HTMLElement | null;
+      const gap = inner ? parseFloat(getComputedStyle(inner).rowGap) || 0 : 0;
+      // 1px の余裕を残す（小数の丸めでスクロールが出ないように）
+      const next = previewFit(Math.floor(w) - 1, Math.floor(h) - 1, pageCount, gap);
+      setFit((f) => (f.k === next.k && f.side === next.side ? f : next));
+    };
+    measure();
+    const ro = new ResizeObserver(measure);
+    ro.observe(el);
+    return () => ro.disconnect();
+  }, [pageCount]);
 
   /** 用紙の並びだけを書く。記録側の選択・並び（saveSettings）には触れない */
   const moveItem = (g: Group, from: number, insertAt: number) => {
@@ -526,7 +555,11 @@ export default function SheetMaker({ onHome, toast }: Props) {
           </button>
         </div>
 
-        <div className={"pv" + (tab === "paper" ? " on" : "")}>
+        <div
+          ref={pvRef}
+          className={"pv" + (tab === "paper" ? " on" : "") + (fit.side ? " side" : "")}
+          style={{ ["--k" as string]: fit.k }}
+        >
           <div className="pv-inner">
             {pages.map((p, i) => (
               <Paper
