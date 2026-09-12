@@ -343,22 +343,27 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
         onHome={onHome}
         right={
           <>
-            <div className="chips">
-              <span className="lbl">要確認</span>
-              <span className={"chip y" + (c.y === 0 ? " zero" : "") + (pulse.y ? " pulse" : "")}>
-                読取 <b>{c.y}</b>
-              </span>
-              <span className={"chip b" + (c.b === 0 ? " zero" : "") + (pulse.b ? " pulse" : "")}>
-                推定 <b>{c.b}</b>
-              </span>
-              <span className={"chip r" + (c.r === 0 ? " zero" : "") + (pulse.r ? " pulse" : "")}>
-                人名 <b>{c.r}</b>
-              </span>
-            </div>
             <VocabButton toast={toast} />
-            <button className={"done-btn" + (doneReady ? " ready" : "")} onClick={onDone}>
-              {c.r > 0 ? "完成（人名の対応が必要）" : c.y + c.b > 0 ? "完成" : "完成 ✓"}
-            </button>
+            {/* [DECISION 2026-09-13] 件数の札と「完成」は**1つのまとまり**にする（P8-i）。札と完成が隣り合って初めて
+                「なぜ押せないか」が分かる（台帳・工程4）。以前は辞書が間に挟まっていたので、辞書はまとまりの左へ出した。
+                狭い画面で入りきらないときは、まとまりごと次の行へ送る（完成が札から離れない・画面の外へ出ない）。 */}
+            <div className="done-group">
+              <div className="chips">
+                <span className="lbl">要確認</span>
+                <span className={"chip y" + (c.y === 0 ? " zero" : "") + (pulse.y ? " pulse" : "")}>
+                  読取 <b>{c.y}</b>
+                </span>
+                <span className={"chip b" + (c.b === 0 ? " zero" : "") + (pulse.b ? " pulse" : "")}>
+                  推定 <b>{c.b}</b>
+                </span>
+                <span className={"chip r" + (c.r === 0 ? " zero" : "") + (pulse.r ? " pulse" : "")}>
+                  人名 <b>{c.r}</b>
+                </span>
+              </div>
+              <button className={"done-btn" + (doneReady ? " ready" : "")} onClick={onDone}>
+                {c.r > 0 ? "完成（人名の対応が必要）" : c.y + c.b > 0 ? "完成" : "完成 ✓"}
+              </button>
+            </div>
           </>
         }
       />

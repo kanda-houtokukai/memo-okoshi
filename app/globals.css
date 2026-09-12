@@ -52,6 +52,28 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 @keyframes glow{0%{box-shadow:0 0 0 0 rgba(51,86,107,.30)}70%{box-shadow:0 0 0 12px rgba(51,86,107,0)}100%{box-shadow:0 0 0 0 rgba(51,86,107,0)}}
 .done-btn.ready:hover{background:var(--accent-deep)}
 
+/* ---------- 確認画面のヘッダー右: 件数の札と「完成」のまとまり（P8-i・2026-09-13） ----------
+   [DECISION 2026-09-13] 札・ボタンの文字は**縮めて縦に潰さない**。375px では入りきらない分だけ縮められて、
+   「要/確/認」「読/取」「辞/書」「完/成」と1文字ずつ折り返し、それでも完成が画面の端から 4px 出ていた。
+   入りきらないときは縮めずに**次の行へ送る**。札と完成は .done-group の中なので、送られても離れない。
+   [DECISION 2026-09-13] 狭い画面（≤620px）の確認画面は、1行目＝ブランド・使い方・辞書、2行目＝札と完成（右端）。
+   完成は常に見えて押せることを最優先にする（P6-k の「次へ」と同じ考え）。長い「完成（人名の対応が必要）」が
+   札の横に入らないときは、まとまりの中で札の下へ回る（右端に揃える）。 */
+.done-group{display:flex;align-items:center;gap:12px}
+.done-group > *,.chips > *{flex:0 0 auto;white-space:nowrap}
+@media (max-width:620px){
+  .h-in{padding-left:14px;padding-right:14px}
+  .h-right{flex-wrap:wrap;justify-content:flex-end;gap:8px;min-width:0}
+  .done-group{gap:8px;flex-wrap:wrap;justify-content:flex-end;row-gap:6px}
+  .chips{gap:4px}
+  .chip{padding:3px 8px}
+  /* 確認画面だけ: 右の塊をほどいて、使い方・辞書をブランドの行へ、札と完成を次の行の右端へ */
+  .h-in:has(.done-group) .h-right{display:contents}
+  .h-in:has(.done-group) .brand{margin-right:auto}
+  .h-in:has(.done-group) .h-right > *{flex:0 0 auto}
+  .h-in:has(.done-group) .done-group{margin-left:auto;max-width:100%}
+}
+
 /* ---------- layout ---------- */
 .wrap{max-width:1200px;margin:0 auto;padding:16px 18px 100px;display:grid;grid-template-columns:5fr 6fr;gap:18px}
 .pane-h{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
