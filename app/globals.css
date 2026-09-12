@@ -1017,6 +1017,24 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .cfg .row.on .sw::after{left:16px}
 .cfg .tg{width:4px;height:15px;border-radius:2px;background:var(--c);flex:0 0 auto}
 .cfg .nm{font-size:.86rem}
+/* 並べ替え（P8-d）。つまみは行の右端の3本線。掴んだ行は指に付いて浮き、他の行がよけて落ちる位置が空く */
+.cfg .item{position:relative;display:flex;align-items:stretch;border-radius:8px}
+.cfg .item .row{flex:1 1 auto;width:auto;min-width:0}
+.cfg .grip{flex:0 0 auto;width:36px;border:none;background:none;border-radius:7px;color:#bdb7ab;
+  display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;cursor:grab;
+  touch-action:manipulation;-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.cfg .grip i{display:block;width:14px;height:2px;border-radius:1px;background:currentColor}
+.cfg .grip:hover{background:var(--faint);color:var(--sub)}
+.cfg .grip:active{cursor:grabbing}
+.cfg .grip:disabled{opacity:.4;cursor:default}
+.cfg .grip:disabled:hover{background:none;color:#bdb7ab}
+.cfg .grip:focus-visible{outline:2px solid var(--accent);outline-offset:-2px}
+.cfg.lifting{cursor:grabbing;-webkit-user-select:none;user-select:none}
+.cfg.lifting .row:hover,.cfg.lifting .grip:hover{background:none}
+.cfg.lifting .item{transition:transform .15s ease}
+.cfg .item.lifted{z-index:5;background:var(--surface);pointer-events:none;transition:none;
+  box-shadow:0 6px 16px rgba(43,42,37,.16),0 16px 32px rgba(43,42,37,.10)}
+.cfg .item.lifted .grip{color:var(--accent)}
 .cfg-foot{grid-column:1;grid-row:2;background:var(--surface);border-top:1px solid var(--line);border-right:1px solid var(--line);
   padding:12px 20px;display:flex;align-items:center;gap:10px;flex-wrap:wrap}
 .cfg-foot .cnt{font-size:.8rem;color:var(--sub)}
@@ -1073,6 +1091,7 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
   .cfg.on{display:flex}
   .pv.on{display:flex}
   .cfg{border-right:none;padding:12px 16px}
+  .cfg .grip{width:44px}
   .cfg-foot{grid-column:1;grid-row:3;border-right:none;padding:10px 16px}
   .pv{padding:12px}
   .paper{--pw:min(360px,88vw)}

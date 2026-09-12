@@ -11,6 +11,7 @@
 //     基本に上がったから自動でオンにする、はしない（AIに何を書かせるかが黙って変わるため）。
 
 import type { ItemDef } from "./items";
+import { moveTo } from "./reorder.ts";
 
 export const SETTINGS_KEY = "memo-okoshi:items";
 
@@ -84,4 +85,95 @@ export function saveSettings(s: Settings): void {
 /** 選んだ項目を表示順で返す */
 export function selectedIds(s: Settings): string[] {
   return s.order.filter((id) => s.enabled[id]);
+}
+
+/* ---------- 面談用紙での並び（P8-d） ---------- */
+
+/**
+ * 面談用紙での項目の並び。**用紙だけの設定**。
+ *
+ * [DECISION 2026-09-12] ⚠️ **記録側の並び（`Settings.order`）には反映しない**（自由形式と同じ扱い・別の鍵）。
+ *   記録側の並びは確認画面のカードの順で、ORDER と締めフラグ（申し送りは締めの位置）の規則で決まる。
+ *   用紙の並びは**面談の流れ（聞く順番）**に合わせるもので、目的が違う。1つの並びを共有すると、
+ *   用紙を並べ替えるたびに記録の順が動き、記録を並べ替えるたびに用紙が動く。
+ *   **オン・オフは引き続き `SETTINGS_KEY` で記録と共有する**（分けるのは並びだけ）。
+ * [DECISION 2026-09-12] **群の中でだけ動かせる**（基本の中・追加項目の中）。分類は項目の性質を示すもので、
+ *   混ざると意味が失われる。用紙の並びは常に「基本（並べた順）→ 追加項目（並べた順）」。
+ *   保存値の中で群が混ざっていても、読むときに必ず群ごとに並べ直す（`mergeSheetOrder`）。
+ * [DECISION 2026-09-12] 並べ替えたことがなければ**項目ライブラリの定義順**。記録側の並びからは引き継がない
+ *   （2つの並びが黙って影響し合わないように）。オフの項目も並びに含める（あとでオンにしたとき位置が決まっている）。
+ */
+export const SHEET_ORDER_KEY = "memo-okoshi:sheet-order";
+
+type Group = ItemDef["group"];
+
+/** 群の並び（項目ライブラリの定義順＝基本→追加項目） */
+export function sheetGroups(lib: ItemDef[]): Group[] {
+  return [...new Set(lib.map((l) => l.group))];
+}
+
+/** 保存値を今のライブラリに重ね、**群ごとに並べ直して**返す（知らない id は捨て、増えた id はその群の末尾に足す） */
+export function mergeSheetOrder(saved: unknown, lib: ItemDef[]): string[] {
+  const ids = Array.isArray(saved) ? saved.filter((x): x is string => typeof x === "string") : [];
+  const known = [...new Set(ids)].filter((id) => lib.some((l) => l.id === id));
+  const all = [...known, ...lib.map((l) => l.id).filter((id) => !known.includes(id))];
+  const groupOf = new Map(lib.map((l) => [l.id, l.group]));
+  return sheetGroups(lib).flatMap((g) => all.filter((id) => groupOf.get(id) === g));
+}
+
+/** その群の項目を、用紙の並びで返す */
+export function groupIds(order: string[], lib: ItemDef[], group: Group): string[] {
+  const groupOf = new Map(lib.map((l) => [l.id, l.group]));
+  return mergeSheetOrder(order, lib).filter((id) => groupOf.get(id) === group);
+}
+
+/**
+ * 群の中で from 番目を「insertAt 番目の手前」へ動かす（insertAt は 0..群の数。取り込み画面と同じ `moveTo`）。
+ * **その群の中身だけを入れ替える**ので、群をまたぐ移動は起こりえない。
+ */
+export function moveWithinGroup(
+  order: string[],
+  lib: ItemDef[],
+  group: Group,
+  from: number,
+  insertAt: number
+): string[] {
+  const base = mergeSheetOrder(order, lib);
+  const groupOf = new Map(lib.map((l) => [l.id, l.group]));
+  const moved = moveTo(groupIds(base, lib, group), from, insertAt);
+  let k = 0;
+  return base.map((id) => (groupOf.get(id) === group ? moved[k++] : id));
+}
+
+/** 用紙に載せる項目を、用紙の並びで返す（オン・オフは記録と共有の `enabled` に従う） */
+export function sheetIds(order: string[], enabled: Record<string, boolean>, lib: ItemDef[]): string[] {
+  return mergeSheetOrder(order, lib).filter((id) => enabled[id]);
+}
+
+export function loadSheetOrder(lib: ItemDef[]): string[] {
+  try {
+    const raw = localStorage.getItem(SHEET_ORDER_KEY);
+    return mergeSheetOrder(raw ? JSON.parse(raw) : null, lib);
+  } catch {
+    return mergeSheetOrder(null, lib);
+  }
+}
+
+export function saveSheetOrder(order: string[]): void {
+  try {
+    localStorage.setItem(SHEET_ORDER_KEY, JSON.stringify(order));
+  } catch {
+    /* プライベートブラウズ等では保存できないが動作は続ける */
+  }
+}
+
+/** 書き出し用。**並べ替えたことがなければ undefined**（読み込む側の並びに触れないため） */
+export function readSavedSheetOrder(): string[] | undefined {
+  try {
+    const raw = localStorage.getItem(SHEET_ORDER_KEY);
+    const v: unknown = raw ? JSON.parse(raw) : null;
+    return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : undefined;
+  } catch {
+    return undefined;
+  }
 }

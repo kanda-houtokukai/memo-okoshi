@@ -58,3 +58,14 @@ function nearestRow(rects: readonly Rect[], y: number): { r: Rect; i: number }[]
   });
   return rects.map((r, i) => ({ r, i })).filter((o) => o.r.top === bestTop);
 }
+
+/**
+ * 縦に1列で並ぶ行（面談用紙の項目の一覧）で「何番目の手前に落とすか」を返す（0..rects.length）。
+ * 行の中心より上なら手前・下なら後ろ。横位置は見ない（1列なので）。
+ * `dropIndex` は紙が横に並ぶ取り込み画面用で、段の中を左右で判定するため縦の一覧には使えない。
+ */
+export function dropIndexVertical(rects: readonly Rect[], y: number): number {
+  let k = 0;
+  for (const r of rects) if (y > (r.top + r.bottom) / 2) k++;
+  return k;
+}

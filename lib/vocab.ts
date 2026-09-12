@@ -130,6 +130,8 @@ export type Backup = {
   exported: string;
   vocab: VocabEntry[];
   items?: { enabled: string[]; order: string[] };
+  /** 面談用紙での並び（P8-d・任意）。無いファイル（それ以前の書き出し）もそのまま読める */
+  sheetOrder?: string[];
 };
 
 /** 純関数部分（テスト対象）: 既存の辞書へ追記し、項目設定があれば返す */
@@ -137,7 +139,9 @@ export function mergeBackup(
   input: unknown,
   current: VocabEntry[],
   validItemIds: string[]
-): { ok: true; vocab: VocabEntry[]; added: number; skipped: number; items?: Backup["items"] } | { ok: false } {
+):
+  | { ok: true; vocab: VocabEntry[]; added: number; skipped: number; items?: Backup["items"]; sheetOrder?: string[] }
+  | { ok: false } {
   if (!input || typeof input !== "object") return { ok: false };
   const b = input as Partial<Backup>;
   if (b.app !== "memo-okoshi" || !Array.isArray(b.vocab)) return { ok: false };
@@ -160,5 +164,8 @@ export function mergeBackup(
           order: b.items.order.filter((id) => validItemIds.includes(id)),
         }
       : undefined;
-  return { ok: true, vocab, added, skipped, items };
+  const sheetOrder = Array.isArray(b.sheetOrder)
+    ? b.sheetOrder.filter((id): id is string => typeof id === "string" && validItemIds.includes(id))
+    : undefined;
+  return { ok: true, vocab, added, skipped, items, sheetOrder };
 }

@@ -163,7 +163,11 @@ test("自由形式は記録側の項目選択に触れない（P8-b）", () => {
   const sheetMaker = src.match(/memo-okoshi:/g) ?? [];
   assert.deepEqual(sheetMaker, [], "画面側に鍵を書かない");
   const settings = readFileSync("lib/settings.ts", "utf8");
-  assert.equal((settings.match(/"memo-okoshi:[^"]+"/g) ?? []).length, 2, "鍵の定義は settings.ts の2つだけ");
+  assert.deepEqual(
+    settings.match(/"memo-okoshi:[^"]+"/g) ?? [],
+    ['"memo-okoshi:items"', '"memo-okoshi:sheet-free"', '"memo-okoshi:sheet-order"'],
+    "鍵の定義は settings.ts だけに置く（項目の選択・自由形式・用紙の並び）"
+  );
 });
 
 test("2枚のとき1ページ目は偶数個・枠は途中で分割しない（P7-h）", () => {
