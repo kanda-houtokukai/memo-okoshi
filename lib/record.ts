@@ -75,7 +75,8 @@ export function fromApi(
   return {
     tokens,
     enabled,
-    order,
+    // 並びは受け取った時点で整える。**AIの返答の順序（data.sections の並び）は使わない**（P8-k）
+    order: normalizeOrder(order, lib),
     spill: [...(data.spill ?? []).map((s) => ({ text: s.text, sug: s.suggest })), ...strays],
     insights: (data.insights ?? []).map((i) => ({ s: i.text, why: i.why, refs: i.refs ?? [] })),
     converted: data.sections.map((s) => s.id),
@@ -144,6 +145,39 @@ export function activeIds(state: RecordState): string[] {
   return state.order.filter((id) => state.enabled[id]);
 }
 
+/**
+ * 表示順（ORDER）を整える（P8-k）。確認画面のカード・転記用テキスト・Word・PDF はすべてこの並びに従う。
+ *
+ * [DECISION 2026-09-13] **AIの返答の順序は使わない**（sections は中身を入れるだけ）。土台は保存された並び
+ *   （定義順＋利用者が↑↓で動かした順）で、次の2つだけを直す:
+ *   ① 並びに抜けている項目は**定義順の位置**へ入れる（末尾に足さない）
+ *   ② 締めの項目（申し送り）は**最後**へ
+ *   重複と知らない id は落とす。利用者が↑↓で動かした順はそのまま残る。
+ * [DECISION 2026-09-13] 以前は、項目をオフ→オンすると「締めの手前（無ければ末尾）」へ動かしていたため、
+ *   面談概要が一番下へ移り、その並びが保存されて次の変換でも一番下に出ていた。**オンに戻した項目は動かさない**
+ *   （並びの中の自分の場所に戻る）。追加した項目も定義順の位置に入り、締めより前に来る。
+ */
+export function normalizeOrder(order: readonly string[], lib: ItemDef[]): string[] {
+  const known = new Set(lib.map((l) => l.id));
+  const out: string[] = [];
+  for (const id of order) if (known.has(id) && !out.includes(id)) out.push(id);
+  lib.forEach((l, i) => {
+    if (out.includes(l.id)) return;
+    // 定義順で自分より前にある項目のうち、並びの中にある最も近いものの直後へ入れる（無ければ先頭）
+    let at = 0;
+    for (let j = i - 1; j >= 0; j--) {
+      const k = out.indexOf(lib[j].id);
+      if (k >= 0) {
+        at = k + 1;
+        break;
+      }
+    }
+    out.splice(at, 0, l.id);
+  });
+  const closing = new Set(lib.filter((l) => l.closing).map((l) => l.id));
+  return [...out.filter((id) => !closing.has(id)), ...out.filter((id) => closing.has(id))];
+}
+
 export function flatten(tokens: Token[]): string {
   return tokens.map((t) => t.s).join("");
 }
@@ -152,17 +186,6 @@ export function hasOpen(tokens: Token[]): boolean {
   return tokens.some((t) => !t.resolved && t.t !== "p");
 }
 
-/** 追加・復帰は「締め」項目（申し送り）の手前へ入れる */
-function placeInOrder(order: string[], enabled: Record<string, boolean>, lib: ItemDef[], id: string): string[] {
-  const next = order.filter((x) => x !== id);
-  const idx = next.findIndex((x) => {
-    const def = lib.find((l) => l.id === x);
-    return Boolean(def?.closing) && enabled[x];
-  });
-  if (idx < 0) next.push(id);
-  else next.splice(idx, 0, id);
-  return next;
-}
 
 export function moveSection(state: RecordState, id: string, dir: -1 | 1): RecordState {
   const act = activeIds(state);
@@ -195,7 +218,8 @@ export function toggleItem(
     };
   }
   const enabled = { ...state.enabled, [id]: true };
-  const order = placeInOrder(state.order, enabled, lib, id);
+  // オンに戻した・足した項目は動かさない（並びの中の自分の場所に戻る）。締めは最後（P8-k）
+  const order = normalizeOrder(state.order, lib);
   // 降格していた分が残っていれば、そのまま元の内容へ戻す
   const i = state.spill.findIndex((sp) => sp.sug === id && sp.keepTokens);
   const spill = i >= 0 ? state.spill.filter((_, n) => n !== i) : state.spill;
@@ -226,7 +250,7 @@ export function moveSpillTo(
   if (!it || !lib.some((l) => l.id === targetId)) return state;
 
   const enabled = { ...state.enabled, [targetId]: true };
-  const order = placeInOrder(state.order, enabled, lib, targetId);
+  const order = normalizeOrder(state.order, lib);
   const spill = state.spill.filter((_, n) => n !== index);
 
   // 元の項目へ戻すだけの復帰（降格分）は、保持してあるトークンをそのまま生かす

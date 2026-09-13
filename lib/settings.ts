@@ -12,6 +12,7 @@
 
 import type { ItemDef } from "./items";
 import { moveTo } from "./reorder.ts";
+import { normalizeOrder } from "./record.ts";
 
 export const SETTINGS_KEY = "memo-okoshi:items";
 
@@ -50,16 +51,16 @@ export function defaultSettings(lib: ItemDef[]): Settings {
   return { enabled, order: lib.map((l) => l.id) };
 }
 
-/** 保存値を今のライブラリに重ねて読む（知らない id は捨て、増えた id は末尾に足す） */
+/**
+ * 保存値を今のライブラリに重ねて読む（知らない id は捨てる）。
+ * [DECISION 2026-09-13] 並びに抜けている id は**末尾に足さず定義順の位置へ**入れ、締めは最後にする（P8-k・`normalizeOrder`）。
+ *   以前は末尾に足していたため、並びに面談概要が抜けた保存値（古い書き出しファイル等）だと面談概要が最後に来ていた。
+ */
 export function mergeSettings(saved: { enabled?: string[]; order?: string[] } | null, lib: ItemDef[]): Settings {
   if (!saved) return defaultSettings(lib);
   const enabled: Record<string, boolean> = {};
   lib.forEach((l) => (enabled[l.id] = (saved.enabled ?? []).includes(l.id)));
-  const order = [
-    ...(saved.order ?? []).filter((id) => lib.some((l) => l.id === id)),
-    ...lib.map((l) => l.id).filter((id) => !(saved.order ?? []).includes(id)),
-  ];
-  return { enabled, order };
+  return { enabled, order: normalizeOrder(saved.order ?? [], lib) };
 }
 
 export function loadSettings(lib: ItemDef[]): Settings {

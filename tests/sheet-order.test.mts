@@ -23,6 +23,7 @@ import {
   sheetIds,
 } from "../lib/settings.ts";
 import { dropIndexVertical, moveTo } from "../lib/reorder.ts";
+import { normalizeOrder } from "../lib/record.ts";
 import { mergeBackup } from "../lib/vocab.ts";
 
 const LIB = ITEM_LIBRARY;
@@ -97,7 +98,8 @@ test("並べ替えても記録側の選択と並びは変わらない／リロ�
   const moved = moveWithinGroup(loadSheetOrder(LIB), LIB, "基本", 0, BASIC.length);
   saveSheetOrder(moved);
   assert.equal(m.get(SETTINGS_KEY), before, "用紙を並べ替えたら記録側の保存値が変わった");
-  assert.deepEqual(loadSettings(LIB).order, rec.order, "記録側の並びが動いた");
+  // 読むときは記録の並びとして整える（P8-k: 抜けは定義順の位置へ・締めは最後）。用紙の操作では変わらない
+  assert.deepEqual(loadSettings(LIB).order, normalizeOrder(rec.order, LIB), "記録側の並びが動いた");
   // 読み直しても用紙の並びは残っている（端末内に保存）
   assert.deepEqual(loadSheetOrder(LIB), moved);
   assert.deepEqual(JSON.parse(m.get(SHEET_ORDER_KEY)!), moved);

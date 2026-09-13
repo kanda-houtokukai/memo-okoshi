@@ -26,7 +26,7 @@ export type ItemDef = {
   group: "基本" | "追加項目";
   color: string;
   defaultOn: boolean;
-  closing?: boolean; // 申し送り=締めフラグ（追加・復帰はこの手前に入る）
+  closing?: boolean; // 申し送り=締めフラグ（締めは常に最後。追加・復帰した項目はこれより前・定義順の位置に入る）
   hint: string;
 };
 
