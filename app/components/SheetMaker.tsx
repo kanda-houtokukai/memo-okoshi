@@ -59,6 +59,7 @@ import { dropIndexVertical } from "@/lib/reorder";
 import {
   freeSheetLines,
   gridRowsStyle,
+  lastPageCap,
   OTHER_BOX,
   paginate,
   previewFit,
@@ -88,22 +89,26 @@ type Drag = { id: string; group: Group; from: number; dy: number; over: number; 
 /** 用紙1枚ぶん。画面の見本と印刷で同じものを使う（食い違わせない）。
  *  `other` は最後のページだけ true（「その他」の枠は常に最後）。
  *  `free` は自由形式（枠なしの罫線だけ・「その他」も出さない）。
- *  行の割り付け（どの項目がどの行に・何本の罫線か）は `sheetRows`（P9）。 */
+ *  行の割り付け（どの項目がどの行に・何本の罫線か）は `sheetRows`（P9）。
+ *  `cap` は罫線の上限（2ページ以上の最後のページだけ。`lastPageCap`・P9-f）。止めた枠は引き伸ばさない（`.p-grid.capped`）。 */
 function Paper({
   type,
   items,
   other,
   free,
   freeLines,
+  cap,
 }: {
   type: RecordType;
   items: ItemDef[];
   other?: boolean;
   free?: boolean;
   freeLines: number;
+  cap?: number;
 }) {
   const head = SHEET_HEAD[type];
-  const rows = sheetRows(items, Boolean(other));
+  const rows = sheetRows(items, Boolean(other), cap);
+  const capped = rows.some((r) => r.capped);
   const rowsStyle = gridRowsStyle(rows);
   const byId = (id: string) => items.find((it) => it.id === id)!;
   const lines = (n: number) => Array.from({ length: n }, (_, i) => <div key={i} />);
@@ -181,7 +186,7 @@ function Paper({
         <div className="p-free">{lines(freeLines)}</div>
       ) : (
         <>
-          <div className="p-grid" style={rowsStyle ? { gridTemplateRows: rowsStyle } : undefined}>
+          <div className={"p-grid" + (capped ? " capped" : "")} style={rowsStyle ? { gridTemplateRows: rowsStyle } : undefined}>
             {rows.map((r) =>
               r.ids.map((id) => {
                 const it = byId(id);
@@ -631,6 +636,7 @@ export default function SheetMaker({ onHome, toast }: Props) {
                 other={!free && i === pages.length - 1}
                 free={free}
                 freeLines={freeLines}
+                cap={free ? undefined : lastPageCap(pages.length, i)}
               />
             ))}
           </div>

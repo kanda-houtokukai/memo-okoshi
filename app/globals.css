@@ -1195,6 +1195,10 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .p-box.wide{grid-column:1 / -1}
 /* 「その他」は常に最後・横いっぱい。他の枠より低くして、項目の枠を痩せさせない */
 .p-box.other{flex:0 0 auto;margin-top:calc(2.4 * var(--mm))}
+/* [DECISION 2026-09-17] 2ページ以上の最後のページで罫線を上限（15本）で止めた枠は、引き伸ばさず罫線の高さで閉じる（P9-f）。
+   「その他」はその直後に続き、その下を余白にする（下の行「メモおこし」は紙の下端のまま）。印刷にもそのまま効く */
+.p-grid.capped{flex:0 0 auto;grid-auto-rows:auto}
+.p-grid.capped + .p-box.other{margin-bottom:auto}
 
 /* 自由形式: 枠なしの罫線だけ。間隔は枠のときと同じ */
 .p-free{flex:1;min-height:0;display:flex;flex-direction:column;padding:calc(0.5 * var(--mm)) calc(1 * var(--mm)) 0}

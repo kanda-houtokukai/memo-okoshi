@@ -37,6 +37,12 @@
 //   7〜8項目を1枚に入れると罫線が6本しかなく、書く余裕が足りなかった。6つまでなら1ページ目は10本（その他が無いページ）。
 //   「その他」は常に**最後のページの最後**。罫線6mm固定・入るだけ・最後に1つ余った枠を横いっぱい、は変えない。
 //   上限は2列組の行が埋まる偶数にする（最後のページ以外に片側だけの行を作らない）。会議は3項目なので影響しない。
+// [DECISION 2026-09-17] **2ページ以上のとき、最後のページの枠は罫線15本まで**（P9-f・設計側の指示）。
+//   最後のページの項目が少ないと枠が紙いっぱいに引き伸ばされ、7項目の2ページ目（1項目）で31本と書く量に対して多すぎた。
+//   上限を超える枠は15本で止め、**枠は罫線の高さで閉じて引き伸ばさない**。「その他」（3本のまま）はその直後に続き、
+//   その下は余白（下の行「メモおこし」は紙の下端のまま）。15本以下ならそのまま（高さに入るだけ）。
+//   **1枚で収まるときは上限をかけない**: 1〜2項目を選ぶのはその項目にたっぷり書きたいからで、2ページ目以降に
+//   押し出された項目とは事情が違う。最後のページ以外・自由形式・会議（3項目で1枚）も変わらない。
 // [DECISION 2026-09-10] **「その他」の枠を常に最後に置く**（P7-g）。想定外の話が出たときの受け皿で、
 //   枠外に書き込まれて読み取りが乱れるのを防ぐ。**用紙だけの欄で、記録の項目ライブラリには足さない**
 //   （記録側には「こぼれ枠」という同じ役割の受け皿が既にある）。紙の「その他」に書かれた内容は、
@@ -84,6 +90,8 @@ export const SHEET = {
   otherLines: 3,
   /** 1ページに入る項目の数の上限（P9-e で 8→6。**偶数**にする＝最後のページ以外は2列組の行が埋まる） */
   perPageMax: 6,
+  /** 2ページ以上のとき、最後のページの枠に引く罫線の上限（P9-f）。1枚で収まるときはかけない */
+  lastPageMaxLines: 15,
   /**
    * 横いっぱいの大きな枠（`ItemDef.sheet === "wide"`）の行の高さの重み。ほかの行は 1（P9）。
    * [DECISION 2026-09-17] 2.5 → 2.3（P9-b）。記入欄を3行にしたとき、決定事項と右隣の枠の 8本を残すため。
@@ -210,8 +218,13 @@ export function sheetLayout(n: number): SheetLayout {
 
   const perPage: number[] = [];
   for (let rest = count; rest > 0; rest -= SHEET.perPageMax) perPage.push(Math.min(SHEET.perPageMax, rest));
-  // 罫線は**ページごとに**入るだけ引く（間隔は固定なので、枠が高いページほど行数が多くなる）
-  const linesPerPage = perPage.map((c, i) => linesOn(c, i === perPage.length - 1));
+  // 罫線は**ページごとに**入るだけ引く（間隔は固定なので、枠が高いページほど行数が多くなる）。
+  // 2ページ以上の最後のページだけ上限で止める（P9-f）
+  const linesPerPage = perPage.map((c, i) => {
+    const fit = linesOn(c, i === perPage.length - 1);
+    const cap = lastPageCap(perPage.length, i);
+    return cap === undefined ? fit : Math.min(fit, cap);
+  });
   return { pages: perPage.length, perPage, linesPerPage, pitch: SHEET.line };
 }
 
@@ -241,9 +254,19 @@ export type SheetRow = {
   wide: boolean;
   /** 高さの取り分（1 か `SHEET.wideWeight`） */
   weight: number;
-  /** その行の枠に引く罫線の本数（間隔は固定。高さに入るだけ） */
+  /** その行の枠に引く罫線の本数（間隔は固定。高さに入るだけ。上限があればそこで止める） */
   lines: number;
+  /** 上限で本数を止めたか（止めた枠は引き伸ばさず、罫線の高さで閉じる。P9-f） */
+  capped: boolean;
 };
+
+/**
+ * そのページの罫線の上限（P9-f）。**2ページ以上の最後のページ**だけ `SHEET.lastPageMaxLines`、それ以外は上限なし。
+ * 1枚で収まるときは「最後のページ」に当たらない（1〜2項目にたっぷり書けるように、紙いっぱいに引く）。
+ */
+export function lastPageCap(pages: number, index: number): number | undefined {
+  return pages > 1 && index === pages - 1 ? SHEET.lastPageMaxLines : undefined;
+}
 
 /**
  * 1ページぶんの項目を行に割り付ける。`sheet:"none"` の項目は枠を作らない（用紙に載せない。P9-c）。
@@ -251,7 +274,7 @@ export type SheetRow = {
  * 行の高さは重みで按分し、罫線はその高さに**入るだけ**引く（P8-g の規則そのまま）。
  * 面談（重みがすべて1）では `sheetLayout` の本数と一致する。
  */
-export function sheetRows(items: { id: string; sheet?: "wide" | "none" }[], hasOther: boolean): SheetRow[] {
+export function sheetRows(items: { id: string; sheet?: "wide" | "none" }[], hasOther: boolean, maxLines?: number): SheetRow[] {
   const rows: { ids: string[]; wide: boolean; weight: number }[] = [];
   let pending: string[] = [];
   const flush = () => {
@@ -271,7 +294,11 @@ export function sheetRows(items: { id: string; sheet?: "wide" | "none" }[], hasO
   flush();
   const total = rows.reduce((a, r) => a + r.weight, 0);
   const h = gridH(hasOther) - SHEET.gap * (rows.length - 1);
-  return rows.map((r) => ({ ...r, lines: linesIn((h * r.weight) / total) }));
+  return rows.map((r) => {
+    const fit = linesIn((h * r.weight) / total);
+    const capped = maxLines !== undefined && fit > maxLines;
+    return { ...r, lines: capped ? maxLines : fit, capped };
+  });
 }
 
 /** CSS grid の行の高さ（`grid-template-rows`）。重みがすべて1なら undefined（既定の均等割り＝面談はこれまでどおり） */
