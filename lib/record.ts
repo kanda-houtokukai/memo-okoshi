@@ -4,10 +4,11 @@
 //  不変条件1: 転記用テキスト・項目コピーは insights / spill に一切触れない
 //             （記録と助言を混ぜない = 公式文書への混入防止）
 //  不変条件2: 未解決の赤（人名）が1つでもあれば、完成も項目コピーもブロックされる
+//             （**面談にのみ適用**。会議は赤を持たない＝`withoutRed` で "r" を "p" に落とす。P9・2026-09-17）
 //
 // ※ ランタイム依存を持たない（import type のみ）。tests から node --test で直接読める。
 
-import type { ItemDef } from "./items";
+import type { ItemDef, RecordType } from "./items";
 
 export type TokenKind = "p" | "y" | "b" | "r";
 
@@ -32,6 +33,8 @@ export type SpillItem = {
 export type Insight = { s: string; why: string; refs: string[] };
 
 export type RecordState = {
+  /** 記録の種類（P9）。省略時は面談。会議は赤（人名）を持たず、出力の題も変わる */
+  type?: RecordType;
   tokens: Record<string, Token[]>;
   enabled: Record<string, boolean>;
   order: string[];
@@ -50,12 +53,30 @@ export type ApiData = {
   insights: { text: string; why: string; refs: string[] }[];
 };
 
+/**
+ * 会議（P9）: 赤（人名）を持たない。AIが "r" を返しても "p" に落とす（機械検出 `lib/names.ts` も会議では通さない）。
+ * [DECISION 2026-09-17] **原則3（赤マーカーは強制）は面談にのみ適用する**（設計側の決定・承認済み）。
+ *   会議録は出席者名も発言者名も残すのが通常で、置き換えないと完成できない仕組みでは使えない。
+ *   面談側はこの関数を通らない（面談の赤の扱いは一切変えない）。黄・青は会議でも面談と同じに働く。
+ */
+export function withoutRed<T extends { sections: { id: string; tokens: Token[] }[] }>(data: T): T {
+  return {
+    ...data,
+    sections: data.sections.map((sec) => ({
+      ...sec,
+      tokens: (sec.tokens ?? []).map((tk) => (tk.t === "r" ? { ...tk, t: "p" as TokenKind, note: undefined } : tk)),
+    })),
+  };
+}
+
 export function fromApi(
   data: ApiData,
   lib: ItemDef[],
   enabled: Record<string, boolean>,
-  order: string[]
+  order: string[],
+  type: RecordType = "interview"
 ): RecordState {
+  if (type === "meeting") data = withoutRed(data);
   const tokens: Record<string, Token[]> = {};
   lib.forEach((l) => {
     tokens[l.id] = [];
@@ -73,6 +94,7 @@ export function fromApi(
     if (text) strays.push({ text, sug: null });
   });
   return {
+    type,
     tokens,
     enabled,
     // 並びは受け取った時点で整える。**AIの返答の順序（data.sections の並び）は使わない**（P8-k）
@@ -100,6 +122,7 @@ const norm = (s: string) => s.replace(/\s+/g, "").trim();
  * - 気づきは新しい結果で置き換える（記録ではなく参考表示のため）
  */
 export function mergeReconvert(state: RecordState, data: ApiData, lib: ItemDef[]): RecordState {
+  if (state.type === "meeting") data = withoutRed(data);
   const targets = new Set(pendingReconvertIds(state));
   const tokens = { ...state.tokens };
   data.sections.forEach((s) => {
@@ -351,8 +374,13 @@ export function sectionHasWarn(tokens: Token[]): boolean {
 
 /* ---------- 出力（記録のみ。insights / spill には触れない） ---------- */
 
+/** 出力の題（転記用テキスト・Word・PDF で共通。種類ごと） */
+export function outputTitle(type: RecordType = "interview"): string {
+  return type === "meeting" ? "会議記録" : "面談・モニタリング記録";
+}
+
 export function buildOutputText(state: RecordState, lib: ItemDef[]): string {
-  let out = "【面談・モニタリング記録】（メモおこし下書き）\n";
+  let out = `【${outputTitle(state.type)}】（メモおこし下書き）\n`;
   recordEntries(state, lib).forEach((e) => {
     out += "\n■ " + e.label + "\n" + e.text + "\n";
   });

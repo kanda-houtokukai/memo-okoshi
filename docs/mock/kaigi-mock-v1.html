@@ -1,0 +1,323 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>メモおこし — 会議対応 モック</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f1eb; --desk:#eeebe3; --surface:#ffffff; --ink:#2b2a25; --sub:#7b766c;
+  --line:#e3dfd6; --faint:#faf9f5;
+  --accent:#33566b; --accent-deep:#274456;
+  --t1:#8fae9d; --t2:#93a9c0; --t3:#cbb478; --t4:#c39a8a; --t5:#a89bb5; --t6:#9db3ae;
+  --y:#f6e5ae; --y-ink:#7a5e10; --b:#dbe7f2; --b-ink:#2f5a80;
+  --head:"Zen Kaku Gothic New","Hiragino Sans",sans-serif;
+}
+*{box-sizing:border-box;margin:0;padding:0}
+body{font-family:"Hiragino Sans","Yu Gothic UI",Meiryo,system-ui,sans-serif;background:#dedad0;color:var(--ink);-webkit-font-smoothing:antialiased;padding-bottom:50px}
+button{font-family:inherit;cursor:pointer;border:none;background:none}
+.label{font-family:var(--head);font-size:.8rem;letter-spacing:.14em;color:#5f5a50;padding:24px 20px 8px}
+.label small{display:block;letter-spacing:0;font-size:.74rem;color:#8b8578;margin-top:3px;font-weight:400}
+.frame{background:var(--bg);margin:0 16px 20px;border-radius:12px;overflow:hidden;box-shadow:0 2px 10px rgba(43,42,37,.10)}
+
+header{background:var(--surface);border-bottom:1px solid var(--line)}
+.h-in{display:flex;align-items:center;gap:16px;padding:9px 16px}
+.brand{font-family:var(--head);font-weight:700;font-size:.98rem;letter-spacing:.06em;display:flex;align-items:center;gap:8px}
+.brand::before{content:"";width:8px;height:20px;border-radius:3px;background:linear-gradient(180deg,var(--t1),var(--t2))}
+.h-right{margin-left:auto;display:flex;gap:8px;align-items:center}
+.hbtn{background:var(--faint);border:1px solid var(--line);border-radius:9px;padding:6px 13px 6px 10px;font-size:.78rem;color:var(--sub);display:flex;align-items:center;gap:7px}
+.hbtn::before{content:"";width:4px;height:14px;border-radius:2px;background:var(--t3)}
+
+/* ============ ホーム ============ */
+.home{padding:44px 26px 54px;background:var(--desk);position:relative}
+.home::before{content:"";position:absolute;inset:0;pointer-events:none;opacity:.5;
+  background-image:repeating-linear-gradient(92deg,rgba(150,138,118,.028) 0 2px,transparent 2px 7px,rgba(150,138,118,.018) 7px 8px,transparent 8px 19px)}
+.home-in{position:relative;z-index:2;max-width:880px;margin:0 auto}
+.hero{font-family:var(--head);font-size:1.6rem;letter-spacing:.12em;text-align:center;margin-bottom:4px}
+.hero-sub{font-size:.84rem;color:var(--sub);text-align:center;margin-bottom:30px}
+.cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}
+.card{
+  background:var(--surface);border:1px solid var(--line);border-radius:12px;
+  padding:26px 12px 22px;position:relative;
+  box-shadow:0 2px 6px rgba(43,42,37,.06);transition:transform .18s,box-shadow .18s;
+  display:flex;flex-direction:column;align-items:center;gap:15px;aspect-ratio:.8;
+}
+.card:hover{transform:translateY(-4px);box-shadow:0 8px 22px rgba(43,42,37,.12)}
+.card::before{content:"";position:absolute;left:-1px;top:16px;width:7px;height:calc(100% - 32px);border-radius:0 4px 4px 0;background:var(--c)}
+.card .art{flex:1;display:flex;align-items:center;justify-content:center}
+.card .art svg{width:66px;height:66px}
+.card .ttl{font-family:var(--head);font-size:.92rem;font-weight:700;letter-spacing:.04em;text-align:center;line-height:1.4}
+
+@media (max-width:760px){
+  .cards{grid-template-columns:1fr 1fr}
+}
+
+/* ============ 用紙 ============ */
+.sheet-cfg{display:grid;grid-template-columns:1fr 1.5fr;min-height:520px}
+.cfg{padding:18px 20px;background:var(--surface);border-right:1px solid var(--line)}
+.cfg h2{font-family:var(--head);font-size:.8rem;letter-spacing:.14em;color:var(--sub);margin-bottom:12px}
+.seg{display:flex;border:1px solid var(--line);border-radius:9px;overflow:hidden;margin-bottom:16px}
+.seg button{flex:1;padding:7px;font-size:.82rem;color:var(--sub);background:var(--faint);font-family:var(--head)}
+.seg button.on{background:var(--accent);color:#fff;font-weight:700}
+.grp-t{font-family:var(--head);font-size:.66rem;letter-spacing:.13em;color:#a8a297;margin:12px 0 5px;font-weight:700}
+.row{display:flex;align-items:center;gap:10px;padding:6px 9px;border-radius:8px;user-select:none}
+.row:hover{background:var(--faint)}
+.sw{width:33px;height:19px;border-radius:99px;background:#d8d3c8;position:relative;flex:0 0 auto}
+.sw::after{content:"";position:absolute;top:2px;left:2px;width:15px;height:15px;border-radius:50%;background:#fff}
+.row.on .sw{background:var(--accent)}
+.row.on .sw::after{left:16px}
+.row .tg{width:4px;height:15px;border-radius:2px;background:var(--c);flex:0 0 auto}
+.row .nm{font-size:.86rem}
+.row .grip{margin-left:auto;color:#c2bdb2;font-size:.9rem;letter-spacing:-2px}
+.cfg-foot{border-top:1px solid var(--line);margin-top:14px;padding-top:13px;display:flex;align-items:center;gap:10px}
+.cfg-foot .cnt{font-size:.8rem;color:var(--sub)}
+.dl{margin-left:auto;background:var(--accent);color:#fff;border-radius:10px;padding:10px 22px 10px 18px;font-family:var(--head);font-size:.88rem;font-weight:700;letter-spacing:.06em;display:flex;align-items:center;gap:9px}
+.dl::before{content:"";width:4px;height:16px;border-radius:2px;background:var(--t1)}
+
+.pv{background:var(--desk);padding:18px;display:flex;align-items:flex-start;justify-content:center}
+.paper{width:420px;background:#fff;box-shadow:0 3px 16px rgba(43,42,37,.16);padding:14px 15px 15px}
+.p-head{display:flex;align-items:flex-end;gap:8px;border-bottom:1.5px solid #3a3730;padding-bottom:5px;margin-bottom:4px}
+.p-title{font-family:var(--head);font-size:.78rem;font-weight:700;letter-spacing:.08em}
+.p-meta{margin-left:auto;display:flex;gap:6px;font-size:.5rem;color:#6f6a60}
+.p-meta span{border-bottom:1px solid #b8b2a6;padding:0 14px 1px 2px}
+.p-people{font-size:.5rem;color:#6f6a60;border-bottom:1px solid #b8b2a6;padding:0 2px 1px;margin-bottom:7px}
+.p-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px}
+.p-box{border:1px solid #6f6a60;border-radius:2px;overflow:hidden}
+.p-box.wide{grid-column:1/-1}
+.p-box h4{font-family:var(--head);font-size:.55rem;font-weight:700;padding:2px 6px;background:#f0eee8;border-bottom:1px solid #6f6a60;letter-spacing:.05em;display:flex;align-items:center;gap:5px}
+.p-box h4::before{content:"";width:3px;height:9px;border-radius:1px;background:var(--c)}
+.p-lines{padding:4px 6px 5px}
+.p-lines div{border-bottom:1px dotted #c9c4b8;height:12px}
+.p-foot{font-size:.46rem;color:#a8a297;text-align:right;margin-top:5px;border-top:1px solid #e3dfd6;padding-top:3px}
+
+/* ============ 確認画面 ============ */
+.rev{display:grid;grid-template-columns:5fr 6fr;gap:16px;padding:16px;background:var(--bg)}
+.pane-h{display:flex;align-items:center;gap:9px;margin-bottom:8px}
+.pane-h h3{font-family:var(--head);font-size:.78rem;letter-spacing:.14em;color:var(--sub)}
+.memo{background:var(--surface);border:1px solid var(--line);border-radius:10px;height:390px;display:flex;align-items:center;justify-content:center;color:#c2bdb2;font-size:.78rem}
+.recs{display:flex;flex-direction:column;gap:12px}
+.sec{background:var(--surface);border:1px solid var(--line);border-radius:12px;padding:12px 16px 14px 20px;position:relative;box-shadow:0 1px 3px rgba(43,42,37,.05)}
+.sec::before{content:"";position:absolute;left:-1px;top:14px;width:6px;height:calc(100% - 28px);border-radius:0 3px 3px 0;background:var(--c)}
+.sec-h{display:flex;align-items:center;gap:8px;margin-bottom:4px}
+.tabchip{font-size:.6rem;font-weight:700;letter-spacing:.08em;color:#fff;background:var(--c);border-radius:4px;padding:1px 7px;font-family:var(--head)}
+.sec-h h4{font-family:var(--head);font-size:.86rem}
+.ok{width:16px;height:16px;border-radius:50%;background:#3d7a4f;color:#fff;font-size:.62rem;line-height:16px;text-align:center;font-weight:700}
+.sec-body{font-size:.88rem;line-height:1.75}
+.mk{border-radius:4px;padding:0 3px;border-bottom:2px solid transparent}
+.mk.y{background:var(--y);color:var(--y-ink);border-bottom-color:#d8b74a}
+.mk.b{background:var(--b);color:var(--b-ink);border-bottom-color:#8fb3d2}
+.chips{display:flex;gap:6px;align-items:center;margin-left:auto}
+.chip{border-radius:99px;padding:3px 11px;font-size:.76rem;font-weight:700;border:1px solid transparent}
+.chip.y{background:var(--y);color:var(--y-ink);border-color:#d8b74a}
+.chip.b{background:var(--b);color:var(--b-ink);border-color:#8fb3d2}
+.done{background:var(--accent);color:#fff;border-radius:9px;padding:8px 18px;font-family:var(--head);font-size:.86rem;font-weight:700;letter-spacing:.05em}
+.ins{margin-top:14px}
+.ins-h{font-family:var(--head);font-size:.76rem;letter-spacing:.14em;color:var(--sub);margin-bottom:8px;display:flex;align-items:center;gap:8px}
+.ins-c{font-size:.66rem;background:#dde3d2;color:#5c6b4d;border-radius:99px;padding:1px 8px;font-weight:700}
+.notes{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+.note{background:#f0f2e6;border-radius:2px;padding:14px 13px 11px;font-size:.82rem;line-height:1.7;position:relative;box-shadow:0 2px 6px rgba(43,42,37,.10)}
+.note:nth-child(odd){transform:rotate(-.5deg)}
+.note:nth-child(even){transform:rotate(.5deg)}
+.note::before{content:"";position:absolute;top:-6px;left:50%;transform:translateX(-50%) rotate(-1deg);width:46px;height:12px;background:rgba(255,255,255,.55);border:1px solid rgba(43,42,37,.06);border-radius:2px}
+.note .why{font-size:.68rem;color:#8b8678;margin-top:6px;padding-top:5px;border-top:1px dashed #d9dcc9}
+</style>
+</head>
+<body>
+
+<!-- ============ 1. ホーム ============ -->
+<div class="label">1. ホーム — 入口を面談と会議に分ける<small>用紙の印刷は1枚にまとめ、画面の中で面談と会議を切り替えます。</small></div>
+<div class="frame">
+  <header><div class="h-in">
+    <div class="brand">メモおこし</div>
+    <div class="h-right"><button class="hbtn">辞書</button></div>
+  </div></header>
+  <div class="home"><div class="home-in">
+    <div class="hero">メモおこし</div>
+    <div class="hero-sub">面談記録のための文字おこしツール</div>
+    <div class="cards">
+
+      <button class="card" style="--c:var(--t1)">
+        <div class="art"><svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="8" y="14" width="34" height="46" rx="3" fill="#FDFCF9" stroke="#B8B2A6" stroke-width="1.6"/>
+          <rect x="6.5" y="20" width="4" height="11" rx="1.5" fill="#8FAE9D"/>
+          <path d="M15 26 q3 -3 6 0 t6 0 M15 33 q4 -3 7 0 t6 -1 M15 40 q3 -3 6 0 t5 0" stroke="#9A948A" stroke-width="1.5" stroke-linecap="round"/>
+          <rect x="34" y="22" width="38" height="50" rx="3" fill="#FFFFFF" stroke="#33566B" stroke-width="1.8"/>
+          <rect x="32.5" y="29" width="4" height="12" rx="1.5" fill="#93A9C0"/>
+          <path d="M42 36 H64 M42 44 H64 M42 52 H58" stroke="#33566B" stroke-width="2" stroke-linecap="round"/>
+        </svg></div>
+        <div class="ttl">面談メモを<br>おこす</div>
+      </button>
+
+      <button class="card" style="--c:var(--t2)">
+        <div class="art"><svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <!-- 円卓を囲む席 -->
+          <ellipse cx="40" cy="44" rx="21" ry="13" fill="#FDFCF9" stroke="#33566B" stroke-width="1.8"/>
+          <circle cx="19" cy="34" r="5.5" fill="#8FAE9D"/>
+          <circle cx="40" cy="28" r="5.5" fill="#93A9C0"/>
+          <circle cx="61" cy="34" r="5.5" fill="#CBB478"/>
+          <circle cx="24" cy="58" r="5.5" fill="#C39A8A"/>
+          <circle cx="56" cy="58" r="5.5" fill="#A89BB5"/>
+          <path d="M32 43 H48 M34 49 H46" stroke="#33566B" stroke-width="1.8" stroke-linecap="round"/>
+        </svg></div>
+        <div class="ttl">会議メモを<br>おこす</div>
+      </button>
+
+      <button class="card" style="--c:var(--t3)">
+        <div class="art"><svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <rect x="15" y="8" width="50" height="56" rx="3" fill="#FFFFFF" stroke="#33566B" stroke-width="1.8"/>
+          <rect x="13.5" y="15" width="4" height="12" rx="1.5" fill="#CBB478"/>
+          <path d="M22 17 H58" stroke="#33566B" stroke-width="1.8" stroke-linecap="round"/>
+          <rect x="22" y="24" width="17" height="16" rx="1.5" stroke="#9A948A" stroke-width="1.3"/>
+          <rect x="41" y="24" width="17" height="16" rx="1.5" stroke="#9A948A" stroke-width="1.3"/>
+          <rect x="22" y="43" width="36" height="16" rx="1.5" stroke="#9A948A" stroke-width="1.3"/>
+          <path d="M40 64 V74 M35 69 L40 74 L45 69" stroke="#CBB478" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round"/>
+        </svg></div>
+        <div class="ttl">用紙を印刷</div>
+      </button>
+
+      <button class="card" style="--c:var(--t5)">
+        <div class="art"><svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+          <path d="M40 20 C34 15, 22 14, 14 16 V62 C22 60, 34 61, 40 66 Z" fill="#FDFCF9" stroke="#33566B" stroke-width="1.8" stroke-linejoin="round"/>
+          <path d="M40 20 C46 15, 58 14, 66 16 V62 C58 60, 46 61, 40 66 Z" fill="#FFFFFF" stroke="#33566B" stroke-width="1.8" stroke-linejoin="round"/>
+          <path d="M40 20 V66" stroke="#33566B" stroke-width="1.8"/>
+          <rect x="64.5" y="22" width="5" height="13" rx="1.5" fill="#93A9C0"/>
+          <rect x="64.5" y="38" width="5" height="13" rx="1.5" fill="#8FAE9D"/>
+          <path d="M20 26 H33 M20 33 H31 M20 40 H33" stroke="#B8B2A6" stroke-width="1.5" stroke-linecap="round"/>
+          <path d="M47 26 H60 M47 33 H58 M47 40 H60" stroke="#B8B2A6" stroke-width="1.5" stroke-linecap="round"/>
+        </svg></div>
+        <div class="ttl">使い方</div>
+      </button>
+
+    </div>
+  </div></div>
+</div>
+
+<!-- ============ 2. 用紙（会議） ============ -->
+<div class="label">2. 用紙を印刷 — 上で面談と会議を切り替える<small>会議は項目4つ。内容は横いっぱいの大きな枠にします。</small></div>
+<div class="frame">
+  <header><div class="h-in">
+    <div class="brand">メモおこし</div>
+    <div class="h-right"><button class="hbtn">辞書</button></div>
+  </div></header>
+  <div class="sheet-cfg">
+    <div class="cfg">
+      <div class="seg"><button>面談</button><button class="on">会議</button></div>
+      <h2>用紙に入れる項目</h2>
+      <div class="grp-t">基本</div>
+      <div class="row on" style="--c:var(--t1)"><span class="sw"></span><span class="tg"></span><span class="nm">会議概要</span><span class="grip">⣿</span></div>
+      <div class="row on" style="--c:var(--t2)"><span class="sw"></span><span class="tg"></span><span class="nm">内容</span><span class="grip">⣿</span></div>
+      <div class="row on" style="--c:var(--t3)"><span class="sw"></span><span class="tg"></span><span class="nm">決定事項</span><span class="grip">⣿</span></div>
+      <div class="row on" style="--c:var(--t4)"><span class="sw"></span><span class="tg"></span><span class="nm">宿題</span><span class="grip">⣿</span></div>
+      <div class="grp-t" style="margin-top:20px;border-top:1px dashed var(--line);padding-top:14px">自由形式</div>
+      <div class="row" style="--c:var(--t6)"><span class="sw"></span><span class="tg"></span><span class="nm">自由形式</span></div>
+      <div class="cfg-foot">
+        <span class="cnt">4項目・1枚</span>
+        <button class="dl">印刷</button>
+      </div>
+    </div>
+    <div class="pv">
+      <div class="paper">
+        <div class="p-head">
+          <span class="p-title">会議記録メモ</span>
+          <span class="p-meta"><span>日時</span><span>場所</span></span>
+        </div>
+        <div class="p-people">出席者</div>
+        <div class="p-grid">
+          <div class="p-box wide" style="--c:var(--t2)"><h4>内容</h4><div class="p-lines">
+            <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+            <div></div><div></div><div></div><div></div><div></div><div></div><div></div><div></div>
+          </div></div>
+          <div class="p-box" style="--c:var(--t3)"><h4>決定事項</h4><div class="p-lines"><div></div><div></div><div></div><div></div><div></div><div></div></div></div>
+          <div class="p-box" style="--c:var(--t4)"><h4>宿題</h4><div class="p-lines"><div></div><div></div><div></div><div></div><div></div><div></div></div></div>
+          <div class="p-box wide" style="--c:var(--t1)"><h4>会議概要・その他</h4><div class="p-lines"><div></div><div></div><div></div></div></div>
+        </div>
+        <div class="p-foot">メモおこし</div>
+      </div>
+    </div>
+  </div>
+</div>
+
+<!-- ============ 3. 確認画面（会議） ============ -->
+<div class="label">3. 確認画面（会議）— 赤マーカーなし<small>会議録は出席者名も発言者名も残すため、人名の置き換えは働かせません。黄と青は残します。</small></div>
+<div class="frame">
+  <header><div class="h-in">
+    <div class="brand">メモおこし</div>
+    <div class="h-right">
+      <div class="chips">
+        <span style="font-size:.72rem;color:var(--sub)">要確認</span>
+        <span class="chip y">読取 2</span>
+        <span class="chip b">推定 1</span>
+      </div>
+      <button class="hbtn">辞書</button>
+      <button class="done">完成</button>
+    </div>
+  </div></header>
+  <div class="rev">
+    <div>
+      <div class="pane-h"><h3>元メモ</h3></div>
+      <div class="memo">会議の走り書き</div>
+    </div>
+    <div>
+      <div class="pane-h"><h3>記録（下書き）</h3></div>
+      <div class="recs">
+        <div class="sec" style="--c:var(--t1)">
+          <div class="sec-h"><span class="tabchip">概要</span><h4>会議概要</h4><span class="ok">✓</span></div>
+          <div class="sec-body">日時：令和8年9月14日（月）14:00〜15:30<br>場所：本部会議室<br>出席者：施設長、サービス管理責任者、相談員、看護師（欠席：栄養士）</div>
+        </div>
+        <div class="sec" style="--c:var(--t2)">
+          <div class="sec-h"><span class="tabchip">内容</span><h4>内容</h4></div>
+          <div class="sec-body">
+            【送迎体制の見直し】<br>
+            ・朝の便が集中し、<span class="mk y">到着が遅れる</span>日がある<br>
+            ・ルートを2系統に分ける案が出された<br>
+            ・車両の増車は今年度は難しいとの説明<br><br>
+            【夏季行事の振り返り】<br>
+            ・参加者は例年より多かった<br>
+            ・熱中症対策として休憩を増やした点は有効だった<br>
+            ・保護者から会場の駐車場が分かりにくいとの声
+          </div>
+        </div>
+        <div class="sec" style="--c:var(--t3)">
+          <div class="sec-h"><span class="tabchip">決定</span><h4>決定事項</h4></div>
+          <div class="sec-body">
+            ・送迎ルートを10月から2系統に分ける<br>
+            ・次回の行事では駐車場の案内図を配布する<br>
+            ・車両の増車は<span class="mk b">来年度の予算で検討（推定）</span>
+          </div>
+        </div>
+        <div class="sec" style="--c:var(--t4)">
+          <div class="sec-h"><span class="tabchip">宿題</span><h4>宿題</h4></div>
+          <div class="sec-body">
+            ・新ルート案の作成（担当：相談員／9月末まで）<br>
+            ・保護者への周知文の作成（担当：<span class="mk y">サビ管</span>／期限未定）<br>
+            ・案内図の作成（担当未定）
+          </div>
+        </div>
+      </div>
+
+      <div class="ins">
+        <div class="ins-h">AIの気づき <span class="ins-c">3</span></div>
+        <div class="notes">
+          <div class="note">
+            周知文の作成に期限が入っていません。
+            <div class="why">宿題は期限がないと流れやすい</div>
+          </div>
+          <div class="note">
+            案内図の作成に担当者が決まっていません。
+            <div class="why">担当が空欄のまま残ると着手されない</div>
+          </div>
+          <div class="note">
+            車両の増車は決定ではなく検討として書かれています。
+            <div class="why">決定事項と検討事項は分けて記録する</div>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+</div>
+
+</body>
+</html>

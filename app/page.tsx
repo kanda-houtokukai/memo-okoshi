@@ -15,7 +15,7 @@
 // ?fixture=1 は開発用（モックv6の内容で確認画面を開く。API課金なし）。
 
 import { useEffect, useRef, useState } from "react";
-import { ITEM_LIBRARY } from "@/lib/items";
+import { ITEM_LIBRARY, libraryFor, type RecordType } from "@/lib/items";
 import { fromApi, type ApiData, type RecordState } from "@/lib/record";
 import { exportMasked, filesToPages, releasePage, type PageItem } from "@/lib/pages";
 import { moveBy, moveTo } from "@/lib/reorder";
@@ -35,11 +35,12 @@ import type { Step } from "./components/StepHeader";
 /** 画面。ホームが起点で、そこから「メモをおこす」（intake→mask→review）と「面談用紙」へ分かれる */
 type Mode = "home" | "sheet" | "intake" | "mask" | "review";
 
-/** 変換API呼び出し（初回も再変換も同じ）。blobs は焼き込み後の画像だけ */
-async function callConvert(blobs: Blob[], itemIds: string[]): Promise<{ ok: true; data: ApiData } | { ok: false; error: string }> {
+/** 変換API呼び出し（初回も再変換も同じ）。blobs は焼き込み後の画像だけ。type は記録の種類（P9） */
+async function callConvert(blobs: Blob[], itemIds: string[], type: RecordType): Promise<{ ok: true; data: ApiData } | { ok: false; error: string }> {
   const fd = new FormData();
   blobs.forEach((b, i) => fd.append("images", b, `page-${i + 1}.jpg`));
   fd.append("items", JSON.stringify(itemIds));
+  fd.append("record_type", type);
   fd.append("vocab", JSON.stringify(loadVocab())); // 端末内の辞書。サーバーは保存しない
   const res = await fetch("/api/convert", { method: "POST", body: fd });
   const json = await res.json();
@@ -51,6 +52,8 @@ async function callConvert(blobs: Blob[], itemIds: string[]): Promise<{ ok: true
 
 export default function Page() {
   const [mode, setMode] = useState<Mode>("home");
+  /** 記録の種類（P9）。ホームのカードで選び、取り込み→伏せる→変換→確認の最後まで保つ。辞書は共通 */
+  const [type, setType] = useState<RecordType>("interview");
   const [pages, setPages] = useState<PageItem[]>([]);
   const [index, setIndex] = useState(0);
   const [busy, setBusy] = useState(false);
@@ -119,10 +122,11 @@ export default function Page() {
     setConverting(true);
     setError("");
     try {
-      const s = loadSettings(ITEM_LIBRARY);
+      const lib = libraryFor(type);
+      const s = loadSettings(lib, type);
       const out: Blob[] = [];
       for (const p of pages) out.push(await exportMasked(p)); // ← 送るのは焼き込み後だけ
-      const r = await callConvert(out, s.order.filter((id) => s.enabled[id]));
+      const r = await callConvert(out, s.order.filter((id) => s.enabled[id]), type);
       if (!r.ok) {
         // 理由と再試行の導線は伏せる画面のエラー欄に出る（トーストは気づかせるだけ）
         setError(r.error);
@@ -133,7 +137,7 @@ export default function Page() {
       urls.current.forEach((u) => URL.revokeObjectURL(u));
       urls.current = out.map((b) => URL.createObjectURL(b));
       setMemoPages(urls.current.map((src) => ({ src })));
-      setRec(fromApi(r.data, ITEM_LIBRARY, s.enabled, s.order));
+      setRec(fromApi(r.data, lib, s.enabled, s.order, type));
       setRun((n) => n + 1);
       setMode("review");
     } catch (e) {
@@ -147,7 +151,7 @@ export default function Page() {
   /** 追加した項目だけを埋める再変換（項目6）。焼き込み済み画像をそのまま再送する */
   const reconvert = async (itemIds: string[]): Promise<ApiData | null> => {
     if (blobs.current.length === 0) return null;
-    const r = await callConvert(blobs.current, itemIds);
+    const r = await callConvert(blobs.current, itemIds, type);
     if (!r.ok) {
       toast(r.error);
       return null;
@@ -227,7 +231,14 @@ export default function Page() {
   if (mode === "home")
     return (
       <>
-        <Home onMemo={() => setMode("intake")} onSheet={() => setMode("sheet")} toast={toast} />
+        <Home
+          onMemo={(t) => {
+            setType(t);
+            setMode("intake");
+          }}
+          onSheet={() => setMode("sheet")}
+          toast={toast}
+        />
         <Toast msg={msg} on={on} />
       </>
     );

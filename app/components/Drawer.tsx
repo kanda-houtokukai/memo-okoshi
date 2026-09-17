@@ -2,16 +2,20 @@
 
 // 項目カスタマイズのドロワー。文言・構造は正本（モックv6）どおり。
 
-import { ITEM_LIBRARY } from "@/lib/items";
+import { ITEM_LIBRARY, type ItemDef } from "@/lib/items";
 
 type Props = {
   open: boolean;
   enabled: Record<string, boolean>;
   onToggle: (id: string) => void;
   onClose: () => void;
+  /** 項目ライブラリ（P9: 会議は別のライブラリ）。省略時は面談 */
+  lib?: ItemDef[];
 };
 
-export default function Drawer({ open, enabled, onToggle, onClose }: Props) {
+export default function Drawer({ open, enabled, onToggle, onClose, lib = ITEM_LIBRARY }: Props) {
+  // 群は使うライブラリに出てくるものだけ（会議は「基本」だけ）
+  const groups = [...new Set(lib.map((l) => l.group))];
   return (
     <>
       <div className={"drawer-ovl" + (open ? " on" : "")} onClick={onClose} />
@@ -21,10 +25,10 @@ export default function Drawer({ open, enabled, onToggle, onClose }: Props) {
           <p>選択は次の変換からAIの拾い方に反映されます。</p>
         </div>
         <div className="dr-body">
-          {(["基本", "追加項目"] as const).map((g) => (
+          {groups.map((g) => (
             <div key={g}>
               <div className="dr-g">{g}</div>
-              {ITEM_LIBRARY.filter((l) => l.group === g).map((l) => (
+              {lib.filter((l) => l.group === g).map((l) => (
                 <div
                   key={l.id}
                   className={"dr-item" + (enabled[l.id] ? " on" : "")}

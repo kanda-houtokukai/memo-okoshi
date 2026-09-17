@@ -1,6 +1,7 @@
 "use client";
 
-// 面談用紙を作る画面。正本は `docs/mock/home-youshi-mock-v2.html` の「2. 用紙を作る」「3. 用紙の見本」（凍結）。
+// 用紙を作る画面。**正本は実装**。設計意図の記録は `docs/mock/home-youshi-mock-v2.html`（面談・凍結）と
+// `docs/mock/kaigi-mock-v1.html`（会議・P9・凍結）。
 //
 // なぜ紙を配るのか: 面談中に項目に沿って書いてもらえれば、AIは**位置でも振り分けられる**ので読み取りが安定する。
 // 聞き取る側にとっても、枠が並んでいること自体が聞き漏らしの防止になる。
@@ -9,7 +10,7 @@
 // [DECISION 2026-09-10] 項目は**記録と同じライブラリ・同じ選択**を使う（`lib/settings.ts`）。
 //   ここでトグルすると次の変換の項目構成も変わる。用紙と出力を食い違わせないため。
 // [DECISION 2026-09-10] PDFは**ブラウザの印刷（PDFとして保存）**で作る。日本語フォントを積まずに済み、
-//   出力（Word/PDF）でも同じ手を使っている。ファイル名は `面談用紙_YYYYMMDD`。
+//   出力（Word/PDF）でも同じ手を使っている。ファイル名は `面談用紙_YYYYMMDD`（会議は `会議用紙_`）。
 // [DECISION 2026-09-10] **説明文は置かない**（原則4）。見本そのものが説明になっている。
 // [DECISION 2026-09-10] ボタンは「PDFで保存」→**「印刷」**（P7-g）。押すと印刷ダイアログが開くので、
 //   保存されると思って押した人が戸惑う。印刷ダイアログからPDF保存も選べるので、文言としてもこちらが正確。
@@ -28,9 +29,15 @@
 //   並べ替えの計算は取り込み画面と同じ `moveTo`（`lib/reorder.ts`）。説明文は足さない。
 // [DECISION 2026-09-12] **見本は表示領域に収まる最大の大きさ**（P8-e）。縮尺模型を丸ごと拡大・縮小するだけで、
 //   中の比率も印刷も変えない。2枚のときの並べ方は `lib/sheet.ts` の `previewFit`。
+// [DECISION 2026-09-17] **面談と会議の切り替えを画面の上部に置く**（P9・kaigi-mock-v1）。ホームのカードは1枚のまま。
+//   項目の選択・並び・自由形式は**種類ごとに別に保存**する（`lib/settings.ts` の `keyFor`）。辞書は共通。
+//   会議の割り付け（内容は横いっぱいの大きな枠・決定事項と宿題は2列・会議概要はその他に相乗り）は
+//   `lib/sheet.ts` の `sheetRows` が決める。面談の割り付けは変わらない（同じ関数で重みがすべて1）。
+// [DECISION 2026-09-17] **押印欄**を記入欄の頭の右上に置く（P9・6-b。寸法と理由は `lib/sheet.ts` の `STAMP`）。
+//   会議＝作成者／署名の2列、面談＝記録者の1列。自由形式にも同じ欄。記入欄はそのぶん狭くなる（重ねない）。
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { ITEM_LIBRARY, type ItemDef } from "@/lib/items";
+import { libraryFor, type ItemDef, type RecordType } from "@/lib/items";
 import {
   groupIds,
   loadSettings,
@@ -47,13 +54,15 @@ import {
 import { dropIndexVertical } from "@/lib/reorder";
 import {
   freeSheetLines,
+  gridRowsStyle,
   OTHER_BOX,
   paginate,
   previewFit,
   sheetFileName,
   sheetLayout,
+  sheetRows,
   SHEET,
-  wideLast,
+  SHEET_HEAD,
 } from "@/lib/sheet";
 import StepHeader from "./StepHeader";
 import VocabButton from "./VocabButton";
@@ -74,90 +83,107 @@ type Drag = { id: string; group: Group; from: number; dy: number; over: number; 
 
 /** 用紙1枚ぶん。画面の見本と印刷で同じものを使う（食い違わせない）。
  *  `other` は最後のページだけ true（「その他」の枠は常に最後）。
- *  `free` は自由形式（枠なしの罫線だけ・「その他」も出さない）。 */
+ *  `free` は自由形式（枠なしの罫線だけ・「その他」も出さない）。
+ *  行の割り付け（どの項目がどの行に・何本の罫線か）は `sheetRows`（P9）。 */
 function Paper({
+  type,
   items,
-  lines,
   other,
   free,
+  freeLines,
 }: {
+  type: RecordType;
   items: ItemDef[];
-  lines: number;
   other?: boolean;
   free?: boolean;
+  freeLines: number;
 }) {
+  const head = SHEET_HEAD[type];
+  const rows = sheetRows(items, Boolean(other));
+  const rowsStyle = gridRowsStyle(rows);
+  const byId = (id: string) => items.find((it) => it.id === id)!;
+  // 「その他」に相乗りする項目（会議概要）。あれば見出しに名を添え、色もその項目の色にする
+  const merged = items.filter((it) => it.sheet === "other");
+  const otherLabel = [...merged.map((it) => it.label), OTHER_BOX.label].join("・");
+  const otherColor = merged[0]?.color ?? "var(--sub)";
+  const lines = (n: number) => Array.from({ length: n }, (_, i) => <div key={i} />);
   return (
     <div className="paper">
       <div className="p-head">
-        <div className="p-title">面談記録メモ</div>
-        {/* 記入欄。日時は数字だけを書くマス（表記の揺れを作らない）、参加者は1行ぶんの長い下線 */}
-        <div className="p-fields">
-          <div className="f f-date">
-            <span className="lb">日時</span>
-            <span className="cel y" />
-            <span className="u">年</span>
-            <span className="cel" />
-            <span className="u">月</span>
-            <span className="cel" />
-            <span className="u">日</span>
-            <span className="cel" />
-            <span className="u">時</span>
-            <span className="cel" />
-            <span className="u">分</span>
-            <span className="u wave">〜</span>
-            <span className="cel" />
-            <span className="u">時</span>
-            <span className="cel" />
-            <span className="u">分</span>
-          </div>
-          <div className="f f-place">
-            <span className="lb">場所</span>
-            <span className="wr" />
-          </div>
-          <div className="f f-people">
-            <span className="lb">参加者</span>
-            <span className="wr" />
+        <div className="p-main">
+          <div className="p-title">{head.title}</div>
+          {/* 記入欄。日時は数字だけを書くマス（表記の揺れを作らない）、参加者は1行ぶんの長い下線 */}
+          <div className="p-fields">
+            <div className="f f-date">
+              <span className="lb">日時</span>
+              <span className="cel y" />
+              <span className="u">年</span>
+              <span className="cel" />
+              <span className="u">月</span>
+              <span className="cel" />
+              <span className="u">日</span>
+              <span className="cel" />
+              <span className="u">時</span>
+              <span className="cel" />
+              <span className="u">分</span>
+              <span className="u wave">〜</span>
+              <span className="cel" />
+              <span className="u">時</span>
+              <span className="cel" />
+              <span className="u">分</span>
+            </div>
+            <div className="f f-place">
+              <span className="lb">場所</span>
+              <span className="wr" />
+            </div>
+            <div className="f f-people">
+              <span className="lb">{head.people}</span>
+              <span className="wr" />
+            </div>
           </div>
         </div>
+        {/* 押印欄: 上の行＝ラベル・下の行＝押印の正方形（会議は2列・面談は1列） */}
+        <table className="p-stamp">
+          <thead>
+            <tr>
+              {head.stamps.map((s) => (
+                <th key={s}>{s}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            <tr>
+              {head.stamps.map((s) => (
+                <td key={s} />
+              ))}
+            </tr>
+          </tbody>
+        </table>
       </div>
       {free ? (
         // 枠なし・罫線だけ。間隔は枠のときと同じ
-        <div className="p-free">
-          {Array.from({ length: lines }, (_, i) => (
-            <div key={i} />
-          ))}
-        </div>
+        <div className="p-free">{lines(freeLines)}</div>
       ) : (
         <>
-          <div className="p-grid">
-            {items.map((it, i) => (
-              <div
-                // 最後の行に1つしか入らないときは横いっぱいに広げる（右半分を空けない）
-                className={"p-box" + (wideLast(items.length) && i === items.length - 1 ? " wide" : "")}
-                key={it.id}
-                style={{ ["--c" as string]: it.color }}
-              >
-                <h4>{it.label}</h4>
-                <div className="p-lines">
-                  {Array.from({ length: lines }, (_, i) => (
-                    <div key={i} />
-                  ))}
-                </div>
-              </div>
-            ))}
+          <div className="p-grid" style={rowsStyle ? { gridTemplateRows: rowsStyle } : undefined}>
+            {rows.map((r) =>
+              r.ids.map((id) => {
+                const it = byId(id);
+                return (
+                  // 横いっぱいの枠: wide の項目と、最後の行に1つしか入らなかった枠（右半分を空けない）
+                  <div className={"p-box" + (r.wide ? " wide" : "")} key={id} style={{ ["--c" as string]: it.color }}>
+                    <h4>{it.label}</h4>
+                    <div className="p-lines">{lines(r.lines)}</div>
+                  </div>
+                );
+              })
+            )}
           </div>
           {other && (
             // 想定外の話の受け皿。横いっぱい・他の枠より低くして、項目の枠を痩せさせない
-            <div
-              className="p-box other"
-              style={{ ["--c" as string]: "var(--sub)" }}
-            >
-              <h4>{OTHER_BOX.label}</h4>
-              <div className="p-lines">
-                {Array.from({ length: SHEET.otherLines }, (_, i) => (
-                  <div key={i} />
-                ))}
-              </div>
+            <div className="p-box other" style={{ ["--c" as string]: otherColor }}>
+              <h4>{otherLabel}</h4>
+              <div className="p-lines">{lines(SHEET.otherLines)}</div>
             </div>
           )}
         </>
@@ -168,6 +194,9 @@ function Paper({
 }
 
 export default function SheetMaker({ onHome, toast }: Props) {
+  /** 記録の種類（P9）。面談と会議で項目・割り付け・保存の鍵が変わる */
+  const [type, setType] = useState<RecordType>("interview");
+  const lib = libraryFor(type);
   const [set, setSet] = useState<Settings | null>(null);
   /** 狭い画面でどちらを見せるか。選択の状態はここでは持たないので、切り替えても中身は保たれる */
   const [tab, setTab] = useState<"items" | "paper">("items");
@@ -177,17 +206,16 @@ export default function SheetMaker({ onHome, toast }: Props) {
   const [order, setOrder] = useState<string[]>([]);
   const [drag, setDrag] = useState<Drag | null>(null);
   useEffect(() => {
-    setSet(loadSettings(ITEM_LIBRARY));
-    setFree(loadSheetFree());
-    setOrder(loadSheetOrder(ITEM_LIBRARY));
-  }, []);
+    setSet(loadSettings(lib, type));
+    setFree(loadSheetFree(type));
+    setOrder(loadSheetOrder(lib, type));
+  }, [type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 用紙に載るのは「記録と共有のオン・オフ」×「用紙だけの並び」
-  const ids = set ? sheetIds(order, set.enabled, ITEM_LIBRARY) : [];
+  const ids = set ? sheetIds(order, set.enabled, lib) : [];
   const items = useMemo(
-    () =>
-      ids.map((id) => ITEM_LIBRARY.find((l) => l.id === id)!).filter(Boolean),
-    [ids.join(",")],
+    () => ids.map((id) => lib.find((l) => l.id === id)!).filter(Boolean),
+    [ids.join(","), lib], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const layout = sheetLayout(items.length);
   const pages = free ? [[]] : paginate(items, layout.perPage);
@@ -222,8 +250,8 @@ export default function SheetMaker({ onHome, toast }: Props) {
   /** 用紙の並びだけを書く。記録側の選択・並び（saveSettings）には触れない */
   const moveItem = (g: Group, from: number, insertAt: number) => {
     setOrder((o) => {
-      const next = moveWithinGroup(o, ITEM_LIBRARY, g, from, insertAt);
-      saveSheetOrder(next);
+      const next = moveWithinGroup(o, lib, g, from, insertAt);
+      saveSheetOrder(next, type);
       return next;
     });
   };
@@ -409,7 +437,7 @@ export default function SheetMaker({ onHome, toast }: Props) {
 
   const toggleFree = () => {
     setFree((f) => {
-      saveSheetFree(!f);
+      saveSheetFree(!f, type);
       return !f;
     });
   };
@@ -419,9 +447,16 @@ export default function SheetMaker({ onHome, toast }: Props) {
     setSet((s) => {
       if (!s) return s;
       const next = { ...s, enabled: { ...s.enabled, [id]: !s.enabled[id] } };
-      saveSettings(next);
+      saveSettings(next, type);
       return next;
     });
+  };
+
+  /** 種類の切り替え。掴んでいる途中なら離してから */
+  const switchType = (t: RecordType) => {
+    if (t === type) return;
+    finish(false);
+    setType(t);
   };
 
   /** 見本をそのまま印刷に回す（印刷用のCSSがA4の実寸で描き直す） */
@@ -437,7 +472,7 @@ export default function SheetMaker({ onHome, toast }: Props) {
     root.appendChild(src.cloneNode(true));
     document.body.appendChild(root);
     const prevTitle = document.title;
-    document.title = sheetFileName();
+    document.title = sheetFileName(new Date(), type);
     const cleanup = () => {
       document.title = prevTitle;
       root.remove();
@@ -475,10 +510,19 @@ export default function SheetMaker({ onHome, toast }: Props) {
           ref={cfgRef}
           className={"cfg" + (tab === "items" ? " on" : "") + (drag ? " lifting" : "")}
         >
+          {/* 面談と会議の切り替え（P9）。項目の一覧も見本も、この選択に従う */}
+          <div className="seg" role="tablist">
+            <button role="tab" aria-selected={type === "interview"} className={type === "interview" ? "on" : ""} onClick={() => switchType("interview")}>
+              面談
+            </button>
+            <button role="tab" aria-selected={type === "meeting"} className={type === "meeting" ? "on" : ""} onClick={() => switchType("meeting")}>
+              会議
+            </button>
+          </div>
           <h2>用紙に入れる項目</h2>
-          {sheetGroups(ITEM_LIBRARY).map((g) => {
+          {sheetGroups(lib).map((g) => {
             // 群ごとに、用紙での並びで出す（オフの項目も並べ替えられる）
-            const gids = groupIds(order, ITEM_LIBRARY, g);
+            const gids = groupIds(order, lib, g);
             // 掴んでいるあいだ、落ちる位置にあたる行をよけさせる（空いた所に落ちる）
             const shift = (i: number) => {
               if (!drag || drag.group !== g || i === drag.from) return 0;
@@ -490,7 +534,7 @@ export default function SheetMaker({ onHome, toast }: Props) {
               <div key={g} data-grp={g}>
                 <div className="grp-t">{g}</div>
                 {gids.map((id, i) => {
-                  const l = ITEM_LIBRARY.find((x) => x.id === id)!;
+                  const l = lib.find((x) => x.id === id)!;
                   const on = Boolean(set?.enabled[id]);
                   const lifted = drag?.id === id;
                   const dy = shift(i);
@@ -564,10 +608,11 @@ export default function SheetMaker({ onHome, toast }: Props) {
             {pages.map((p, i) => (
               <Paper
                 key={i}
+                type={type}
                 items={p}
-                lines={free ? freeLines : layout.linesPerPage[i]}
                 other={!free && i === pages.length - 1}
                 free={free}
+                freeLines={freeLines}
               />
             ))}
           </div>

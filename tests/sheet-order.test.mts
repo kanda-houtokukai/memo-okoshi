@@ -114,7 +114,7 @@ test("画面側: 並べ替えは用紙の鍵だけを書き、オン・オフは
   assert.ok(move.includes("saveSheetOrder") && move.includes("moveWithinGroup"), "用紙の並びとして保存する");
   assert.ok(!move.includes("saveSettings") && !move.includes("setSet"), "並べ替えで記録側の設定を書かない");
   // 用紙に載る項目＝記録と共有のオン・オフ × 用紙だけの並び
-  assert.ok(src.includes("sheetIds(order, set.enabled, ITEM_LIBRARY)"));
+  assert.ok(src.includes("sheetIds(order, set.enabled, lib)"), "P9: ライブラリは記録の種類で決まる lib");
   const toggle = src.slice(src.indexOf("const toggle ="), src.indexOf("const print ="));
   assert.ok(toggle.includes("saveSettings"), "オン・オフは引き続き記録と共有の鍵に書く");
   // 印刷は見本をそのまま複製する（見本と印刷で並びが食い違わない）

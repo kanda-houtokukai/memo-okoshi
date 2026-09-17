@@ -18,6 +18,21 @@
 // - hint: AIプロンプトへ渡す「この項目に入る内容」の説明（P1から継承）
 //
 // 表示順は定義順と分離する（ORDER）。既定の ORDER はこの定義順。
+//
+// [DECISION 2026-09-17] **記録の種類を2つにする（P9）**: 面談（interview）と会議（meeting）。
+//   項目ライブラリは種類ごとに別に持つ（`ITEM_LIBRARY`＝面談・`MEETING_LIBRARY`＝会議）。
+//   面談の項目・id・分類・既定値は**1つも変えない**（面談側の動作を変えないため）。
+//   会議は4項目だけ（会議概要・内容・決定事項・宿題）で追加項目は設けない。id は面談と重ならない。
+//   どちらを使うかは `libraryFor(type)` で引く。`record_type` の予約枠（P1〜）をここで初めて使う。
+
+/** 記録の種類。スキーマ・API・状態に予約してあった `record_type` の値 */
+export type RecordType = "interview" | "meeting";
+
+export const RECORD_TYPES: readonly RecordType[] = ["interview", "meeting"] as const;
+
+export function isRecordType(v: unknown): v is RecordType {
+  return v === "interview" || v === "meeting";
+}
 
 export type ItemDef = {
   id: string;
@@ -28,6 +43,13 @@ export type ItemDef = {
   defaultOn: boolean;
   closing?: boolean; // 申し送り=締めフラグ（締めは常に最後。追加・復帰した項目はこれより前・定義順の位置に入る）
   hint: string;
+  /**
+   * 用紙での扱い（P9・会議の用紙だけが使う。面談の項目には付けない）:
+   *   "wide"  = 横いっぱいの大きな枠（1行を占め、高さの取り分も大きい。`lib/sheet.ts` の `SHEET.wideWeight`）
+   *   "other" = 枠を作らず、用紙の最後の「その他」の枠に相乗りする（見出しは「会議概要・その他」）。
+   *             日時・場所・出席者は記入欄の頭にあるので、用紙の上では概要の枠が要らないため
+   */
+  sheet?: "wide" | "other";
 };
 
 export const ITEM_LIBRARY: ItemDef[] = [
@@ -61,12 +83,33 @@ export const ITEM_LIBRARY: ItemDef[] = [
     hint: "本人（や家族）が望んでいること・目標" },
 ];
 
-export function itemsByIds(ids: string[]): ItemDef[] {
+/**
+ * 会議の項目（P9）。**4項目だけ・すべて基本・すべて既定オン**。追加項目は設けない。
+ * 走り書きでは内容・決定事項・宿題が混ざって書かれる前提で、AIが読み取って振り分ける（`lib/prompt.ts`）。
+ * 色・タブ名は `docs/mock/kaigi-mock-v1.html` のとおり。
+ */
+export const MEETING_LIBRARY: ItemDef[] = [
+  { id: "kaigi", label: "会議概要", tab: "概要", group: "基本", color: "var(--t1)", defaultOn: true, sheet: "other",
+    hint: "会議名・日時・場所・出席者（欠席者）・議題など、会議そのものの枠組み" },
+  { id: "naiyou", label: "内容", tab: "内容", group: "基本", color: "var(--t2)", defaultOn: true, sheet: "wide",
+    hint: "議題ごとに話し合われた内容・報告・出た意見・検討中の事柄（決定にも宿題にも当たらないもの）" },
+  { id: "kettei", label: "決定事項", tab: "決定", group: "基本", color: "var(--t3)", defaultOn: true,
+    hint: "この会議で決まったこと（検討中・保留のものは入れない）" },
+  { id: "shukudai", label: "宿題", tab: "宿題", group: "基本", color: "var(--t4)", defaultOn: true,
+    hint: "誰かが持ち帰る作業・次回までにやること（誰が・いつまでに・何を）" },
+];
+
+/** 種類に応じた項目ライブラリ */
+export function libraryFor(type: RecordType): ItemDef[] {
+  return type === "meeting" ? MEETING_LIBRARY : ITEM_LIBRARY;
+}
+
+export function itemsByIds(ids: string[], lib: ItemDef[] = ITEM_LIBRARY): ItemDef[] {
   return ids
-    .map((id) => ITEM_LIBRARY.find((d) => d.id === id))
+    .map((id) => lib.find((d) => d.id === id))
     .filter((d): d is ItemDef => Boolean(d));
 }
 
-export function itemById(id: string): ItemDef | undefined {
-  return ITEM_LIBRARY.find((d) => d.id === id);
+export function itemById(id: string, lib: ItemDef[] = ITEM_LIBRARY): ItemDef | undefined {
+  return lib.find((d) => d.id === id);
 }

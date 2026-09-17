@@ -4,7 +4,7 @@
 // DOM構造・クラス名・文言・アニメーションは正本どおり。状態管理のみReact化。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { ITEM_LIBRARY, itemById } from "@/lib/items";
+import { itemById as itemByIdIn, libraryFor } from "@/lib/items";
 import {
   acceptSpill,
   activeIds,
@@ -13,6 +13,7 @@ import {
   mergeReconvert,
   moveSection,
   moveSpillTo,
+  outputTitle,
   outputWarnings,
   pendingReconvertIds,
   recordEntries,
@@ -33,7 +34,7 @@ import MemoPane, { type MemoPage } from "./MemoPane";
 import StepHeader, { type Step } from "./StepHeader";
 import VocabButton, { VOCAB_CHANGED } from "./VocabButton";
 import { addEntry, loadVocab, REASON_TEXT, saveVocab } from "@/lib/vocab";
-import { SETTINGS_KEY } from "@/lib/settings";
+import { keyFor, SETTINGS_KEY } from "@/lib/settings";
 import type { ApiData } from "@/lib/record";
 import Dialog, { type DialogSpec } from "./Dialog";
 import { exportDocx, printRecord } from "@/lib/export";
@@ -70,6 +71,10 @@ type Props = {
 
 export default function Review({ initial, pages, onRestart, onStep, onHome, onReconvert }: Props) {
   const [rec, setRec] = useState<RecordState>(initial);
+  /** 記録の種類（P9）。項目ライブラリ・保存の鍵・出力の題がこれで決まる。会議は赤（人名）を持たない */
+  const type = rec.type ?? "interview";
+  const lib = libraryFor(type);
+  const itemById = (id: string) => itemByIdIn(id, lib);
   /** 人名 → 記号（A,B,C…）の対応表。**この画面の中だけ**に持つ（サーバーへ送らない・保存しない）。
       1件の記録のあいだ有効で、次の変換では空から始まる（Review は変換ごとに作り直される）。 */
   const [aliases, setAliases] = useState<AliasMap>(() =>
@@ -113,7 +118,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
   useEffect(() => {
     try {
       localStorage.setItem(
-        SETTINGS_KEY,
+        keyFor(SETTINGS_KEY, type),
         JSON.stringify({ enabled: activeIds(rec), order: rec.order })
       );
     } catch {
@@ -236,7 +241,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
     }
     const w = outputWarnings(rec);
     setWarning(w.length ? w.join("・") + " を残して出力しています。最終確認は記入者の責任です。" : "");
-    setOutText(buildOutputText(rec, ITEM_LIBRARY));
+    setOutText(buildOutputText(rec, lib));
     setOutCopied(false);
     setOutOpen(true);
   };
@@ -244,7 +249,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
   const onToggleItem = (id: string) => {
     const def = itemById(id);
     if (!def) return;
-    const res = toggleItem(rec, id, ITEM_LIBRARY);
+    const res = toggleItem(rec, id, lib);
     setRec(res.state);
     if (rec.enabled[id]) {
       toast(res.demoted ? `「${def.label}」を外しました — 内容はこぼれ枠へ` : `「${def.label}」を外しました`);
@@ -258,7 +263,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
     const def = itemById(id);
     if (!def) return;
     const idx = rec.spill.findIndex((sp) => sp.sug === id);
-    setRec((s) => (idx >= 0 ? acceptSpill(s, idx, ITEM_LIBRARY) : toggleItem(s, id, ITEM_LIBRARY).state));
+    setRec((s) => (idx >= 0 ? acceptSpill(s, idx, lib) : toggleItem(s, id, lib).state));
     toast(`「${def.label}」を追加`);
     setTimeout(() => flashCard(id), 150);
   };
@@ -267,7 +272,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
     const it = rec.spill[index];
     const def = it.sug ? itemById(it.sug) : undefined;
     if (!def) return;
-    setRec((s) => acceptSpill(s, index, ITEM_LIBRARY));
+    setRec((s) => acceptSpill(s, index, lib));
     toast(`「${def.label}」に移しました`);
     setTimeout(() => flashCard(def.id), 150);
   };
@@ -280,7 +285,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
    *   （`moveSpillTo` が enabled を立てる。従来どおり）。オフの項目は頭に「＋」を付けて区別する。
    */
   const spillOptions = (sug: string | null) => {
-    const off = ITEM_LIBRARY.map((l) => l.id).filter((id) => !acts.includes(id));
+    const off = lib.map((l) => l.id).filter((id) => !acts.includes(id));
     let ids = [...acts, ...off];
     if (sug && ids.includes(sug)) ids = [sug, ...ids.filter((id) => id !== sug)];
     return ids.map((id) => ({ id, label: itemById(id)!.label, off: !acts.includes(id) }));
@@ -299,7 +304,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
     if (!picker) return;
     const def = itemById(targetId);
     if (!def) return;
-    setRec((s) => moveSpillTo(s, picker.index, targetId, ITEM_LIBRARY));
+    setRec((s) => moveSpillTo(s, picker.index, targetId, lib));
     setPicker(null);
     toast(`「${def.label}」に移しました`);
     setTimeout(() => flashCard(targetId), 150);
@@ -323,7 +328,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
         try {
           const data = await onReconvert(acts);
           if (data) {
-            setRec((s) => mergeReconvert(s, data, ITEM_LIBRARY));
+            setRec((s) => mergeReconvert(s, data, lib));
             toast("追加した項目を埋めました");
           }
         } finally {
@@ -356,9 +361,12 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
                 <span className={"chip b" + (c.b === 0 ? " zero" : "") + (pulse.b ? " pulse" : "")}>
                   推定 <b>{c.b}</b>
                 </span>
-                <span className={"chip r" + (c.r === 0 ? " zero" : "") + (pulse.r ? " pulse" : "")}>
-                  人名 <b>{c.r}</b>
-                </span>
+                {/* 会議は赤（人名）を持たないので札も出さない（原則3は面談にのみ適用・P9） */}
+                {type !== "meeting" && (
+                  <span className={"chip r" + (c.r === 0 ? " zero" : "") + (pulse.r ? " pulse" : "")}>
+                    人名 <b>{c.r}</b>
+                  </span>
+                )}
               </div>
               <button className={"done-btn" + (doneReady ? " ready" : "")} onClick={onDone}>
                 {c.r > 0 ? "完成（人名の対応が必要）" : c.y + c.b > 0 ? "完成" : "完成 ✓"}
@@ -385,7 +393,11 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
         <div className={"pane-rec" + (mobileTab === "rec" ? " on" : "")}>
           <div className="pane-h">
             <h2>記録（下書き）</h2>
-            <span className="info" data-tip="黄=読取に自信なし ／ 青=AIの推定 ／ 赤=人名・対応必須" tabIndex={0}>
+            <span
+              className="info"
+              data-tip={type === "meeting" ? "黄=読取に自信なし ／ 青=AIの推定" : "黄=読取に自信なし ／ 青=AIの推定 ／ 赤=人名・対応必須"}
+              tabIndex={0}
+            >
               ?
             </span>
             <div className="rec-tools">
@@ -567,6 +579,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
         enabled={rec.enabled}
         onToggle={onToggleItem}
         onClose={() => setDrawerOpen(false)}
+        lib={lib}
       />
 
       <OutputOverlay
@@ -580,8 +593,8 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
           setOutCopied(false);
         }}
         onRestart={onRestart}
-        onWord={() => exportDocx(recordEntries(rec, ITEM_LIBRARY)).catch(() => toast("Wordを作れませんでした"))}
-        onPdf={() => printRecord(recordEntries(rec, ITEM_LIBRARY))}
+        onWord={() => exportDocx(recordEntries(rec, lib), outputTitle(type)).catch(() => toast("Wordを作れませんでした"))}
+        onPdf={() => printRecord(recordEntries(rec, lib), outputTitle(type))}
       />
 
       {reconverting && <div className="progress fill" />}

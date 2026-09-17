@@ -324,7 +324,7 @@ test("こぼれの移動先は常に選べる（提案が外れていても直�
   const src = readFileSync("app/components/Review.tsx", "utf8");
   assert.ok(src.includes("spillOptions"), "移動先の候補を作る関数がある");
   const fn = src.slice(src.indexOf("const spillOptions"), src.indexOf("const onOpenSpillPicker"));
-  assert.ok(fn.includes("ITEM_LIBRARY.map"), "オフの項目も候補に入れる");
+  assert.ok(fn.includes("lib.map"), "オフの項目も候補に入れる（P9: ライブラリは記録の種類で決まる lib）");
   assert.ok(fn.includes("off: !acts.includes(id)"), "オフかどうかを渡す（選ぶとオンになる）");
   assert.ok(!src.includes("options={acts.map"), "表示中の項目だけの一覧にしない");
   // 提案があるときも、他の項目を開く導線が出ること

@@ -61,7 +61,8 @@ test("確認画面のカード・転記用テキスト・Word・PDF の順序が
   // 画面のカードも同じ並び、Word と PDF は同じ recordEntries を順に使う
   const rv = readFileSync("app/components/Review.tsx", "utf8");
   assert.ok(rv.includes("const acts = activeIds(rec)"));
-  assert.ok(rv.includes("exportDocx(recordEntries(rec, ITEM_LIBRARY))") && rv.includes("printRecord(recordEntries(rec, ITEM_LIBRARY))"));
+  // P9: ライブラリは記録の種類で決まる（lib）。題は種類ごと。並びは変わらず recordEntries の順
+  assert.ok(rv.includes("exportDocx(recordEntries(rec, lib), outputTitle(type))") && rv.includes("printRecord(recordEntries(rec, lib), outputTitle(type))"));
   const ex = readFileSync("lib/export.ts", "utf8");
   assert.ok(ex.slice(ex.indexOf("export function printRecord")).includes("for (const e of entries)"));
 });

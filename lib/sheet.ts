@@ -38,6 +38,18 @@
 //   場所は取るので、**他の枠より低い横いっぱいの枠**（罫線3本ぶん）にして、項目の枠を痩せさせない。
 // [DECISION 2026-09-10] 用紙に**氏名をイニシャルにする注記は入れない**。面談中は正確な内容が必要で、
 //   伏せるのは撮影後の工程（原則5はそこで守る）。紙そのものの扱いは各事業所の規程に従う。
+// [DECISION 2026-09-17] **会議の用紙**（P9）。同じ A4・同じ記入欄の頭・同じ罫線の規則（6mm固定・入るだけ）で、
+//   割り付けだけ**行の重み**で決める（`sheetRows`）。「内容」は横いっぱいの大きな枠（重み `wideWeight`）、
+//   決定事項と宿題は2列、会議概要は枠を作らず最後の「その他」に相乗り（見出し「会議概要・その他」）。
+//   面談の用紙は全部の行が重み1なので、これまでの割り付け（`sheetLayout`）と**同じ本数**になる
+//   （`tests/meeting.test.mts` が全項目数で一致を見張る）。
+// [DECISION 2026-09-17] **押印欄**（P9・6-b）。用紙の右上に、上の行＝ラベル・下の行＝押印の正方形。
+//   会議は2列（作成者／署名）、面談は1列（記録者）。自由形式にも同じ欄を置く。
+//   押印の枠は **15mm 角**: 認印の直径は 10.5〜12mm で、12mm の印影の周りに 1.5mm ずつ余白が要る
+//   （枠線に印影が触れると読めない）。回覧・稟議の押印欄で一般的な寸法でもある。
+//   欄は記入欄の頭の右に置き、記入欄はそのぶん狭くなる（重ねない）。頭の高さは変えない（欄のほうが低い）。
+
+import type { RecordType } from "./items";
 
 /** 用紙の寸法（mm）。印刷CSSと `sheetLayout` はこの値を共有する */
 export const SHEET = {
@@ -53,6 +65,24 @@ export const SHEET = {
   otherLines: 3,
   /** 選んだ項目がこの数までなら1枚（超えたら2枚） */
   onePageMax: 8,
+  /** 横いっぱいの大きな枠（`ItemDef.sheet === "wide"`）の行の高さの重み。ほかの行は 1（P9） */
+  wideWeight: 2.5,
+} as const;
+
+/** 記入欄の頭の文言（種類ごと）。題・参加者の欄の見出し・押印欄のラベル（列の数＝ラベルの数） */
+export const SHEET_HEAD = {
+  interview: { title: "面談記録メモ", people: "参加者", stamps: ["記録者"] },
+  meeting: { title: "会議記録メモ", people: "出席者", stamps: ["作成者", "署名"] },
+} as const;
+
+/** 押印欄の寸法（mm・pt）。理由はこのファイル冒頭の [DECISION 2026-09-17] */
+export const STAMP = {
+  /** 押印の枠（正方形の一辺・mm） */
+  cell: 15,
+  /** ラベルの文字（pt）。ラベルの行の高さは文字に合わせる（固定しない） */
+  labelPt: 7,
+  /** 記入欄との間（mm） */
+  gap: 3,
 } as const;
 
 /** 用紙にいつも入る「その他」の枠。**記録の項目ライブラリには入れない**（用紙だけの欄） */
@@ -180,10 +210,58 @@ export function paginate<T>(items: T[], perPage: number[]): T[][] {
   return out.length ? out : [[]];
 }
 
-/** 保存するPDFの名前（日付ベース） */
-export function sheetFileName(d = new Date()): string {
+/** 保存するPDFの名前（日付ベース・種類ごと） */
+export function sheetFileName(d = new Date(), type: RecordType = "interview"): string {
   const p = (n: number) => String(n).padStart(2, "0");
-  return `面談用紙_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+  return `${type === "meeting" ? "会議用紙" : "面談用紙"}_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+}
+
+/* ---------- 行の割り付け（P9・面談と会議で共通） ---------- */
+
+export type SheetRow = {
+  /** その行に置く項目の id（2列に詰めるので最大2つ。wide の項目は1つ） */
+  ids: string[];
+  /** 横いっぱいにする行（wide の項目・1つしか入らなかった最後の行） */
+  wide: boolean;
+  /** 高さの取り分（1 か `SHEET.wideWeight`） */
+  weight: number;
+  /** その行の枠に引く罫線の本数（間隔は固定。高さに入るだけ） */
+  lines: number;
+};
+
+/**
+ * 1ページぶんの項目を行に割り付ける。`sheet:"other"` の項目は枠を作らない（最後の「その他」に相乗り）。
+ * `sheet:"wide"` の項目は1行を占め、それ以外は2列に詰める。最後に1つ余れば横いっぱい（`wideLast` と同じ結論）。
+ * 行の高さは重みで按分し、罫線はその高さに**入るだけ**引く（P8-g の規則そのまま）。
+ * 面談（重みがすべて1）では `sheetLayout` の本数と一致する。
+ */
+export function sheetRows(items: { id: string; sheet?: "wide" | "other" }[], hasOther: boolean): SheetRow[] {
+  const rows: { ids: string[]; wide: boolean; weight: number }[] = [];
+  let pending: string[] = [];
+  const flush = () => {
+    if (pending.length) rows.push({ ids: pending, wide: pending.length === 1, weight: 1 });
+    pending = [];
+  };
+  for (const it of items) {
+    if (it.sheet === "other") continue;
+    if (it.sheet === "wide") {
+      flush();
+      rows.push({ ids: [it.id], wide: true, weight: SHEET.wideWeight });
+      continue;
+    }
+    pending.push(it.id);
+    if (pending.length === SHEET.cols) flush();
+  }
+  flush();
+  const total = rows.reduce((a, r) => a + r.weight, 0);
+  const h = gridH(hasOther) - SHEET.gap * (rows.length - 1);
+  return rows.map((r) => ({ ...r, lines: linesIn((h * r.weight) / total) }));
+}
+
+/** CSS grid の行の高さ（`grid-template-rows`）。重みがすべて1なら undefined（既定の均等割り＝面談はこれまでどおり） */
+export function gridRowsStyle(rows: SheetRow[]): string | undefined {
+  if (rows.every((r) => r.weight === 1)) return undefined;
+  return rows.map((r) => `minmax(0,${r.weight}fr)`).join(" ");
 }
 
 /**

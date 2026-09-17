@@ -1,9 +1,10 @@
 import { NextRequest, NextResponse } from "next/server";
-import { itemsByIds } from "@/lib/items";
+import { isRecordType, itemsByIds, libraryFor, type RecordType } from "@/lib/items";
 import { buildPrompt } from "@/lib/prompt";
 import { FAIL_TEXT, generateWithFallback, ImagePart } from "@/lib/gemini";
 import { sanitizeForPrompt } from "@/lib/vocab";
 import { enforceNames } from "@/lib/names";
+import { withoutRed } from "@/lib/record";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -11,6 +12,7 @@ export const maxDuration = 120;
 // 受け取り: multipart/form-data
 //   images: File（複数可・1件の記録として統合）
 //   items:  JSON文字列（選択された項目idの配列・表示順）
+//   record_type: "interview"（面談・既定）| "meeting"（会議）。項目ライブラリ・プロンプト・人名の扱いが変わる（P9）
 //   vocab:  JSON文字列（端末内の組織語彙。プロンプトに差し込むだけで保存しない）
 // 返却: { ok, model, tried, data } または { ok:false, reason, error }
 //   reason: "quota"（本日の上限）/ "busy"（混雑）/ "error"。error はそのまま画面に出す文言。
@@ -59,13 +61,17 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: false, error: "画像がありません" }, { status: 400 });
     }
 
+    // 記録の種類。知らない値は面談として扱う（これまでの呼び出しと同じ）
+    const rt = form.get("record_type");
+    const type: RecordType = isRecordType(rt) ? rt : "interview";
+
     let ids: string[] = [];
     try {
       ids = JSON.parse(String(form.get("items") ?? "[]"));
     } catch {
       /* 下の空チェックで弾く */
     }
-    const items = itemsByIds(ids);
+    const items = itemsByIds(ids, libraryFor(type));
     if (items.length === 0) {
       return NextResponse.json({ ok: false, error: "項目が選択されていません" }, { status: 400 });
     }
@@ -83,7 +89,7 @@ export async function POST(req: NextRequest) {
       vocab = [];
     }
 
-    const result = await generateWithFallback(buildPrompt(items, vocab), images);
+    const result = await generateWithFallback(buildPrompt(items, vocab, type), images);
     if (!result.ok) {
       // [DECISION 2026-09-10] 枠切れ（429）と混雑（503）で案内を変える。
       //   他のモデルへは流さないので、ここが「使えない」と正直に伝える唯一の場所になる。
@@ -97,8 +103,11 @@ export async function POST(req: NextRequest) {
     }
 
     const parsed = parseModelJson(result.text);
-    // 原則3の保険: AIが人名を p/y/b に紛れ込ませても、敬称付き氏名は機械的に r へ切り出す
-    const data = parsed ? enforceNames(parsed) : null;
+    // 原則3の保険: AIが人名を p/y/b に紛れ込ませても、敬称付き氏名は機械的に r へ切り出す。
+    // [DECISION 2026-09-17] **面談だけ**。会議では人名の検知を働かせず（lib/names.ts を通さない）、
+    //   AIが "r" を返しても "p" に落とす（`withoutRed`）。原則3は面談にのみ適用する（P9・設計側の決定）。
+    const data = parsed ? (type === "meeting" ? withoutRed(parsed) : enforceNames(parsed)) : null;
+    if (data) data.record_type = type;
     if (!data) {
       return NextResponse.json(
         { ok: false, reason: "error", error: FAIL_TEXT.error, model: result.model, raw: result.text },

@@ -96,14 +96,14 @@ export function dateLabel(d = new Date()): string {
   return `${d.getFullYear()}年${d.getMonth() + 1}月${d.getDate()}日 作成（メモおこし下書き）`;
 }
 
-/** .docx を構成するファイル一式（パス → 中身）。テストはこの出力を検査する */
-export function buildDocxParts(entries: DocEntry[], now = new Date()): Record<string, string> {
+/** .docx を構成するファイル一式（パス → 中身）。テストはこの出力を検査する。title は種類ごと（P9・既定は面談） */
+export function buildDocxParts(entries: DocEntry[], now = new Date(), title = "面談・モニタリング記録"): Record<string, string> {
   return {
     "[Content_Types].xml": CONTENT_TYPES_XML,
     "_rels/.rels": RELS_XML,
     "word/_rels/document.xml.rels": DOC_RELS_XML,
     "word/styles.xml": STYLES_XML,
-    "word/document.xml": buildDocumentXml(entries, "面談・モニタリング記録", dateLabel(now)),
+    "word/document.xml": buildDocumentXml(entries, title, dateLabel(now)),
   };
 }
 

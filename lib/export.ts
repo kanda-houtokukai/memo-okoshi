@@ -43,10 +43,10 @@ function download(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export async function exportDocx(entries: DocEntry[]): Promise<void> {
+export async function exportDocx(entries: DocEntry[], title?: string): Promise<void> {
   const JSZip = await loadJSZip();
   const zip = new JSZip();
-  for (const [p, c] of Object.entries(buildDocxParts(entries))) zip.file(p, c);
+  for (const [p, c] of Object.entries(buildDocxParts(entries, new Date(), title))) zip.file(p, c);
   const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
   download(
     new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }),
@@ -55,11 +55,11 @@ export async function exportDocx(entries: DocEntry[]): Promise<void> {
 }
 
 /** 印刷用DOMを組んで window.print()。印刷後に片付ける */
-export function printRecord(entries: DocEntry[]): void {
+export function printRecord(entries: DocEntry[], title = "面談・モニタリング記録"): void {
   const root = document.createElement("div");
   root.className = "print-doc";
   const h = document.createElement("h1");
-  h.textContent = "面談・モニタリング記録";
+  h.textContent = title;
   const d = document.createElement("div");
   d.className = "pd-date";
   d.textContent = `${new Date().getFullYear()}年${new Date().getMonth() + 1}月${new Date().getDate()}日 作成（メモおこし下書き）`;

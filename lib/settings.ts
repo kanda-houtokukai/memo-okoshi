@@ -10,11 +10,20 @@
 //   ※ 分類だけが変わった項目（健康・服薬／生活・住環境）は、以前オフを選んだ人には**オフのまま**出る。
 //     基本に上がったから自動でオンにする、はしない（AIに何を書かせるかが黙って変わるため）。
 
-import type { ItemDef } from "./items";
+import type { ItemDef, RecordType } from "./items";
 import { moveTo } from "./reorder.ts";
 import { normalizeOrder } from "./record.ts";
 
 export const SETTINGS_KEY = "memo-okoshi:items";
+
+/**
+ * [DECISION 2026-09-17] **項目の選択・並び・自由形式は、面談と会議で別に保存する**（P9）。
+ *   会議の鍵は面談の鍵に `:meeting` を足したもの（面談の鍵はそのまま＝保存済みの値に触れない）。
+ *   鍵の定義はこのファイルにだけ置く（散らかさない）。
+ */
+export function keyFor(base: string, type: RecordType = "interview"): string {
+  return type === "meeting" ? `${base}:meeting` : base;
+}
 
 /**
  * 面談用紙を「自由形式」（枠なしの罫線だけ）にするか。**用紙の見た目だけ**の切り替え。
@@ -26,18 +35,18 @@ export const SETTINGS_KEY = "memo-okoshi:items";
  */
 export const SHEET_FREE_KEY = "memo-okoshi:sheet-free";
 
-export function loadSheetFree(): boolean {
+export function loadSheetFree(type: RecordType = "interview"): boolean {
   try {
-    return localStorage.getItem(SHEET_FREE_KEY) === "1";
+    return localStorage.getItem(keyFor(SHEET_FREE_KEY, type)) === "1";
   } catch {
     return false;
   }
 }
 
-export function saveSheetFree(free: boolean): void {
+export function saveSheetFree(free: boolean, type: RecordType = "interview"): void {
   try {
-    if (free) localStorage.setItem(SHEET_FREE_KEY, "1");
-    else localStorage.removeItem(SHEET_FREE_KEY);
+    if (free) localStorage.setItem(keyFor(SHEET_FREE_KEY, type), "1");
+    else localStorage.removeItem(keyFor(SHEET_FREE_KEY, type));
   } catch {
     /* プライベートブラウズ等では保存できないが動作は続ける */
   }
@@ -63,19 +72,19 @@ export function mergeSettings(saved: { enabled?: string[]; order?: string[] } | 
   return { enabled, order: normalizeOrder(saved.order ?? [], lib) };
 }
 
-export function loadSettings(lib: ItemDef[]): Settings {
+export function loadSettings(lib: ItemDef[], type: RecordType = "interview"): Settings {
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
+    const raw = localStorage.getItem(keyFor(SETTINGS_KEY, type));
     return mergeSettings(raw ? (JSON.parse(raw) as { enabled?: string[]; order?: string[] }) : null, lib);
   } catch {
     return defaultSettings(lib);
   }
 }
 
-export function saveSettings(s: Settings): void {
+export function saveSettings(s: Settings, type: RecordType = "interview"): void {
   try {
     localStorage.setItem(
-      SETTINGS_KEY,
+      keyFor(SETTINGS_KEY, type),
       JSON.stringify({ enabled: s.order.filter((id) => s.enabled[id]), order: s.order })
     );
   } catch {
@@ -151,27 +160,27 @@ export function sheetIds(order: string[], enabled: Record<string, boolean>, lib:
   return mergeSheetOrder(order, lib).filter((id) => enabled[id]);
 }
 
-export function loadSheetOrder(lib: ItemDef[]): string[] {
+export function loadSheetOrder(lib: ItemDef[], type: RecordType = "interview"): string[] {
   try {
-    const raw = localStorage.getItem(SHEET_ORDER_KEY);
+    const raw = localStorage.getItem(keyFor(SHEET_ORDER_KEY, type));
     return mergeSheetOrder(raw ? JSON.parse(raw) : null, lib);
   } catch {
     return mergeSheetOrder(null, lib);
   }
 }
 
-export function saveSheetOrder(order: string[]): void {
+export function saveSheetOrder(order: string[], type: RecordType = "interview"): void {
   try {
-    localStorage.setItem(SHEET_ORDER_KEY, JSON.stringify(order));
+    localStorage.setItem(keyFor(SHEET_ORDER_KEY, type), JSON.stringify(order));
   } catch {
     /* プライベートブラウズ等では保存できないが動作は続ける */
   }
 }
 
 /** 書き出し用。**並べ替えたことがなければ undefined**（読み込む側の並びに触れないため） */
-export function readSavedSheetOrder(): string[] | undefined {
+export function readSavedSheetOrder(type: RecordType = "interview"): string[] | undefined {
   try {
-    const raw = localStorage.getItem(SHEET_ORDER_KEY);
+    const raw = localStorage.getItem(keyFor(SHEET_ORDER_KEY, type));
     const v: unknown = raw ? JSON.parse(raw) : null;
     return Array.isArray(v) ? v.filter((x): x is string => typeof x === "string") : undefined;
   } catch {

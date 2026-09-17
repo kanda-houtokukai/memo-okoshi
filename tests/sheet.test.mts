@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { ITEM_LIBRARY } from "../lib/items.ts";
 import { defaultSettings, mergeSettings, selectedIds } from "../lib/settings.ts";
-import { boxHeight, freeAreaH, freeSheetLines, linesIn, OTHER_BOX, paginate, PRINT, sheetFileName, sheetLayout, SHEET, wideLast } from "../lib/sheet.ts";
+import { boxHeight, freeAreaH, freeSheetLines, linesIn, OTHER_BOX, paginate, PRINT, sheetFileName, sheetLayout, sheetRows, SHEET, wideLast } from "../lib/sheet.ts";
 
 /* ---------- 項目ライブラリの分類（2026-09-10に見直し） ---------- */
 
@@ -127,8 +127,18 @@ test("最後の行に1つしか入らない枠は横いっぱいにする（P8-c
     assert.equal(sheetLayout(n).linesPerPage[0], sheetLayout(n + 1).linesPerPage[0], `n=${n} と ${n + 1} で本数が違う`);
   }
 
+  // P9 から割り付けは `sheetRows`。面談（wide の項目なし）では「最後に1つ余った枠」だけが wide になる
+  for (let n = 1; n <= ITEM_LIBRARY.length; n++) {
+    const l = sheetLayout(n);
+    paginate(ITEM_LIBRARY.slice(0, n), l.perPage).forEach((page, i) => {
+      const rows = sheetRows(page, i === l.perPage.length - 1);
+      const wides = rows.filter((r) => r.wide);
+      assert.equal(wides.length, wideLast(page.length) ? 1 : 0, `n=${n} ページ${i + 1}: 広げる枠の数`);
+      if (wides.length) assert.equal(rows[rows.length - 1].wide, true, `n=${n}: 広げるのは最後の枠だけ`);
+    });
+  }
   const src = readFileSync("app/components/SheetMaker.tsx", "utf8");
-  assert.ok(src.includes("wideLast(items.length) && i === items.length - 1"), "最後の枠だけ広げる");
+  assert.ok(src.includes('(r.wide ? " wide" : "")'), "行の判定どおりに広げる");
   const css = readFileSync("app/globals.css", "utf8");
   assert.ok(css.includes(".p-box.wide{grid-column:1 / -1}"), "横いっぱいにする指定がある");
 });
@@ -291,23 +301,25 @@ test("用紙に氏名の注記を入れない／説明文を置かない（P7-e�
   }
 });
 
-test("ホームが起点で、カードは3枚・説明文なし（P7-e）", () => {
+test("ホームが起点で、カードは4枚（面談／会議／用紙／使い方）・説明文なし（P7-e・P9）", () => {
   const page = readFileSync("app/page.tsx", "utf8");
   assert.ok(page.includes('useState<Mode>("home")'), "アプリの起点はホーム");
   assert.ok(page.includes('setMode("sheet")') && page.includes('setMode("intake")'), "ホームから両方へ行ける");
 
   const home = readFileSync("app/components/Home.tsx", "utf8");
-  assert.equal((home.match(/className="hcard"/g) ?? []).length, 3, "カードは3枚");
-  for (const t of ["メモをおこす", "面談用紙を印刷", "使い方"]) assert.ok(home.includes(t), `${t} のカードがある`);
-  assert.equal((home.match(/<svg /g) ?? []).length, 3, "3枚ともSVGの絵を持つ");
+  assert.equal((home.match(/className="hcard"/g) ?? []).length, 4, "カードは4枚（P9: 面談と会議の入口を分けた）");
+  for (const t of ["面談メモを", "会議メモを", "用紙を印刷", "使い方"]) assert.ok(home.includes(t), `${t} のカードがある`);
+  assert.equal((home.match(/<svg /g) ?? []).length, 4, "4枚ともSVGの絵を持つ");
+  assert.ok(home.includes('onMemo("interview")') && home.includes('onMemo("meeting")'), "入口で記録の種類が決まる");
   assert.ok(home.includes("about={false}"), "使い方はカードにあるので、ヘッダーには二重に出さない");
   // タイトル以外の文字を置かない
   const body = home.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "").replace(/\{\/\*[\s\S]*?\*\/\}/g, "");
   const words = (body.match(/>[^<>{}]*[ぁ-んァ-ヶ一-龥][^<>{}]*</g) ?? []).map((w) => w.slice(1, -1).trim());
   // 題の下の一文だけが例外（名前だけだと文字起こしツールと思われるため）。カードには説明文を置かない
+  // （「面談メモを／おこす」は <br> で2行に割った1つの題）
   assert.deepEqual(
     words,
-    ["メモおこし", "面談記録のための文字おこしツール", "メモをおこす", "面談用紙を印刷", "使い方"],
+    ["メモおこし", "面談記録のための文字おこしツール", "面談メモを", "おこす", "会議メモを", "おこす", "用紙を印刷", "使い方"],
     `説明文がある → ${words.join(" / ")}`
   );
   const cards = home.slice(home.indexOf('className="cards"'));
