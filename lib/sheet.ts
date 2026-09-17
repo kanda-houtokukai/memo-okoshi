@@ -43,6 +43,15 @@
 //   その下は余白（下の行「メモおこし」は紙の下端のまま）。15本以下ならそのまま（高さに入るだけ）。
 //   **1枚で収まるときは上限をかけない**: 1〜2項目を選ぶのはその項目にたっぷり書きたいからで、2ページ目以降に
 //   押し出された項目とは事情が違う。最後のページ以外・自由形式・会議（3項目で1枚）も変わらない。
+// [DECISION 2026-09-17] **2ページ目以降は頭を題だけにし、記入欄（会議名・日時・場所・参加者／出席者）と押印欄を出さない**
+//   （P9-g・設計側の指示）。**2026-09-10（P7-g）の「2枚目にも日時・場所・参加者の欄を残す（紙が離ればなれになったとき
+//   2枚目だけでも誰の記録か書ける）」を変更する**。2ページ目にも日時や出席者を書く人はいない／押印欄が各ページにあると
+//   押す場所を迷う／ページ番号があれば紙が離れても順序は分かる、のため。題（「面談記録メモ」「会議記録メモ」）は残す
+//   （紙が離れても何の用紙か分かる。高さは約12mm）。記入欄のぶん枠が高くなり、罫線が増える（最後のページの上限15本は維持）。
+// [DECISION 2026-09-17] **ページ番号**（P9-g）: **2ページ以上のときだけ全ページ**に「1 / 3」の形で、**下の行の中央**に入れる。
+//   下の行は全ページ同じ位置にあり、紙を重ねたときも探さずに見える。右端の「メモおこし」と重ならない。
+//   1枚のときは入れない（順序の情報が要らない。1枚の用紙はこれまでと同じ見た目のまま）。下の行の高さは変えない。
+//   会議（3項目で1枚）と自由形式（1枚固定）は2ページ目が無いので、今は現れない（規則は同じ）。
 // [DECISION 2026-09-10] **「その他」の枠を常に最後に置く**（P7-g）。想定外の話が出たときの受け皿で、
 //   枠外に書き込まれて読み取りが乱れるのを防ぐ。**用紙だけの欄で、記録の項目ライブラリには足さない**
 //   （記録側には「こぼれ枠」という同じ役割の受け皿が既にある）。紙の「その他」に書かれた内容は、
@@ -151,6 +160,8 @@ export type SheetLayout = {
 export const PRINT = {
   /** 見出し・記入欄（下の余白 2.4mm を含む）。実測 42.4（2026-09-17・記入欄を3行に。それまでは 2行で 32.8→33） */
   head: 42.5,
+  /** 2ページ目以降の見出し（題だけ・下の余白 2.4mm を含む。P9-g）。実測 12.2（2026-09-17） */
+  headCont: 12.5,
   /** 下の行「メモおこし」（上の余白 1.2mm を含む）。実測 5.84 */
   foot: 6,
   /** 枠の上端から1本目の罫線まで（枠線＋見出し帯＋上の余白 1mm）。実測 8.11・線の太さどおりなら 8.35 */
@@ -165,14 +176,15 @@ export const PRINT = {
 const otherH = PRINT.boxTop + SHEET.otherLines * SHEET.line + PRINT.boxBottom + SHEET.gap;
 
 /** 見出し・記入欄と下の行を除いた、枠を並べられる高さ（mm）。hasOther なら「その他」のぶんも引く */
-function gridH(hasOther: boolean): number {
-  return SHEET.pageH - SHEET.margin * 2 - PRINT.head - PRINT.foot - (hasOther ? otherH : 0);
+function gridH(hasOther: boolean, continued = false): number {
+  const head = continued ? PRINT.headCont : PRINT.head;
+  return SHEET.pageH - SHEET.margin * 2 - head - PRINT.foot - (hasOther ? otherH : 0);
 }
 
-/** 1ページに count 個の枠を置いたときの、枠1つの高さ（mm） */
-export function boxHeight(count: number, hasOther: boolean): number {
+/** 1ページに count 個の枠を置いたときの、枠1つの高さ（mm）。continued は2ページ目以降（頭が題だけ・P9-g） */
+export function boxHeight(count: number, hasOther: boolean, continued = false): number {
   const rows = Math.ceil(count / SHEET.cols);
-  return (gridH(hasOther) - SHEET.gap * (rows - 1)) / rows;
+  return (gridH(hasOther, continued) - SHEET.gap * (rows - 1)) / rows;
 }
 
 /** 高さ boxH の枠に**入るだけ**罫線を引く（1本目は `boxTop` から・最後の線は `boxBottom` より上） */
@@ -181,9 +193,9 @@ export function linesIn(boxH: number): number {
 }
 
 /** その高さの枠に入る本数（間隔は固定なので、枠が高いほど本数が増える） */
-function linesOn(count: number, hasOther: boolean): number {
+function linesOn(count: number, hasOther: boolean, continued = false): number {
   if (count === 0) return 0;
-  return linesIn(boxHeight(count, hasOther));
+  return linesIn(boxHeight(count, hasOther, continued));
 }
 
 /**
@@ -221,7 +233,7 @@ export function sheetLayout(n: number): SheetLayout {
   // 罫線は**ページごとに**入るだけ引く（間隔は固定なので、枠が高いページほど行数が多くなる）。
   // 2ページ以上の最後のページだけ上限で止める（P9-f）
   const linesPerPage = perPage.map((c, i) => {
-    const fit = linesOn(c, i === perPage.length - 1);
+    const fit = linesOn(c, i === perPage.length - 1, i > 0);
     const cap = lastPageCap(perPage.length, i);
     return cap === undefined ? fit : Math.min(fit, cap);
   });
@@ -268,13 +280,23 @@ export function lastPageCap(pages: number, index: number): number | undefined {
   return pages > 1 && index === pages - 1 ? SHEET.lastPageMaxLines : undefined;
 }
 
+/** ページ番号（P9-g）。**2ページ以上のときだけ**「2 / 3」の形、1枚なら undefined */
+export function pageLabel(index: number, pages: number): string | undefined {
+  return pages > 1 ? `${index + 1} / ${pages}` : undefined;
+}
+
 /**
  * 1ページぶんの項目を行に割り付ける。`sheet:"none"` の項目は枠を作らない（用紙に載せない。P9-c）。
  * `sheet:"wide"` の項目は1行を占め、それ以外は2列に詰める。最後に1つ余れば横いっぱい（`wideLast` と同じ結論）。
  * 行の高さは重みで按分し、罫線はその高さに**入るだけ**引く（P8-g の規則そのまま）。
  * 面談（重みがすべて1）では `sheetLayout` の本数と一致する。
  */
-export function sheetRows(items: { id: string; sheet?: "wide" | "none" }[], hasOther: boolean, maxLines?: number): SheetRow[] {
+export function sheetRows(
+  items: { id: string; sheet?: "wide" | "none" }[],
+  hasOther: boolean,
+  maxLines?: number,
+  continued = false
+): SheetRow[] {
   const rows: { ids: string[]; wide: boolean; weight: number }[] = [];
   let pending: string[] = [];
   const flush = () => {
@@ -293,7 +315,7 @@ export function sheetRows(items: { id: string; sheet?: "wide" | "none" }[], hasO
   }
   flush();
   const total = rows.reduce((a, r) => a + r.weight, 0);
-  const h = gridH(hasOther) - SHEET.gap * (rows.length - 1);
+  const h = gridH(hasOther, continued) - SHEET.gap * (rows.length - 1);
   return rows.map((r) => {
     const fit = linesIn((h * r.weight) / total);
     const capped = maxLines !== undefined && fit > maxLines;

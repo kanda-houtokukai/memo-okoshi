@@ -9,7 +9,7 @@ import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
 import { ITEM_LIBRARY } from "../lib/items.ts";
 import { defaultSettings, mergeSettings, selectedIds } from "../lib/settings.ts";
-import { boxHeight, freeAreaH, freeSheetLines, lastPageCap, linesIn, OTHER_BOX, paginate, PRINT, sheetFileName, sheetLayout, sheetRows, SHEET, wideLast } from "../lib/sheet.ts";
+import { boxHeight, freeAreaH, freeSheetLines, lastPageCap, linesIn, OTHER_BOX, pageLabel, paginate, PRINT, sheetFileName, sheetLayout, sheetRows, SHEET, wideLast } from "../lib/sheet.ts";
 
 /* ---------- 項目ライブラリの分類（2026-09-10に見直し） ---------- */
 
@@ -102,7 +102,7 @@ test("罫線の間隔はどの項目数でも同じ（P8-b）", () => {
   for (let n = 1; n <= ITEM_LIBRARY.length; n++) {
     const l = sheetLayout(n);
     l.perPage.forEach((c, i) => {
-      const h = boxHeight(c, i === l.perPage.length - 1);
+      const h = boxHeight(c, i === l.perPage.length - 1, i > 0); // 2ページ目以降は頭が題だけ（P9-g）
       const room = h - PRINT.boxTop - PRINT.boxBottom;
       // 2ページ以上の最後のページは上限（15本）で止まる（P9-f）。それ以外は高さに入るだけ
       const cap = lastPageCap(l.pages, i) ?? Infinity;
@@ -191,13 +191,16 @@ test("枠ありの罫線は全項目数で枠に収まり、縁ぎりぎりに�
   // 2026-09-17 P9-b（記入欄を3行に・頭 32.8→42.4mm）: 下のとおり。基本6項目（既定）は 9本のまま
   const want: Record<number, number[]> = {
     1: [31], 2: [31], 3: [14], 4: [14], 5: [9], 6: [9], 7: [10, 15], 8: [10, 15],
-    9: [10, 14], 10: [10, 14], 11: [10, 9], 12: [10, 9], 13: [10, 10, 15],
+    9: [10, 15], 10: [10, 15], 11: [10, 10], 12: [10, 10], 13: [10, 12, 15],
   };
   // 2026-09-17 P9-f（2ページ以上の最後のページは15本まで）: 7〜8 の2ページ目と13 の3ページ目が 31→15
   // 2026-09-17 P9-e（1ページ6項目まで）: 7〜8 は 6→10+31、13 は 7+9→10+10+31。ほかは P9-b のまま
   // 印刷で実測した枠の並びの高さ（「その他」のあるページ／ないページ）と、線の太さどおりの1本目の位置
   // （2026-09-17 P9-b に測り直した。2026-09-12 は 210.53 / 240.36）
   const MEASURED = { gridWithOther: 200.93, gridNoOther: 230.77, boxTop: 8.35 };
+  // 2ページ目以降（頭が題だけ・P9-g・2026-09-17 に測定）: 枠の並びの高さ その他あり 231.12 ／ なし 260.96
+  const MEASURED_CONT = { gridWithOther: 231.12, gridNoOther: 260.96 };
+  // 2026-09-17 P9-g（2ページ目以降は記入欄・押印欄なし）: 9〜10 の2枚目 14→15（上限）、11〜12 の2枚目 9→10、13 の2枚目 10→12
   for (let n = 1; n <= 13; n++) {
     const l = sheetLayout(n);
     assert.deepEqual(l.linesPerPage, want[n], `n=${n}`);
@@ -205,11 +208,12 @@ test("枠ありの罫線は全項目数で枠に収まり、縁ぎりぎりに�
       const hasOther = i === l.perPage.length - 1;
       const lines = l.linesPerPage[i];
       // 割り付けの寸法で: 最後の線から枠の下端まで、下の余白＋枠線（1.45mm）以上あいている
-      const h = boxHeight(c, hasOther);
+      const h = boxHeight(c, hasOther, i > 0);
       assert.ok(h - PRINT.boxTop - lines * SHEET.line >= PRINT.boxBottom - 1e-9, `n=${n} p${i + 1}: 縁ぎりぎり`);
       // 実測の寸法でも: 枠に収まり、下の余白に罫線が入らない
       const rows = Math.ceil(c / SHEET.cols);
-      const realH = ((hasOther ? MEASURED.gridWithOther : MEASURED.gridNoOther) - SHEET.gap * (rows - 1)) / rows;
+      const M = i > 0 ? MEASURED_CONT : MEASURED;
+      const realH = ((hasOther ? M.gridWithOther : M.gridNoOther) - SHEET.gap * (rows - 1)) / rows;
       const clear = realH - MEASURED.boxTop - lines * SHEET.line;
       assert.ok(clear >= PRINT.boxBottom, `n=${n} p${i + 1}: 実測では最後の線から下端まで ${clear.toFixed(2)}mm`);
       // 1本足すと入らない＝入るだけ引いている（上限で止めた最後のページは、上限の本数ちょうど）
@@ -252,7 +256,7 @@ test("最後のページ以外は6項目で偶数・枠は途中で分割しな�
       if (i < l.perPage.length - 1) assert.equal(c, SHEET.perPageMax, `n=${n}: 最後のページ以外に空きがある`);
     });
     // 罫線の計算で「その他」のぶん狭くするのは最後のページだけ
-    l.perPage.forEach((c, i) => assert.equal(l.linesPerPage[i], Math.min(linesIn(boxHeight(c, i === l.perPage.length - 1)), lastPageCap(l.pages, i) ?? Infinity)));
+    l.perPage.forEach((c, i) => assert.equal(l.linesPerPage[i], Math.min(linesIn(boxHeight(c, i === l.perPage.length - 1, i > 0)), lastPageCap(l.pages, i) ?? Infinity)));
   }
   // 切り分けは割り振りに従い、順番も変わらない（3ページでも）
   const items = Array.from({ length: 13 }, (_, i) => i);
@@ -422,17 +426,17 @@ test("最後のページの罫線の上限は2ページ以上のときだけ（1
   // 1〜2項目が1枚のときは現行どおり31本、7項目の2ページ目と13項目の3ページ目は15本
   assert.deepEqual([1, 2].map((n) => sheetLayout(n).linesPerPage), [[31], [31]]);
   assert.deepEqual(sheetLayout(7).linesPerPage, [10, 15]);
-  assert.deepEqual(sheetLayout(13).linesPerPage, [10, 10, 15]);
-  // 15本以下の最後のページはそのまま（9〜10項目の14本・11〜12項目の9本）
-  assert.deepEqual([9, 10, 11, 12].map((n) => sheetLayout(n).linesPerPage.at(-1)), [14, 14, 9, 9]);
+  assert.deepEqual(sheetLayout(13).linesPerPage, [10, 12, 15]); // P9-g で2ページ目 10→12
+  // 15本以下の最後のページはそのまま（11〜12項目の10本）。9〜10項目は P9-g で入る本数が17本になり上限15本で止まる
+  assert.deepEqual([9, 10, 11, 12].map((n) => sheetLayout(n).linesPerPage.at(-1)), [15, 15, 10, 10]);
   // 画面の割り付け（sheetRows）も同じ本数で、止めた枠だけ capped
   for (let n = 1; n <= ITEM_LIBRARY.length; n++) {
     const l = sheetLayout(n);
     paginate(ITEM_LIBRARY.slice(0, n), l.perPage).forEach((page, i) => {
       const last = i === l.perPage.length - 1;
-      const rows = sheetRows(page, last, lastPageCap(l.pages, i));
+      const rows = sheetRows(page, last, lastPageCap(l.pages, i), i > 0);
       assert.ok(rows.every((r) => r.lines === l.linesPerPage[i]), `n=${n} p${i + 1}`);
-      assert.equal(rows.some((r) => r.capped), l.pages > 1 && last && linesIn(boxHeight(page.length, true)) > 15, `n=${n} p${i + 1}: capped`);
+      assert.equal(rows.some((r) => r.capped), l.pages > 1 && last && linesIn(boxHeight(page.length, true, i > 0)) > 15, `n=${n} p${i + 1}: capped`);
     });
   }
   // 「その他」は3本のまま・自由形式は変わらない（38本）
@@ -443,7 +447,7 @@ test("最後のページの罫線の上限は2ページ以上のときだけ（1
 test("止めた枠は引き伸ばさず罫線の高さで閉じ、「その他」が直後に続いて下は余白。A4 に収まる（P9-f）", () => {
   const src = readFileSync("app/components/SheetMaker.tsx", "utf8");
   assert.ok(src.includes("cap={free ? undefined : lastPageCap(pages.length, i)}"), "上限は枠ありの用紙のページごとに渡す（自由形式には渡さない）");
-  assert.ok(src.includes("const rows = sheetRows(items, Boolean(other), cap)") && src.includes('"p-grid" + (capped ? " capped" : "")'));
+  assert.ok(src.includes("const rows = sheetRows(items, Boolean(other), cap, continued)") && src.includes('"p-grid" + (capped ? " capped" : "")'));
   const css = readFileSync("app/globals.css", "utf8");
   const screen = css.slice(css.indexOf("/* ---------- 用紙を作る"), css.indexOf("/* ---------- 印刷（PDFで保存）"));
   assert.ok(screen.includes(".p-grid.capped{flex:0 0 auto;grid-auto-rows:auto}"), "止めた枠は内容の高さ（引き伸ばさない）");
@@ -462,4 +466,55 @@ test("止めた枠は引き伸ばさず罫線の高さで閉じ、「その他�
   assert.equal(MEASURED.box15Clear, MEASURED.otherClear, "止めた枠は「その他」と同じ閉じ方");
   assert.ok(Math.abs(box15 - PRINT.boxTop - SHEET.lastPageMaxLines * SHEET.line - PRINT.boxBottom) < 1e-9, "計算上は下の余白ちょうど");
   assert.ok(MEASURED.box15H < box15 && MEASURED.paperH <= SHEET.pageH - SHEET.margin * 2 && MEASURED.footFromBottom === 0);
+});
+
+/* ---------- P9-g: 2ページ目以降は記入欄・押印欄なし・ページ番号 ---------- */
+
+test("2ページ目以降は題だけ（記入欄・押印欄を出さない）。ページ番号は2ページ以上のときだけ全ページに「n / 全体」（P9-g）", () => {
+  assert.equal(pageLabel(0, 1), undefined, "1枚のときは入れない");
+  assert.deepEqual([0, 1].map((i) => pageLabel(i, 2)), ["1 / 2", "2 / 2"]);
+  assert.deepEqual([0, 1, 2].map((i) => pageLabel(i, 3)), ["1 / 3", "2 / 3", "3 / 3"]);
+  const src = readFileSync("app/components/SheetMaker.tsx", "utf8");
+  const paper = src.slice(src.indexOf("function Paper("), src.indexOf("export default function"));
+  // 2ページ目以降の頭は題だけ。記入欄・押印欄は1ページ目の分岐の中にだけある
+  const cont = paper.slice(paper.indexOf("{continued ? ("), paper.indexOf(") : (", paper.indexOf("{continued ? (")));
+  assert.ok(cont.includes('className="p-head cont"') && cont.includes('className="p-title"'));
+  assert.ok(!/p-fields|p-stamp|p-name|f-date|f-place|f-people/.test(cont), "2ページ目以降に記入欄・押印欄がある");
+  assert.ok(paper.includes("const continued = index > 0;") && paper.includes("const pageNo = pageLabel(index, pageCount);"));
+  assert.ok(paper.includes('{pageNo && <span className="p-no">{pageNo}</span>}'), "ページ番号は下の行の中");
+  assert.ok(paper.indexOf('className="p-no"') > paper.indexOf('className="p-foot"'));
+  // ページの番号と総数は用紙の並びから渡す（自由形式は1枚固定なので「1ページ目・全1ページ」＝頭あり・番号なし）
+  assert.ok(src.includes("index={i}") && src.includes("pageCount={pages.length}") && src.includes("free ? [[]] : paginate("));
+  // 頭の高さ: 2ページ目以降は実測 12.2mm（1ページ目 42.4mm）。割り付けはページごとに見る
+  assert.ok(PRINT.headCont >= 12.2 && PRINT.head >= 42.4);
+  assert.ok(boxHeight(6, false, true) - boxHeight(6, false) > 9.9, "2ページ目以降は枠が高くなる（30mm を3行で分ける）");
+  // CSS: 題の下の余白を詰める・ページ番号は下の行の高さを取らない（重ねて置く）。印刷にも同じ規則
+  const css = readFileSync("app/globals.css", "utf8");
+  const screen = css.slice(css.indexOf("/* ---------- 用紙を作る"), css.indexOf("/* ---------- 印刷（PDFで保存）"));
+  const print = css.slice(css.indexOf("/* ---------- 印刷（PDFで保存）"));
+  assert.ok(screen.includes(".p-head.cont .p-title{margin-bottom:0}") && print.includes(".print-sheet .p-head.cont .p-title{margin-bottom:0}"));
+  assert.ok(screen.includes(".p-foot{position:relative}") && /\.p-foot \.p-no\{position:absolute;[^}]*justify-content:center/.test(screen), "中央・高さを取らない");
+  assert.ok(print.includes(".print-sheet .p-foot .p-no{top:0.8mm;font-size:7pt;"));
+});
+
+test("1〜13項目の罫線（P9-g 後）: 1ページ目は変わらず、2ページ目以降は記入欄のぶん増える。各ページ A4 に収まる", () => {
+  const want: Record<number, number[]> = {
+    1: [31], 2: [31], 3: [14], 4: [14], 5: [9], 6: [9], 7: [10, 15], 8: [10, 15],
+    9: [10, 15], 10: [10, 15], 11: [10, 10], 12: [10, 10], 13: [10, 12, 15],
+  };
+  for (let n = 1; n <= 13; n++) {
+    const l = sheetLayout(n);
+    assert.deepEqual(l.linesPerPage, want[n], `n=${n}`);
+    l.perPage.forEach((c, i) => {
+      // 計算上: 頭（1ページ目 42.5／以降 12.5）＋枠の並び＋（最後のページ）その他＋下の行 ≤ 279mm
+      const last = i === l.perPage.length - 1;
+      const rows = Math.ceil(c / SHEET.cols);
+      const box = PRINT.boxTop + l.linesPerPage[i] * SHEET.line + PRINT.boxBottom;
+      const used = (i > 0 ? PRINT.headCont : PRINT.head) + rows * box + SHEET.gap * (rows - 1) +
+        (last ? PRINT.boxTop + SHEET.otherLines * SHEET.line + PRINT.boxBottom + SHEET.gap : 0) + PRINT.foot;
+      assert.ok(used <= SHEET.pageH - SHEET.margin * 2 + 1e-9, `n=${n} p${i + 1}: A4 を越える（${used.toFixed(1)}mm）`);
+    });
+  }
+  // 自由形式・会議は1枚なので変わらない
+  assert.equal(freeSheetLines(), 38);
 });

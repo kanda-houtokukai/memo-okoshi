@@ -61,6 +61,7 @@ import {
   gridRowsStyle,
   lastPageCap,
   OTHER_BOX,
+  pageLabel,
   paginate,
   previewFit,
   sheetFileName,
@@ -90,7 +91,8 @@ type Drag = { id: string; group: Group; from: number; dy: number; over: number; 
  *  `other` は最後のページだけ true（「その他」の枠は常に最後）。
  *  `free` は自由形式（枠なしの罫線だけ・「その他」も出さない）。
  *  行の割り付け（どの項目がどの行に・何本の罫線か）は `sheetRows`（P9）。
- *  `cap` は罫線の上限（2ページ以上の最後のページだけ。`lastPageCap`・P9-f）。止めた枠は引き伸ばさない（`.p-grid.capped`）。 */
+ *  `cap` は罫線の上限（2ページ以上の最後のページだけ。`lastPageCap`・P9-f）。止めた枠は引き伸ばさない（`.p-grid.capped`）。
+ *  `index`/`pageCount`: 2ページ目以降は頭を題だけにし（記入欄・押印欄なし）、2ページ以上なら下の行にページ番号（P9-g）。 */
 function Paper({
   type,
   items,
@@ -98,6 +100,8 @@ function Paper({
   free,
   freeLines,
   cap,
+  index,
+  pageCount,
 }: {
   type: RecordType;
   items: ItemDef[];
@@ -105,15 +109,25 @@ function Paper({
   free?: boolean;
   freeLines: number;
   cap?: number;
+  index: number;
+  pageCount: number;
 }) {
   const head = SHEET_HEAD[type];
-  const rows = sheetRows(items, Boolean(other), cap);
+  const continued = index > 0;
+  const pageNo = pageLabel(index, pageCount);
+  const rows = sheetRows(items, Boolean(other), cap, continued);
   const capped = rows.some((r) => r.capped);
   const rowsStyle = gridRowsStyle(rows);
   const byId = (id: string) => items.find((it) => it.id === id)!;
   const lines = (n: number) => Array.from({ length: n }, (_, i) => <div key={i} />);
   return (
     <div className="paper">
+      {continued ? (
+        // 2ページ目以降は題だけ（記入欄・押印欄を出さない。P9-g）
+        <div className="p-head cont">
+          <div className="p-title">{head.title}</div>
+        </div>
+      ) : (
       <div className="p-head">
         <div className="p-main">
           {head.name ? (
@@ -181,6 +195,7 @@ function Paper({
           </div>
         </div>
       </div>
+      )}
       {free ? (
         // 枠なし・罫線だけ。間隔は枠のときと同じ
         <div className="p-free">{lines(freeLines)}</div>
@@ -209,7 +224,11 @@ function Paper({
           )}
         </>
       )}
-      <div className="p-foot">メモおこし</div>
+      <div className="p-foot">
+        {/* ページ番号は2ページ以上のときだけ、下の行の中央（P9-g） */}
+        {pageNo && <span className="p-no">{pageNo}</span>}
+        メモおこし
+      </div>
     </div>
   );
 }
@@ -637,6 +656,8 @@ export default function SheetMaker({ onHome, toast }: Props) {
                 free={free}
                 freeLines={freeLines}
                 cap={free ? undefined : lastPageCap(pages.length, i)}
+                index={i}
+                pageCount={pages.length}
               />
             ))}
           </div>

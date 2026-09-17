@@ -1204,6 +1204,11 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .p-free{flex:1;min-height:0;display:flex;flex-direction:column;padding:calc(0.5 * var(--mm)) calc(1 * var(--mm)) 0}
 .p-free div{flex:0 0 auto;height:calc(6 * var(--mm));border-bottom:max(1px,calc(0.2 * var(--mm))) dotted #c9c4b8}
 .p-foot{font-size:calc(2.117 * var(--mm));color:#a8a297;text-align:right;margin-top:calc(1.2 * var(--mm));border-top:max(1px,calc(0.2 * var(--mm))) solid #e3dfd6;padding-top:calc(0.8 * var(--mm));flex:0 0 auto}
+/* [DECISION 2026-09-17] 2ページ目以降の頭は題だけ（記入欄・押印欄を出さない）。ページ番号は2ページ以上のときだけ下の行の中央（P9-g）。
+   ページ番号は下の行の高さを取らない（重ねて置く）ので、下の行の実測（PRINT.foot）は変わらない */
+.p-head.cont .p-title{margin-bottom:0}
+.p-foot{position:relative}
+.p-foot .p-no{position:absolute;left:0;right:0;top:calc(0.8 * var(--mm));bottom:0;display:flex;align-items:center;justify-content:center;font-size:calc(2.469 * var(--mm));color:#6f6a60;letter-spacing:.08em}
 
 /* 狭い画面（確認画面と同じ 900px）: 項目と見本をタブで切り替える。
    トグルの一覧が画面をほぼ占めて見本に辿り着けなかったため（P7-g）。 */
@@ -1261,5 +1266,7 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
   .print-sheet .p-free{flex:1;display:flex;flex-direction:column;padding:0.5mm 1mm 0}
   .print-sheet .p-free div{flex:0 0 auto;height:6mm;border-bottom:0.2mm dotted #bdbdbd}
   .print-sheet .p-foot{font-size:6pt;color:#999;border-top:0.2mm solid #ddd;margin-top:1.2mm;padding-top:0.8mm}
+  .print-sheet .p-head.cont .p-title{margin-bottom:0}
+  .print-sheet .p-foot .p-no{top:0.8mm;font-size:7pt;color:#444}
   @page{size:A4 portrait;margin:9mm}
 }

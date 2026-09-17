@@ -50,6 +50,7 @@ import { moveTo } from "../lib/reorder.ts";
 import {
   boxHeight,
   lastPageCap,
+  pageLabel,
   freeAreaH,
   gridRowsStyle,
   OTHER_BOX,
@@ -302,7 +303,7 @@ test("面談の用紙の割り付けは変わらない（行の割り付けの�
   for (let n = 1; n <= ITEM_LIBRARY.length; n++) {
     const l = sheetLayout(n);
     paginate(ITEM_LIBRARY.slice(0, n), l.perPage).forEach((page, i) => {
-      const rows = sheetRows(page, i === l.perPage.length - 1, lastPageCap(l.pages, i));
+      const rows = sheetRows(page, i === l.perPage.length - 1, lastPageCap(l.pages, i), i > 0);
       assert.equal(rows.length, Math.ceil(page.length / SHEET.cols), `n=${n} p${i + 1}: 行数`);
       assert.ok(rows.every((r) => r.weight === 1 && r.lines === l.linesPerPage[i]), `n=${n} p${i + 1}: 本数が変わった`);
       assert.deepEqual(rows.flatMap((r) => r.ids), page.map((it) => it.id), "順番も落ちも無い");
@@ -427,8 +428,8 @@ test("面談の用紙の本数（P9-b の変更後）: 既定の基本6項目は
   assert.deepEqual(sheetLayout(6).linesPerPage, [9]);
   assert.deepEqual(sheetLayout(8).linesPerPage, [10, 15]); // P9-e で 1ページ6項目まで・P9-f で最後のページは15本まで（P9-b では [6]）
   assert.deepEqual([1, 2, 3, 4].map((n) => sheetLayout(n).linesPerPage[0]), [31, 31, 14, 14]);
-  assert.deepEqual(sheetLayout(9).linesPerPage, [10, 14]);
-  assert.deepEqual(sheetLayout(13).linesPerPage, [10, 10, 15]); // P9-e・P9-f（P9-b では [7, 9]）
+  assert.deepEqual(sheetLayout(9).linesPerPage, [10, 15]); // P9-g で2ページ目 14→15（上限）
+  assert.deepEqual(sheetLayout(13).linesPerPage, [10, 12, 15]); // P9-e・P9-f・P9-g（P9-b では [7, 9]）
   assert.equal(Math.floor(freeAreaH() / SHEET.line), 38);
 });
 
@@ -607,7 +608,7 @@ test("会議名の欄は会議だけ・題の右。題の行の高さに収ま�
   assert.equal(SHEET_HEAD.interview.name, undefined, "面談には会議名の欄を置かない");
   const sm = readFileSync("app/components/SheetMaker.tsx", "utf8");
   const paper = sm.slice(sm.indexOf("function Paper("), sm.indexOf("export default function"));
-  const bar = paper.slice(paper.indexOf('className="p-titlebar"'), paper.indexOf(") : ("));
+  const bar = paper.slice(paper.indexOf('className="p-titlebar"'), paper.indexOf(") : (", paper.indexOf('className="p-titlebar"')));
   assert.ok(paper.includes("{head.name ? ("), "会議名の欄は SHEET_HEAD の name があるときだけ");
   assert.ok(bar.includes('className="p-title"') && bar.includes('className="p-fields p-name"') && bar.includes("{head.name}"));
   assert.ok(bar.indexOf('className="p-title"') < bar.indexOf("p-name"), "題の右");
@@ -702,7 +703,7 @@ test("会議の用紙の配分（P9-d）: 決定事項・今後の対応は 8→
     (PRINT.boxTop + SHEET.otherLines * SHEET.line + PRINT.boxBottom + SHEET.gap) + PRINT.foot;
   assert.ok(used <= SHEET.pageH - SHEET.margin * 2, `A4 を越える（${used.toFixed(1)}mm）`);
   // 面談は wide の項目が無いので重みの影響を受けない（本数は P9-e の1ページ6項目までの割り付けどおり）
-  assert.deepEqual([1, 3, 5, 7, 9, 13].map((n) => sheetLayout(n).linesPerPage.join("+")), ["31", "14", "9", "10+15", "10+14", "10+10+15"]);
+  assert.deepEqual([1, 3, 5, 7, 9, 13].map((n) => sheetLayout(n).linesPerPage.join("+")), ["31", "14", "9", "10+15", "10+15", "10+12+15"]);
   assert.ok(ITEM_LIBRARY.every((l) => l.sheet === undefined));
 });
 
@@ -719,4 +720,11 @@ test("会議の用紙は最後のページの上限の影響を受けない（3�
   assert.equal(lastPageCap(l.pages, 0), undefined);
   const rows = sheetRows(SHEET_MT, true, lastPageCap(l.pages, 0));
   assert.deepEqual(rows.map((r) => [r.lines, r.capped]), [[23, false], [6, false]]);
+});
+
+test("会議の用紙は1枚なので2ページ目以降の規則（題だけ・ページ番号）は現れない。頭は会議名・押印欄つきのまま（P9-g）", () => {
+  const l = sheetLayout(SHEET_MT.length);
+  assert.equal(l.pages, 1);
+  assert.equal(pageLabel(0, l.pages), undefined);
+  assert.deepEqual(sheetRows(SHEET_MT, true, lastPageCap(l.pages, 0), false).map((r) => r.lines), [23, 6]);
 });
