@@ -4,15 +4,20 @@
 //  - 記録の種類（面談／会議）で項目・プロンプト・保存の鍵・出力の題が切り替わる
 //  - **会議は赤（人名）を持たない**（原則3は面談にのみ適用。設計側の決定・承認済み）
 //  - **面談側は一切変わらない**（ライブラリ・プロンプト・赤の扱い・用紙の割り付け）
-//  - 会議の用紙（内容が横いっぱい・決定事項と宿題が2列・会議概要はその他に相乗り）と押印欄が A4 に収まる
+//  - 会議の用紙（内容が横いっぱい・決定事項と宿題が2列・最後は「その他」だけ・会議名は題の右）と押印欄が A4 に収まる
+//  - 会議概要は記録だけの項目（用紙の一覧・並べ替え・見本に出さない。P9-c）
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { isRecordType, ITEM_LIBRARY, itemsByIds, libraryFor, MEETING_LIBRARY, RECORD_TYPES } from "../lib/items.ts";
+import { isRecordType, ITEM_LIBRARY, itemsByIds, libraryFor, MEETING_LIBRARY, RECORD_TYPES, sheetLibrary } from "../lib/items.ts";
 import {
+  groupIds,
   keyFor,
   loadSettings,
+  mergeSheetOrder,
+  moveWithinGroup,
+  sheetIds,
   loadSheetFree,
   loadSheetOrder,
   saveSettings,
@@ -40,9 +45,12 @@ import { buildDocxParts } from "../lib/docx.ts";
 import { mergeBackup } from "../lib/vocab.ts";
 import { buildBackup, importBackup } from "../lib/backup.ts";
 import { enforceNames } from "../lib/names.ts";
+import { moveTo } from "../lib/reorder.ts";
 import {
+  boxHeight,
   freeAreaH,
   gridRowsStyle,
+  OTHER_BOX,
   linesIn,
   paginate,
   PRINT,
@@ -112,9 +120,9 @@ test("面談の項目ライブラリは変えていない（13項目・基本6�
     ["gaiyou", "honnin", "kazoku", "kadai", "kenko", "seikatsu", "shokan", "moushiokuri", "nicchu", "kinsen", "risk", "kikan", "kibou"]
   );
   assert.ok(ITEM_LIBRARY.every((l) => l.sheet === undefined), "面談の項目に用紙の扱い（wide/other）を付けない");
-  // 会議は「内容」が横いっぱい、「会議概要」が「その他」に相乗り
+  // 会議は「内容」が横いっぱい、「会議概要」は用紙に載せない記録だけの項目（P9-c）
   assert.equal(MEETING_LIBRARY.find((l) => l.id === "naiyou")?.sheet, "wide");
-  assert.equal(MEETING_LIBRARY.find((l) => l.id === "kaigi")?.sheet, "other");
+  assert.equal(MEETING_LIBRARY.find((l) => l.id === "kaigi")?.sheet, "none");
 });
 
 /* ---------- 保存の鍵（面談と会議で別） ---------- */
@@ -278,7 +286,7 @@ test("ホーム: 面談と会議の入口が分かれ、用紙のカードは1�
   assert.ok(seg.includes(">\n              面談\n") && seg.includes(">\n              会議\n"));
   // 切り替えは用紙の画面の中で、記録側（page.tsx）の種類には触れない
   assert.ok(sm.includes('useState<RecordType>("interview")'));
-  assert.ok(sm.includes("saveSettings(next, type)") && sm.includes("loadSettings(lib, type)") && sm.includes("loadSheetOrder(lib, type)"));
+  assert.ok(sm.includes("saveSettings(next, type)") && sm.includes("loadSettings(lib, type)") && sm.includes("loadSheetOrder(sheetLib, type)"));
   assert.ok(sm.includes("saveSheetFree(!f, type)") && sm.includes("saveSheetOrder(next, type)"));
   assert.ok(sm.includes("sheetFileName(new Date(), type)"));
   const css = readFileSync("app/globals.css", "utf8");
@@ -302,7 +310,7 @@ test("面談の用紙の割り付けは変わらない（行の割り付けの�
   }
 });
 
-test("会議の用紙: 内容は横いっぱいの大きな枠、決定事項と宿題は2列、会議概要はその他に相乗り。罫線は6mm固定で入るだけ", () => {
+test("会議の用紙: 内容は横いっぱいの大きな枠、決定事項と宿題は2列、会議概要は枠を作らない。罫線は6mm固定で入るだけ", () => {
   const rows = sheetRows(MEETING_LIBRARY, true);
   assert.deepEqual(rows.map((r) => r.ids), [["naiyou"], ["kettei", "shukudai"]]);
   assert.deepEqual(rows.map((r) => r.wide), [true, false]);
@@ -321,7 +329,7 @@ test("会議の用紙: 内容は横いっぱいの大きな枠、決定事項と
     assert.ok(h - PRINT.boxTop - (r.lines + 1) * SHEET.line < PRINT.boxBottom, "まだ1本入る");
     assert.ok(r.lines >= SHEET.minLines);
   }
-  // 会議概要は枠を作らない（相乗り）。オフなら「その他」だけ
+  // 会議概要は枠を作らない（用紙に載せない・P9-c）
   assert.ok(!rows.flatMap((r) => r.ids).includes("kaigi"));
   const noOverview = sheetRows(MEETING_LIBRARY.filter((l) => l.id !== "kaigi"), true);
   assert.deepEqual(noOverview.map((r) => r.ids), [["naiyou"], ["kettei", "shukudai"]]);
@@ -385,7 +393,7 @@ test("押印欄: 15mm 角（認印 10.5〜12mm＋余白）。会議は作成者�
   assert.ok(print.includes("border-bottom:0.2mm dotted #bdbdbd"));
 });
 
-test("記入欄は1項目1行（日時／場所／参加者・出席者）。参加者・出席者は押印欄の下を横いっぱい（P9-b）", () => {
+test("記入欄は1項目1行（日時／場所／参加者・出席者）＋会議だけ題の右に会議名。参加者・出席者は押印欄の下を横いっぱい（P9-b・P9-c）", () => {
   const sm = readFileSync("app/components/SheetMaker.tsx", "utf8");
   const paper = sm.slice(sm.indexOf("function Paper("), sm.indexOf("export default function"));
   const main = paper.slice(paper.indexOf('className="p-main"'), paper.indexOf('className="p-stamp"'));
@@ -393,7 +401,7 @@ test("記入欄は1項目1行（日時／場所／参加者・出席者）。参
   assert.ok(main.includes('className="f f-date"') && main.includes('className="f f-place"'));
   assert.ok(!main.includes("f-people"), "参加者・出席者を押印欄の横に置かない");
   assert.ok(paper.indexOf('className="p-fields p-people"') > paper.indexOf('className="p-stamp"'));
-  assert.equal((paper.match(/className="f f-/g) ?? []).length, 3, "記入欄は3行");
+  assert.equal((paper.match(/className="f f-/g) ?? []).length, 4, "記入欄は日時・場所・参加者/出席者の3行＋会議名（題の行）");
   // 面談と会議で同じ形（見出しの文言だけが違う）
   assert.ok(paper.includes("{head.people}") && !/type === "meeting"/.test(paper), "頭の形を種類で分けない");
 
@@ -508,4 +516,123 @@ test("読み込み: 会議の設定が無い古いファイルは会議の設定
   // 会議の鍵は settings.ts から作る（backup.ts に鍵の文字列を書かない）
   const backup = readFileSync("lib/backup.ts", "utf8");
   assert.ok(!backup.includes('"memo-okoshi:') && backup.includes('keyFor(SETTINGS_KEY, type)'));
+});
+
+/* ---------- P9-c: 会議の用紙の項目は3つ・会議名は頭・会議概要は記録だけ ---------- */
+
+const SHEET_MT = sheetLibrary(MEETING_LIBRARY);
+
+test("用紙に載る会議の項目は 内容・決定事項・宿題 の3つ（会議概要は記録だけ）。面談は13項目すべて載る", () => {
+  assert.deepEqual(SHEET_MT.map((l) => l.id), ["naiyou", "kettei", "shukudai"]);
+  assert.deepEqual(sheetLibrary(ITEM_LIBRARY), ITEM_LIBRARY, "面談の用紙の項目は変わらない");
+  // 記録の項目としての会議概要は残る（確認画面のカード・プロンプトの項目構成）
+  assert.ok(MEETING_LIBRARY.some((l) => l.id === "kaigi" && l.label === "会議概要" && l.defaultOn));
+  // 会議概要がオンでも用紙には出ない。保存された並びに会議概要が入っていても読むときに落ちる
+  const enabled = Object.fromEntries(MEETING_IDS.map((id) => [id, true]));
+  assert.deepEqual(sheetIds(["kaigi", "kettei", "naiyou", "shukudai"], enabled, SHEET_MT), ["kettei", "naiyou", "shukudai"]);
+  assert.deepEqual(mergeSheetOrder(["shukudai", "kaigi"], SHEET_MT), ["shukudai", "naiyou", "kettei"]);
+});
+
+test("会議の用紙の並べ替えは3項目の中で自由に効き、どの並びでも罫線は枠に収まる（P9-c）", () => {
+  const base = mergeSheetOrder(null, SHEET_MT);
+  assert.deepEqual(base, ["naiyou", "kettei", "shukudai"]);
+  const ids = groupIds(base, SHEET_MT, "基本");
+  for (let from = 0; from < ids.length; from++) {
+    for (let at = 0; at <= ids.length; at++) {
+      assert.deepEqual(moveWithinGroup(base, SHEET_MT, "基本", from, at), moveTo(ids, from, at), `${from}→${at}`);
+    }
+  }
+  // 6通りの並びすべてで、割り付けが用紙の並びに従い、罫線が枠に入る（入るだけ・下の余白に入れない）
+  const perms = [
+    ["naiyou", "kettei", "shukudai"],
+    ["naiyou", "shukudai", "kettei"],
+    ["kettei", "naiyou", "shukudai"],
+    ["kettei", "shukudai", "naiyou"],
+    ["shukudai", "naiyou", "kettei"],
+    ["shukudai", "kettei", "naiyou"],
+  ];
+  const got: Record<string, string> = {};
+  for (const p of perms) {
+    const items = p.map((id) => SHEET_MT.find((l) => l.id === id)!);
+    const rows = sheetRows(items, true);
+    assert.deepEqual(rows.flatMap((r) => r.ids), p, "用紙の並びどおりに置く");
+    const total = rows.reduce((a, r) => a + r.weight, 0);
+    const usable = boxHeight(1, true) - SHEET.gap * (rows.length - 1);
+    for (const r of rows) {
+      const h = (usable * r.weight) / total;
+      assert.ok(r.lines >= SHEET.minLines, `${p}: 罫線が少なすぎる`);
+      assert.ok(h - PRINT.boxTop - r.lines * SHEET.line >= PRINT.boxBottom - 1e-9, `${p}: 縁ぎりぎり`);
+      assert.ok(h - PRINT.boxTop - (r.lines + 1) * SHEET.line < PRINT.boxBottom, `${p}: まだ1本入る`);
+    }
+    got[p.join(",")] = rows.map((r) => r.ids.join("+") + ":" + r.lines).join(" / ");
+  }
+  // 既定の並び（内容が上）は 内容21・決定事項/宿題8 のまま
+  assert.equal(got["naiyou,kettei,shukudai"], "naiyou:21 / kettei+shukudai:8");
+  assert.equal(got["kettei,shukudai,naiyou"], "kettei+shukudai:8 / naiyou:21");
+  // 内容を真ん中に挟むと、決定事項・宿題はそれぞれ1つで横いっぱい
+  assert.equal(got["kettei,naiyou,shukudai"], "kettei:5 / naiyou:15 / shukudai:5");
+});
+
+test("用紙の画面: 一覧・並べ替え・見本は用紙の項目だけ、オン・オフの保存は種類のライブラリ全体（記録の会議概要を消さない）", () => {
+  const sm = readFileSync("app/components/SheetMaker.tsx", "utf8");
+  assert.ok(sm.includes("const sheetLib = useMemo(() => sheetLibrary(lib), [lib])"));
+  for (const s of [
+    "sheetGroups(sheetLib)",
+    "groupIds(order, sheetLib, g)",
+    "moveWithinGroup(o, sheetLib, g, from, insertAt)",
+    "sheetIds(order, set.enabled, sheetLib)",
+    "loadSheetOrder(sheetLib, type)",
+  ]) {
+    assert.ok(sm.includes(s), `用紙の項目だけで扱っていない: ${s}`);
+  }
+  assert.ok(sm.includes("setSet(loadSettings(lib, type))") && !sm.includes("loadSettings(sheetLib"), "オン・オフは全体で読む");
+  // 実際に: 用紙の画面で内容をオフにして保存しても、記録の会議概要はオンのまま
+  useFakeStorage();
+  const s = loadSettings(MEETING_LIBRARY, "meeting");
+  saveSettings({ ...s, enabled: { ...s.enabled, naiyou: false } }, "meeting");
+  const after = loadSettings(MEETING_LIBRARY, "meeting");
+  assert.equal(after.enabled.kaigi, true, "記録の会議概要が消えた");
+  assert.equal(after.enabled.naiyou, false);
+  // 下部は面談と同じ「その他」だけ（会議概要を相乗りさせない）
+  const paper = sm.slice(sm.indexOf("function Paper("), sm.indexOf("export default function"));
+  assert.ok(paper.includes("<h4>{OTHER_BOX.label}</h4>") && paper.includes('["--c" as string]: "var(--sub)"'));
+  assert.ok(!/merged|otherLabel/.test(paper), "旧: 会議概要を「その他」に相乗りさせる処理が残っている");
+  assert.equal(OTHER_BOX.label, "その他");
+});
+
+test("会議名の欄は会議だけ・題の右。題の行の高さに収まる 7mm の下線で、頭の高さを変えない（P9-c）", () => {
+  assert.equal(SHEET_HEAD.meeting.name, "会議名");
+  assert.equal(SHEET_HEAD.interview.name, undefined, "面談には会議名の欄を置かない");
+  const sm = readFileSync("app/components/SheetMaker.tsx", "utf8");
+  const paper = sm.slice(sm.indexOf("function Paper("), sm.indexOf("export default function"));
+  const bar = paper.slice(paper.indexOf('className="p-titlebar"'), paper.indexOf(") : ("));
+  assert.ok(paper.includes("{head.name ? ("), "会議名の欄は SHEET_HEAD の name があるときだけ");
+  assert.ok(bar.includes('className="p-title"') && bar.includes('className="p-fields p-name"') && bar.includes("{head.name}"));
+  assert.ok(bar.indexOf('className="p-title"') < bar.indexOf("p-name"), "題の右");
+  const css = readFileSync("app/globals.css", "utf8");
+  const screen = css.slice(css.indexOf("/* ---------- 用紙を作る"), css.indexOf("/* ---------- 印刷（PDFで保存）"));
+  const print = css.slice(css.indexOf("/* ---------- 印刷（PDFで保存）"));
+  assert.ok(screen.includes(".p-titlebar .p-title{flex:0 0 auto;margin-bottom:0}") && print.includes(".print-sheet .p-titlebar .p-title{margin-bottom:0}"));
+  // 画面も印刷も、会議名の下線（7mm）は .p-fields .wr（8mm）の規則より後ろにあって上書きする
+  assert.ok(screen.indexOf(".p-name .wr{height:calc(7 * var(--mm))}") > screen.indexOf(".p-fields .wr{"));
+  assert.ok(print.indexOf(".print-sheet .p-name .wr{height:7mm}") > print.indexOf(".print-sheet .p-fields .wr{"));
+  // 印刷の実測（2026-09-17・192mm 幅）: 頭の高さは面談も会議も 42.4mm のまま（PRINT.head 42.5 に収まる）
+  const MEASURED = { interviewHead: 42.4, meetingHead: 42.4 };
+  assert.ok(PRINT.head >= MEASURED.interviewHead && PRINT.head >= MEASURED.meetingHead);
+});
+
+test("会議のプロンプト: 会議名・日時・場所・出席者は用紙の頭の記入欄から読み、会議概要に行を分けてまとめる（P9-c）", () => {
+  const p = buildPrompt(MEETING_LIBRARY, [], "meeting");
+  for (const s of [
+    '会議概要（id:"kaigi"）にまとめる',
+    "最上部の記入欄",
+    "「会議名」",
+    "この記入欄を必ず読み",
+    "「会議名：」「日時：」「場所：」「出席者：」",
+    "空欄の行は書かない",
+    "押印欄は記録の対象ではない",
+  ]) {
+    assert.ok(p.includes(s), `会議のプロンプトに無い: ${s}`);
+  }
+  assert.ok(!p.includes("その他") && !p.includes("面談"));
 });

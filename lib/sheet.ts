@@ -40,7 +40,13 @@
 //   伏せるのは撮影後の工程（原則5はそこで守る）。紙そのものの扱いは各事業所の規程に従う。
 // [DECISION 2026-09-17] **会議の用紙**（P9）。同じ A4・同じ記入欄の頭・同じ罫線の規則（6mm固定・入るだけ）で、
 //   割り付けだけ**行の重み**で決める（`sheetRows`）。「内容」は横いっぱいの大きな枠（重み `wideWeight`）、
-//   決定事項と宿題は2列、会議概要は枠を作らず最後の「その他」に相乗り（見出し「会議概要・その他」）。
+//   決定事項と宿題は2列、最後は面談と同じ「その他」だけ。
+//   [DECISION 2026-09-17] **会議概要の枠は用紙から外す**（P9-c）。用紙の項目は内容・決定事項・宿題の3つで、
+//   会議名・日時・場所・出席者は頭の記入欄に書く（AIがそこから記録の「会議概要」を組み立てる）。
+//   面談の「その他」が記録の項目でないのと同じ扱い（用紙の項目と記録の項目は一致しなくてよい）。
+// [DECISION 2026-09-17] **会議名の欄は題の右**（会議だけ・P9-c）。題の行は押印欄の左にあり、横が空いている。
+//   新しい行を足すと頭が約10mm高くなって罫線が減り、日時と場所を同じ行に戻すと場所が狭くなる（P9-b で直した問題）。
+//   題の行に入れれば頭の高さは変わらない。下線は日時のマスと同じ 7mm 高（題の行の高さに収まる）。
 //   面談の用紙は全部の行が重み1なので、これまでの割り付け（`sheetLayout`）と**同じ本数**になる
 //   （`tests/meeting.test.mts` が全項目数で一致を見張る）。
 // [DECISION 2026-09-17] **押印欄**（P9・6-b）。用紙の右上に、上の行＝ラベル・下の行＝押印の正方形。
@@ -80,10 +86,11 @@ export const SHEET = {
 } as const;
 
 /** 記入欄の頭の文言（種類ごと）。題・参加者の欄の見出し・押印欄のラベル（列の数＝ラベルの数） */
-export const SHEET_HEAD = {
+export const SHEET_HEAD: Record<RecordType, { title: string; people: string; stamps: readonly string[]; name?: string }> = {
   interview: { title: "面談記録メモ", people: "参加者", stamps: ["記録者"] },
-  meeting: { title: "会議記録メモ", people: "出席者", stamps: ["作成者", "署名"] },
-} as const;
+  /** name: 題の右に置く欄の見出し（会議だけ。P9-c） */
+  meeting: { title: "会議記録メモ", people: "出席者", stamps: ["作成者", "署名"], name: "会議名" },
+};
 
 /** 押印欄の寸法（mm・pt）。理由はこのファイル冒頭の [DECISION 2026-09-17] */
 export const STAMP = {
@@ -240,12 +247,12 @@ export type SheetRow = {
 };
 
 /**
- * 1ページぶんの項目を行に割り付ける。`sheet:"other"` の項目は枠を作らない（最後の「その他」に相乗り）。
+ * 1ページぶんの項目を行に割り付ける。`sheet:"none"` の項目は枠を作らない（用紙に載せない。P9-c）。
  * `sheet:"wide"` の項目は1行を占め、それ以外は2列に詰める。最後に1つ余れば横いっぱい（`wideLast` と同じ結論）。
  * 行の高さは重みで按分し、罫線はその高さに**入るだけ**引く（P8-g の規則そのまま）。
  * 面談（重みがすべて1）では `sheetLayout` の本数と一致する。
  */
-export function sheetRows(items: { id: string; sheet?: "wide" | "other" }[], hasOther: boolean): SheetRow[] {
+export function sheetRows(items: { id: string; sheet?: "wide" | "none" }[], hasOther: boolean): SheetRow[] {
   const rows: { ids: string[]; wide: boolean; weight: number }[] = [];
   let pending: string[] = [];
   const flush = () => {
@@ -253,7 +260,7 @@ export function sheetRows(items: { id: string; sheet?: "wide" | "other" }[], has
     pending = [];
   };
   for (const it of items) {
-    if (it.sheet === "other") continue;
+    if (it.sheet === "none") continue;
     if (it.sheet === "wide") {
       flush();
       rows.push({ ids: [it.id], wide: true, weight: SHEET.wideWeight });

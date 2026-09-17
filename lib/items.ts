@@ -45,11 +45,13 @@ export type ItemDef = {
   hint: string;
   /**
    * 用紙での扱い（P9・会議の用紙だけが使う。面談の項目には付けない）:
-   *   "wide"  = 横いっぱいの大きな枠（1行を占め、高さの取り分も大きい。`lib/sheet.ts` の `SHEET.wideWeight`）
-   *   "other" = 枠を作らず、用紙の最後の「その他」の枠に相乗りする（見出しは「会議概要・その他」）。
-   *             日時・場所・出席者は記入欄の頭にあるので、用紙の上では概要の枠が要らないため
+   *   "wide" = 横いっぱいの大きな枠（1行を占め、高さの取り分も大きい。`lib/sheet.ts` の `SHEET.wideWeight`）
+   *   "none" = **用紙に載せない記録だけの項目**（枠を作らず、用紙の画面のトグルと並べ替えの一覧にも出さない）。
+   *            会議概要がこれ: 会議名・日時・場所・出席者は用紙の頭の記入欄に書き、AIがそこから会議概要を組み立てる。
+   *            [DECISION 2026-09-17] P9 では「その他」に相乗り（"other"）させたが、何を書く枠か伝わらず、
+   *            一覧では動かせるのに用紙では下に固定される＝操作が嘘になっていたのでやめた（P9-c・設計側の指示）
    */
-  sheet?: "wide" | "other";
+  sheet?: "wide" | "none";
 };
 
 export const ITEM_LIBRARY: ItemDef[] = [
@@ -85,12 +87,13 @@ export const ITEM_LIBRARY: ItemDef[] = [
 
 /**
  * 会議の項目（P9）。**4項目だけ・すべて基本・すべて既定オン**。追加項目は設けない。
+ * 用紙に載るのは内容・決定事項・宿題の3つ（会議概要は用紙に枠を作らない記録だけの項目。P9-c）。
  * 走り書きでは内容・決定事項・宿題が混ざって書かれる前提で、AIが読み取って振り分ける（`lib/prompt.ts`）。
  * 色・タブ名は `docs/mock/kaigi-mock-v1.html` のとおり。
  */
 export const MEETING_LIBRARY: ItemDef[] = [
-  { id: "kaigi", label: "会議概要", tab: "概要", group: "基本", color: "var(--t1)", defaultOn: true, sheet: "other",
-    hint: "会議名・日時・場所・出席者（欠席者）・議題など、会議そのものの枠組み" },
+  { id: "kaigi", label: "会議概要", tab: "概要", group: "基本", color: "var(--t1)", defaultOn: true, sheet: "none",
+    hint: "会議名・日時・場所・出席者（欠席者）など、会議そのものの枠組み（用紙では頭の記入欄に書かれる）" },
   { id: "naiyou", label: "内容", tab: "内容", group: "基本", color: "var(--t2)", defaultOn: true, sheet: "wide",
     hint: "議題ごとに話し合われた内容・報告・出た意見・検討中の事柄（決定にも宿題にも当たらないもの）" },
   { id: "kettei", label: "決定事項", tab: "決定", group: "基本", color: "var(--t3)", defaultOn: true,
@@ -98,6 +101,11 @@ export const MEETING_LIBRARY: ItemDef[] = [
   { id: "shukudai", label: "宿題", tab: "宿題", group: "基本", color: "var(--t4)", defaultOn: true,
     hint: "誰かが持ち帰る作業・次回までにやること（誰が・いつまでに・何を）" },
 ];
+
+/** 用紙に載せる項目（`sheet:"none"` を除く）。用紙の画面のトグル・並べ替え・見本はこれを使う（P9-c） */
+export function sheetLibrary(lib: ItemDef[]): ItemDef[] {
+  return lib.filter((l) => l.sheet !== "none");
+}
 
 /** 種類に応じた項目ライブラリ */
 export function libraryFor(type: RecordType): ItemDef[] {

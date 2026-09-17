@@ -35,9 +35,13 @@
 //   `lib/sheet.ts` の `sheetRows` が決める。面談の割り付けは変わらない（同じ関数で重みがすべて1）。
 // [DECISION 2026-09-17] **押印欄**を記入欄の頭の右上に置く（P9・6-b。寸法と理由は `lib/sheet.ts` の `STAMP`）。
 //   会議＝作成者／署名の2列、面談＝記録者の1列。自由形式にも同じ欄。記入欄はそのぶん狭くなる（重ねない）。
+// [DECISION 2026-09-17] **用紙の項目は「用紙に載る項目」だけ**（`sheetLibrary`・P9-c）。会議の「会議概要」は記録だけの項目で、
+//   トグルにも並べ替えにも見本にも出さない（一覧で動かせるのに用紙では動かない、という嘘の操作を作らない）。
+//   ⚠️ **オン・オフの保存は種類のライブラリ全体で読み書きする**（用紙の一覧だけで保存すると、記録の会議概要がオフになる）。
+//   会議名は頭の題の右（`SHEET_HEAD.meeting.name`）。下部は面談と同じ「その他」だけ。
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { libraryFor, type ItemDef, type RecordType } from "@/lib/items";
+import { libraryFor, sheetLibrary, type ItemDef, type RecordType } from "@/lib/items";
 import {
   groupIds,
   loadSettings,
@@ -102,16 +106,25 @@ function Paper({
   const rows = sheetRows(items, Boolean(other));
   const rowsStyle = gridRowsStyle(rows);
   const byId = (id: string) => items.find((it) => it.id === id)!;
-  // 「その他」に相乗りする項目（会議概要）。あれば見出しに名を添え、色もその項目の色にする
-  const merged = items.filter((it) => it.sheet === "other");
-  const otherLabel = [...merged.map((it) => it.label), OTHER_BOX.label].join("・");
-  const otherColor = merged[0]?.color ?? "var(--sub)";
   const lines = (n: number) => Array.from({ length: n }, (_, i) => <div key={i} />);
   return (
     <div className="paper">
       <div className="p-head">
         <div className="p-main">
-          <div className="p-title">{head.title}</div>
+          {head.name ? (
+            // 会議名は題の右（会議だけ・P9-c）。題の行の高さに収まる下線にして、頭の高さを変えない
+            <div className="p-titlebar">
+              <div className="p-title">{head.title}</div>
+              <div className="p-fields p-name">
+                <div className="f f-name">
+                  <span className="lb">{head.name}</span>
+                  <span className="wr" />
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="p-title">{head.title}</div>
+          )}
           {/* 記入欄は1項目1行（P9-b）: 日時は数字だけを書くマス（表記の揺れを作らない）、場所は行いっぱいの下線 */}
           <div className="p-fields">
             <div className="f f-date">
@@ -184,8 +197,8 @@ function Paper({
           </div>
           {other && (
             // 想定外の話の受け皿。横いっぱい・他の枠より低くして、項目の枠を痩せさせない
-            <div className="p-box other" style={{ ["--c" as string]: otherColor }}>
-              <h4>{otherLabel}</h4>
+            <div className="p-box other" style={{ ["--c" as string]: "var(--sub)" }}>
+              <h4>{OTHER_BOX.label}</h4>
               <div className="p-lines">{lines(SHEET.otherLines)}</div>
             </div>
           )}
@@ -199,7 +212,9 @@ function Paper({
 export default function SheetMaker({ onHome, toast }: Props) {
   /** 記録の種類（P9）。面談と会議で項目・割り付け・保存の鍵が変わる */
   const [type, setType] = useState<RecordType>("interview");
+  /** 種類のライブラリ全体（オン・オフの読み書きはこちら）と、用紙に載る項目だけ（一覧・並べ替え・見本はこちら） */
   const lib = libraryFor(type);
+  const sheetLib = useMemo(() => sheetLibrary(lib), [lib]);
   const [set, setSet] = useState<Settings | null>(null);
   /** 狭い画面でどちらを見せるか。選択の状態はここでは持たないので、切り替えても中身は保たれる */
   const [tab, setTab] = useState<"items" | "paper">("items");
@@ -211,14 +226,14 @@ export default function SheetMaker({ onHome, toast }: Props) {
   useEffect(() => {
     setSet(loadSettings(lib, type));
     setFree(loadSheetFree(type));
-    setOrder(loadSheetOrder(lib, type));
+    setOrder(loadSheetOrder(sheetLib, type));
   }, [type]); // eslint-disable-line react-hooks/exhaustive-deps
 
   // 用紙に載るのは「記録と共有のオン・オフ」×「用紙だけの並び」
-  const ids = set ? sheetIds(order, set.enabled, lib) : [];
+  const ids = set ? sheetIds(order, set.enabled, sheetLib) : [];
   const items = useMemo(
-    () => ids.map((id) => lib.find((l) => l.id === id)!).filter(Boolean),
-    [ids.join(","), lib], // eslint-disable-line react-hooks/exhaustive-deps
+    () => ids.map((id) => sheetLib.find((l) => l.id === id)!).filter(Boolean),
+    [ids.join(","), sheetLib], // eslint-disable-line react-hooks/exhaustive-deps
   );
   const layout = sheetLayout(items.length);
   const pages = free ? [[]] : paginate(items, layout.perPage);
@@ -253,7 +268,7 @@ export default function SheetMaker({ onHome, toast }: Props) {
   /** 用紙の並びだけを書く。記録側の選択・並び（saveSettings）には触れない */
   const moveItem = (g: Group, from: number, insertAt: number) => {
     setOrder((o) => {
-      const next = moveWithinGroup(o, lib, g, from, insertAt);
+      const next = moveWithinGroup(o, sheetLib, g, from, insertAt);
       saveSheetOrder(next, type);
       return next;
     });
@@ -523,9 +538,9 @@ export default function SheetMaker({ onHome, toast }: Props) {
             </button>
           </div>
           <h2>用紙に入れる項目</h2>
-          {sheetGroups(lib).map((g) => {
+          {sheetGroups(sheetLib).map((g) => {
             // 群ごとに、用紙での並びで出す（オフの項目も並べ替えられる）
-            const gids = groupIds(order, lib, g);
+            const gids = groupIds(order, sheetLib, g);
             // 掴んでいるあいだ、落ちる位置にあたる行をよけさせる（空いた所に落ちる）
             const shift = (i: number) => {
               if (!drag || drag.group !== g || i === drag.from) return 0;
@@ -537,7 +552,7 @@ export default function SheetMaker({ onHome, toast }: Props) {
               <div key={g} data-grp={g}>
                 <div className="grp-t">{g}</div>
                 {gids.map((id, i) => {
-                  const l = lib.find((x) => x.id === id)!;
+                  const l = sheetLib.find((x) => x.id === id)!;
                   const on = Boolean(set?.enabled[id]);
                   const lifted = drag?.id === id;
                   const dy = shift(i);
