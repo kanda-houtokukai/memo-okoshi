@@ -177,6 +177,6 @@ test("辞書の書き出しに用紙の並びを含める（任意・置換。�
 
   const backup = readFileSync("lib/backup.ts", "utf8");
   assert.ok(backup.includes("sheetOrder = readSavedSheetOrder()"), "書き出しに入れる");
-  assert.ok(backup.includes("saveSheetOrder(r.sheetOrder)"), "読み込みで置き換える");
+  assert.ok(backup.includes("saveSheetOrder(t.sheetOrder, type)"), "読み込みで置き換える（P9-b から面談・会議で共通の関数）");
   assert.ok(!backup.includes('"memo-okoshi:sheet-order"'), "鍵は settings.ts から使う");
 });

@@ -20,7 +20,7 @@ import {
   type VocabEntry,
 } from "@/lib/vocab";
 import { exportBackup, importBackup } from "@/lib/backup";
-import { ITEM_LIBRARY } from "@/lib/items";
+import { ITEM_LIBRARY, MEETING_LIBRARY } from "@/lib/items";
 import { VOCAB_CHANGED } from "./VocabButton";
 
 type Props = { open: boolean; onClose: () => void; toast: (m: string) => void };
@@ -52,7 +52,12 @@ export default function VocabDrawer({ open, onClose, toast }: Props) {
     e.target.value = "";
     if (!f) return;
     try {
-      const r = importBackup(JSON.parse(await f.text()), list, ITEM_LIBRARY.map((l) => l.id));
+      const r = importBackup(
+        JSON.parse(await f.text()),
+        list,
+        ITEM_LIBRARY.map((l) => l.id),
+        MEETING_LIBRARY.map((l) => l.id)
+      );
       if (!r.ok) {
         toast("辞書のファイルではありません");
         return;

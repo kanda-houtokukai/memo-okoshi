@@ -37,6 +37,8 @@ import {
   type ApiData,
 } from "../lib/record.ts";
 import { buildDocxParts } from "../lib/docx.ts";
+import { mergeBackup } from "../lib/vocab.ts";
+import { buildBackup, importBackup } from "../lib/backup.ts";
 import { enforceNames } from "../lib/names.ts";
 import {
   freeAreaH,
@@ -306,8 +308,8 @@ test("会議の用紙: 内容は横いっぱいの大きな枠、決定事項と
   assert.deepEqual(rows.map((r) => r.wide), [true, false]);
   assert.deepEqual(rows.map((r) => r.weight), [SHEET.wideWeight, 1]);
   assert.equal(gridRowsStyle(rows), `minmax(0,${SHEET.wideWeight}fr) minmax(0,1fr)`);
-  // 本数は高さに入るだけ（間隔 6mm）。内容 23 本・決定事項/宿題 8 本
-  assert.deepEqual(rows.map((r) => r.lines), [23, 8]);
+  // 本数は高さに入るだけ（間隔 6mm）。内容 21 本・決定事項/宿題 8 本（P9-b: 記入欄を3行にして 23→21・重み 2.5→2.3）
+  assert.deepEqual(rows.map((r) => r.lines), [21, 8]);
   const gridH = SHEET.pageH - SHEET.margin * 2 - PRINT.head - PRINT.foot - (PRINT.boxTop + SHEET.otherLines * SHEET.line + PRINT.boxBottom + SHEET.gap);
   const usable = gridH - SHEET.gap;
   const total = SHEET.wideWeight + 1;
@@ -348,7 +350,7 @@ test("会議の用紙が A4 に収まる（見出し・記入欄＋枠＋その�
   const used = PRINT.head + boxes.reduce((a, b) => a + b, 0) + SHEET.gap * (rows.length - 1) + other + PRINT.foot;
   assert.ok(used <= printable, `印字できる範囲を越える（${used.toFixed(1)}mm）`);
   // 自由形式は面談と同じ本数（記入欄の頭が同じ高さ）
-  assert.equal(Math.floor(freeAreaH() / SHEET.line), 39);
+  assert.equal(Math.floor(freeAreaH() / SHEET.line), 38);
 });
 
 test("押印欄: 15mm 角（認印 10.5〜12mm＋余白）。会議は作成者／署名の2列、面談は記録者の1列。頭の高さより低い", () => {
@@ -374,11 +376,136 @@ test("押印欄: 15mm 角（認印 10.5〜12mm＋余白）。会議は作成者�
   const css = readFileSync("app/globals.css", "utf8");
   const screen = css.slice(css.indexOf("/* ---------- 用紙を作る"), css.indexOf("/* ---------- 印刷（PDFで保存）"));
   const print = css.slice(css.indexOf("/* ---------- 印刷（PDFで保存）"));
-  assert.ok(/\.p-head\{[^}]*display:flex[^}]*align-items:flex-start/.test(screen), "頭は横並び（記入欄＋押印欄）");
+  assert.ok(/\.p-head\{[^}]*display:grid[^}]*align-items:start/.test(screen), "頭は横並び（記入欄＋押印欄。P9-b から grid）");
   assert.ok(/\.p-stamp td\{[^}]*width:calc\(15 \* var\(--mm\)\)[^}]*height:calc\(15 \* var\(--mm\)\)/.test(screen), "見本の押印は 15mm 角");
   assert.ok(print.includes(".print-sheet .p-stamp td{width:15mm;height:15mm;border:0.25mm solid #444}"), "印刷の押印は 15mm 角・濃い実線");
   assert.ok(print.includes(".print-sheet .p-stamp th{padding:0.6mm 1mm;border:0.25mm solid #444;"), "ラベルの行は文字に合わせた高さ（固定しない）");
   assert.ok(!/\.p-stamp th\{[^}]*[^-]height:/.test(screen + print), "ラベルの行の高さを固定しない");
   // 罫線（0.2mm 点線 #bdbdbd）より濃い
   assert.ok(print.includes("border-bottom:0.2mm dotted #bdbdbd"));
+});
+
+test("記入欄は1項目1行（日時／場所／参加者・出席者）。参加者・出席者は押印欄の下を横いっぱい（P9-b）", () => {
+  const sm = readFileSync("app/components/SheetMaker.tsx", "utf8");
+  const paper = sm.slice(sm.indexOf("function Paper("), sm.indexOf("export default function"));
+  const main = paper.slice(paper.indexOf('className="p-main"'), paper.indexOf('className="p-stamp"'));
+  // 題・日時・場所は押印欄の左の列、参加者・出席者は押印欄のあと（頭の2段目・横いっぱい）
+  assert.ok(main.includes('className="f f-date"') && main.includes('className="f f-place"'));
+  assert.ok(!main.includes("f-people"), "参加者・出席者を押印欄の横に置かない");
+  assert.ok(paper.indexOf('className="p-fields p-people"') > paper.indexOf('className="p-stamp"'));
+  assert.equal((paper.match(/className="f f-/g) ?? []).length, 3, "記入欄は3行");
+  // 面談と会議で同じ形（見出しの文言だけが違う）
+  assert.ok(paper.includes("{head.people}") && !/type === "meeting"/.test(paper), "頭の形を種類で分けない");
+
+  const css = readFileSync("app/globals.css", "utf8");
+  const screen = css.slice(css.indexOf("/* ---------- 用紙を作る"), css.indexOf("/* ---------- 印刷（PDFで保存）"));
+  assert.ok(/\.p-head\{[^}]*display:grid;grid-template-columns:minmax\(0,1fr\) auto/.test(screen), "頭は 左の列＋押印欄 の2列");
+  assert.ok(screen.includes(".p-people{grid-column:1 / -1;grid-row:2"), "参加者・出席者は横いっぱいの2段目");
+  assert.ok(screen.includes(".p-fields{display:grid;grid-template-columns:minmax(0,1fr);"), "記入欄は1列（1項目1行）");
+  assert.ok(!screen.includes(".f-people{grid-column"), "旧: 1行目に日時と場所を並べていた指定が残っていない");
+
+  // 印刷の実測（2026-09-17・192mm 幅で印刷の規則を当てて測った値。頭の上端から mm）
+  const MEASURED = { head: 42.4, stampBottom: 19.67, placeTop: 19.0, peopleTop: 29.6, placeToStamp: 3.0, placeW: { interview: 167.2, meeting: 152.21 }, peopleW: 182.4 };
+  assert.ok(MEASURED.peopleTop > MEASURED.stampBottom, "参加者・出席者の行が押印欄に重なる");
+  assert.ok(MEASURED.placeToStamp > 0, "場所の下線が押印欄に重なる");
+  assert.ok(PRINT.head >= MEASURED.head, "割り付けの見積もりが実測より小さい");
+  // 場所は以前（面談 約64mm・会議 約49mm）の2倍以上
+  assert.ok(MEASURED.placeW.meeting >= 49 * 2 && MEASURED.placeW.interview >= 64 * 2);
+});
+
+test("面談の用紙の本数（P9-b の変更後）: 既定の基本6項目は 9本のまま。減るのは 1〜4項目・2枚・自由形式で各1本", () => {
+  assert.deepEqual(sheetLayout(6).linesPerPage, [9]);
+  assert.deepEqual(sheetLayout(8).linesPerPage, [6]);
+  assert.deepEqual([1, 2, 3, 4].map((n) => sheetLayout(n).linesPerPage[0]), [31, 31, 14, 14]);
+  assert.deepEqual(sheetLayout(9).linesPerPage, [10, 14]);
+  assert.deepEqual(sheetLayout(13).linesPerPage, [7, 9]);
+  assert.equal(Math.floor(freeAreaH() / SHEET.line), 38);
+});
+
+/* ---------- 辞書の書き出し（P9-b: 会議の設定も運ぶ） ---------- */
+
+const IV_IDS = ITEM_LIBRARY.map((l) => l.id);
+
+test("書き出しの読み込み（純関数）: 会議の設定は meeting の中・会議の id で絞る。古いファイルは会議に触れない", () => {
+  const r = mergeBackup(
+    {
+      app: "memo-okoshi",
+      version: 1,
+      vocab: [],
+      items: { enabled: ["gaiyou", "naiyou"], order: ["gaiyou", "naiyou"] },
+      sheetFree: true,
+      meeting: {
+        items: { enabled: ["naiyou", "gaiyou", "zzz"], order: ["kettei", "naiyou", "gaiyou"] },
+        sheetOrder: ["shukudai", "honnin", "kaigi", 3],
+        sheetFree: "yes",
+      },
+    },
+    [],
+    IV_IDS,
+    MEETING_IDS
+  );
+  assert.ok(r.ok);
+  if (!r.ok) return;
+  assert.deepEqual(r.items, { enabled: ["gaiyou"], order: ["gaiyou"] }, "面談の設定は面談の id で絞る");
+  assert.equal(r.sheetFree, true);
+  assert.deepEqual(r.meeting?.items, { enabled: ["naiyou"], order: ["kettei", "naiyou"] }, "会議の設定は会議の id で絞る");
+  assert.deepEqual(r.meeting?.sheetOrder, ["shukudai", "kaigi"]);
+  assert.equal(r.meeting?.sheetFree, undefined, "真偽値でなければ読まない");
+  // 会議の設定が入っていない古いファイル
+  const old = mergeBackup({ app: "memo-okoshi", version: 1, vocab: [], items: { enabled: ["gaiyou"], order: ["gaiyou"] } }, [], IV_IDS, MEETING_IDS);
+  assert.ok(old.ok && old.meeting === undefined && old.sheetFree === undefined && old.items?.enabled[0] === "gaiyou");
+});
+
+test("書き出し→読み込みで、面談と会議の 項目の選択・並び・自由形式 がすべて戻る（置換）", () => {
+  const m = useFakeStorage();
+  const iv = loadSettings(ITEM_LIBRARY);
+  iv.enabled.kinsen = true;
+  saveSettings(iv);
+  saveSheetOrder(["kadai", "gaiyou"]);
+  saveSheetFree(true);
+  const mt = loadSettings(MEETING_LIBRARY, "meeting");
+  mt.enabled.kaigi = false;
+  saveSettings(mt, "meeting");
+  saveSheetOrder(["kettei", "shukudai", "naiyou", "kaigi"], "meeting");
+  saveSheetFree(true, "meeting");
+  const before = new Map(m);
+
+  const file = JSON.parse(JSON.stringify(buildBackup([{ term: "個支計" }])));
+  assert.ok(file.meeting && file.meeting.items && file.meeting.sheetOrder && file.meeting.sheetFree === true, "会議の設定が入る");
+  assert.equal(file.sheetFree, true, "面談の自由形式も入る");
+
+  // 空の端末へ読み込む（復旧）
+  m.clear();
+  const r = importBackup(file, []);
+  assert.ok(r.ok && r.itemsApplied);
+  for (const [k, v] of before) assert.equal(m.get(k), v, `${k} が戻っていない`);
+  assert.equal(loadSettings(MEETING_LIBRARY, "meeting").enabled.kaigi, false);
+  assert.deepEqual(loadSheetOrder(MEETING_LIBRARY, "meeting"), ["kettei", "shukudai", "naiyou", "kaigi"]);
+  assert.equal(loadSheetFree("meeting"), true);
+  assert.equal(loadSheetFree(), true);
+});
+
+test("読み込み: 会議の設定が無い古いファイルは会議の設定に触れない／会議を触ったことがない端末の書き出しには meeting を入れない", () => {
+  const m = useFakeStorage();
+  const mt = loadSettings(MEETING_LIBRARY, "meeting");
+  mt.enabled.naiyou = false;
+  saveSettings(mt, "meeting");
+  saveSheetFree(true, "meeting");
+  const keep = [keyFor(SETTINGS_KEY, "meeting"), keyFor(SHEET_FREE_KEY, "meeting")].map((k) => [k, m.get(k)] as const);
+  const r = importBackup({ app: "memo-okoshi", version: 1, vocab: [], items: { enabled: ["gaiyou"], order: ["gaiyou"] }, sheetOrder: ["gaiyou"] }, []);
+  assert.ok(r.ok && r.itemsApplied);
+  for (const [k, v] of keep) assert.equal(m.get(k), v, `${k} が変わった`);
+  assert.equal(m.get(SETTINGS_KEY), JSON.stringify({ enabled: ["gaiyou"], order: ["gaiyou"] }), "面談は置き換わる");
+  assert.ok(!m.has(SHEET_FREE_KEY), "ファイルに無い面談の自由形式は触らない");
+
+  const fresh = useFakeStorage();
+  assert.equal(fresh.size, 0);
+  const b = buildBackup([]);
+  assert.ok(!("meeting" in b) && !("sheetFree" in b) && !("items" in b) && !("sheetOrder" in b), "設定したことがないものは入れない");
+  // 画面側は会議の id も渡す
+  const drawer = readFileSync("app/components/VocabDrawer.tsx", "utf8");
+  assert.ok(drawer.includes("MEETING_LIBRARY.map((l) => l.id)"));
+  // 会議の鍵は settings.ts から作る（backup.ts に鍵の文字列を書かない）
+  const backup = readFileSync("lib/backup.ts", "utf8");
+  assert.ok(!backup.includes('"memo-okoshi:') && backup.includes('keyFor(SETTINGS_KEY, type)'));
 });

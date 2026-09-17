@@ -11,14 +11,25 @@
 //   並べ替えたことがない端末からの書き出しには入れない（読み込む側の並びに触れないため）。
 //   それ以前のファイル（並びが入っていない）も、そのまま読める。
 
-import { mergeBackup, type Backup, type VocabEntry } from "./vocab";
-import { readSavedSheetOrder, saveSheetOrder } from "./settings";
+import { mergeBackup, type Backup, type TypeSettings, type VocabEntry } from "./vocab.ts";
+import {
+  keyFor,
+  loadSheetFree,
+  readSavedSheetOrder,
+  saveSheetFree,
+  saveSheetOrder,
+  SETTINGS_KEY,
+} from "./settings.ts";
+import { ITEM_LIBRARY, MEETING_LIBRARY, type RecordType } from "./items.ts";
 
-const SETTINGS_KEY = "memo-okoshi:items";
+// [DECISION 2026-09-17] **会議の設定（項目の選択・並び・自由形式）も同じファイルに入れる**（P9-b）。
+//   面談はこれまでどおり最上位、会議は `meeting` の中に同じ形で置く。読み込みの扱いは面談と同じ（置換）。
+//   書き出しに入れるのは**その端末で一度でも設定したものだけ**（並べ替えたことがない・自由形式がオフなら入れない。
+//   読み込む側の設定に触れないため。P8-d と同じ考え）。面談の自由形式もここから運ぶ。
 
-function readItems(): Backup["items"] | undefined {
+function readItems(type: RecordType = "interview"): TypeSettings["items"] {
   try {
-    const raw = localStorage.getItem(SETTINGS_KEY);
+    const raw = localStorage.getItem(keyFor(SETTINGS_KEY, type));
     if (!raw) return undefined;
     const s = JSON.parse(raw) as { enabled?: string[]; order?: string[] };
     return { enabled: s.enabled ?? [], order: s.order ?? [] };
@@ -27,7 +38,24 @@ function readItems(): Backup["items"] | undefined {
   }
 }
 
-export function buildBackup(vocab: VocabEntry[], items = readItems(), sheetOrder = readSavedSheetOrder()): Backup {
+/** その種類の設定のうち、書き出すもの（一度も設定していないものは入れない） */
+function readTypeSettings(type: RecordType): TypeSettings {
+  const out: TypeSettings = {};
+  const items = readItems(type);
+  const sheetOrder = readSavedSheetOrder(type);
+  if (items) out.items = items;
+  if (sheetOrder) out.sheetOrder = sheetOrder;
+  if (loadSheetFree(type)) out.sheetFree = true;
+  return out;
+}
+
+export function buildBackup(
+  vocab: VocabEntry[],
+  items = readItems(),
+  sheetOrder = readSavedSheetOrder(),
+  sheetFree = loadSheetFree() || undefined,
+  meeting = readTypeSettings("meeting")
+): Backup {
   return {
     app: "memo-okoshi",
     version: 1,
@@ -35,6 +63,8 @@ export function buildBackup(vocab: VocabEntry[], items = readItems(), sheetOrder
     vocab,
     ...(items ? { items } : {}),
     ...(sheetOrder ? { sheetOrder } : {}),
+    ...(sheetFree ? { sheetFree } : {}),
+    ...(Object.keys(meeting).length ? { meeting } : {}),
   };
 }
 
@@ -61,22 +91,40 @@ export type ImportResult =
   | { ok: true; vocab: VocabEntry[]; added: number; skipped: number; itemsApplied: boolean }
   | { ok: false };
 
-export function importBackup(input: unknown, current: VocabEntry[], validItemIds: string[]): ImportResult {
-  const r = mergeBackup(input, current, validItemIds);
-  if (!r.ok) return { ok: false };
-  let itemsApplied = false;
-  if (r.items) {
+/** その種類の設定を置き換える（入っているものだけ）。何か置き換えたら true */
+function applyTypeSettings(t: TypeSettings | undefined, type: RecordType): boolean {
+  if (!t) return false;
+  let applied = false;
+  if (t.items) {
     try {
-      localStorage.setItem(SETTINGS_KEY, JSON.stringify(r.items));
-      itemsApplied = true;
+      localStorage.setItem(keyFor(SETTINGS_KEY, type), JSON.stringify(t.items));
+      applied = true;
     } catch {
       /* 保存不可 */
     }
   }
-  if (r.sheetOrder) {
+  if (t.sheetOrder) {
     // 読むときに今のライブラリへ重ねて群ごとに並べ直すので、ここでは受け取ったまま置く
-    saveSheetOrder(r.sheetOrder);
-    itemsApplied = true;
+    saveSheetOrder(t.sheetOrder, type);
+    applied = true;
   }
-  return { ok: true, vocab: r.vocab, added: r.added, skipped: r.skipped, itemsApplied };
+  if (typeof t.sheetFree === "boolean") {
+    saveSheetFree(t.sheetFree, type);
+    applied = true;
+  }
+  return applied;
+}
+
+export function importBackup(
+  input: unknown,
+  current: VocabEntry[],
+  validItemIds: string[] = ITEM_LIBRARY.map((l) => l.id),
+  validMeetingIds: string[] = MEETING_LIBRARY.map((l) => l.id)
+): ImportResult {
+  const r = mergeBackup(input, current, validItemIds, validMeetingIds);
+  if (!r.ok) return { ok: false };
+  // 面談（最上位）と会議（meeting）を同じ扱いで置き換える。会議の設定が無い古いファイルは会議に触れない
+  const a = applyTypeSettings({ items: r.items, sheetOrder: r.sheetOrder, sheetFree: r.sheetFree }, "interview");
+  const b = applyTypeSettings(r.meeting, "meeting");
+  return { ok: true, vocab: r.vocab, added: r.added, skipped: r.skipped, itemsApplied: a || b };
 }

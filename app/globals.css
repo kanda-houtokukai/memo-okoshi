@@ -1151,20 +1151,23 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .paper{--pw:calc(390px * var(--k,1));--mm:calc(var(--pw) / 210);
   flex:0 0 auto;width:var(--pw);height:calc(297 * var(--mm));aspect-ratio:210/297;background:#fff;
   box-shadow:0 3px 16px rgba(43,42,37,.16);padding:calc(9 * var(--mm));display:flex;flex-direction:column}
-.p-head{border-bottom:max(1px,calc(0.5 * var(--mm))) solid #3a3730;padding-bottom:calc(2 * var(--mm));margin-bottom:calc(2.4 * var(--mm));flex:0 0 auto;display:flex;align-items:flex-start;gap:calc(3 * var(--mm))}
-/* 題と記入欄は左、押印欄は右（P9・6-b）。記入欄は押印欄のぶん狭くなる（重ねない）。押印欄は頭より低いので頭の高さは変わらない */
-.p-main{flex:1 1 auto;min-width:0}
+.p-head{border-bottom:max(1px,calc(0.5 * var(--mm))) solid #3a3730;padding-bottom:calc(2 * var(--mm));margin-bottom:calc(2.4 * var(--mm));flex:0 0 auto;
+  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:calc(3 * var(--mm))}
+/* 記入欄は1項目1行（日時／場所／参加者・出席者。P9-b）。題・日時・場所は左、押印欄は右（P9・6-b）で、その2行は押印欄のぶん狭い（重ねない）。
+   参加者・出席者の行は押印欄より下に来るので、押印欄の下まで横いっぱいに使う */
+.p-main{grid-column:1;grid-row:1;min-width:0}
+.p-head .p-stamp{grid-column:2;grid-row:1}
+.p-people{grid-column:1 / -1;grid-row:2;margin-top:calc(2.6 * var(--mm))}
 /* 押印欄: 上の行＝ラベル（文字の大きさに合わせた高さ）・下の行＝押印の正方形（15mm角・lib/sheet.ts の STAMP）。
    枠線は罫線より濃い実線にして、押印欄と分かる見え方にする */
 .p-stamp{flex:0 0 auto;border-collapse:collapse;table-layout:fixed;font-family:var(--head);font-size:calc(2.469 * var(--mm));color:#4a463e}
 .p-stamp th{font-weight:700;letter-spacing:.04em;line-height:1.3;padding:calc(0.6 * var(--mm)) calc(1 * var(--mm));background:#f0eee8;border:max(1px,calc(0.25 * var(--mm))) solid #6f6a60;white-space:nowrap}
 .p-stamp td{width:calc(15 * var(--mm));height:calc(15 * var(--mm));padding:0;border:max(1px,calc(0.25 * var(--mm))) solid #6f6a60}
 .p-title{font-family:var(--head);font-size:calc(4.233 * var(--mm));font-weight:700;letter-spacing:.08em;margin-bottom:calc(2 * var(--mm))}
-/* 記入欄: 日時＝数字だけのマス／場所＝下線／参加者＝1本の長い下線。**手で書ける高さと幅**を取る。
-   1行目に「日時」と「場所」、2行目に「参加者」を置く */
-.p-fields{display:grid;grid-template-columns:auto minmax(0,1fr);gap:calc(2.6 * var(--mm)) calc(6 * var(--mm));font-size:calc(2.822 * var(--mm));color:#6f6a60}
+/* 記入欄: 日時＝数字だけのマス／場所＝下線／参加者・出席者＝1本の長い下線。**手で書ける高さと幅**を取る。
+   [DECISION 2026-09-17] **1項目1行**（日時／場所／参加者・出席者。P9-b）。押印欄のぶん「場所」が狭くなりすぎたため */
+.p-fields{display:grid;grid-template-columns:minmax(0,1fr);gap:calc(2.6 * var(--mm));font-size:calc(2.822 * var(--mm));color:#6f6a60}
 .p-fields .f{display:flex;align-items:flex-end;gap:calc(3px * var(--k,1));min-width:0}
-.p-fields .f-people{grid-column:1 / -1}
 .p-fields .lb{flex:0 0 auto;font-weight:700;color:#4a463e;letter-spacing:.04em;padding-bottom:calc(1 * var(--mm))}
 .p-fields .cel{flex:0 0 auto;width:calc(7 * var(--mm));height:calc(7 * var(--mm));border:max(1px,calc(0.2 * var(--mm))) solid #b8b2a6;border-radius:calc(0.4 * var(--mm))}
 .p-fields .cel.y{width:calc(13 * var(--mm))}
@@ -1215,13 +1218,14 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
     display:flex;flex-direction:column;break-after:page;
   }
   .print-sheet .paper:last-child{break-after:auto}
-  .print-sheet .p-head{border-bottom:0.5mm solid #000;padding-bottom:2mm;margin-bottom:2.4mm;gap:3mm}
+  .print-sheet .p-head{border-bottom:0.5mm solid #000;padding-bottom:2mm;margin-bottom:2.4mm;column-gap:3mm}
+  .print-sheet .p-people{margin-top:2.6mm}
   .print-sheet .p-title{font-size:12pt;margin-bottom:2mm}
   .print-sheet .p-stamp{font-size:7pt;color:#000}
   .print-sheet .p-stamp th{padding:0.6mm 1mm;border:0.25mm solid #444;background:#efece6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
   .print-sheet .p-stamp td{width:15mm;height:15mm;border:0.25mm solid #444}
   /* 記入欄は手で書ける寸法にする: マスは7mm角、下線の欄は8mm高 */
-  .print-sheet .p-fields{font-size:8pt;gap:2.6mm 6mm;color:#333}
+  .print-sheet .p-fields{font-size:8pt;gap:2.6mm;color:#333}
   .print-sheet .p-fields .lb{color:#000;padding-bottom:1mm}
   .print-sheet .p-fields .cel{width:7mm;height:7mm;border:0.2mm solid #999;border-radius:0.4mm}
   .print-sheet .p-fields .cel.y{width:13mm}

@@ -112,7 +112,7 @@ function Paper({
       <div className="p-head">
         <div className="p-main">
           <div className="p-title">{head.title}</div>
-          {/* 記入欄。日時は数字だけを書くマス（表記の揺れを作らない）、参加者は1行ぶんの長い下線 */}
+          {/* 記入欄は1項目1行（P9-b）: 日時は数字だけを書くマス（表記の揺れを作らない）、場所は行いっぱいの下線 */}
           <div className="p-fields">
             <div className="f f-date">
               <span className="lb">日時</span>
@@ -136,10 +136,6 @@ function Paper({
               <span className="lb">場所</span>
               <span className="wr" />
             </div>
-            <div className="f f-people">
-              <span className="lb">{head.people}</span>
-              <span className="wr" />
-            </div>
           </div>
         </div>
         {/* 押印欄: 上の行＝ラベル・下の行＝押印の正方形（会議は2列・面談は1列） */}
@@ -159,6 +155,13 @@ function Paper({
             </tr>
           </tbody>
         </table>
+        {/* 参加者／出席者は押印欄より下に来るので、押印欄の下まで横いっぱいに使う（重ならない） */}
+        <div className="p-fields p-people">
+          <div className="f f-people">
+            <span className="lb">{head.people}</span>
+            <span className="wr" />
+          </div>
+        </div>
       </div>
       {free ? (
         // 枠なし・罫線だけ。間隔は枠のときと同じ

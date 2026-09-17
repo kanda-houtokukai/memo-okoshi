@@ -124,23 +124,59 @@ export function saveVocab(list: VocabEntry[]): void {
 
 /* ---------- 辞書バックアップ（純関数部分。ブラウザ側の書き出し/読み込みは lib/backup.ts） ---------- */
 
+/** 記録の種類ごとの設定（項目の選択・用紙の並び・自由形式）。どれも任意 */
+export type TypeSettings = {
+  items?: { enabled: string[]; order: string[] };
+  /** 用紙での並び（P8-d・任意）。無いファイル（それ以前の書き出し）もそのまま読める */
+  sheetOrder?: string[];
+  /** 自由形式の用紙にしているか（P9-b・任意）。オンのときだけ書き出す */
+  sheetFree?: boolean;
+};
+
+/**
+ * 書き出しファイル。面談の設定はこれまでどおり**最上位**に置き（古いファイルと同じ形）、
+ * 会議の設定は `meeting` の中に同じ形で置く（P9-b・2026-09-17）。`version` は 1 のまま（足しただけ）。
+ */
 export type Backup = {
   app: "memo-okoshi";
   version: 1;
   exported: string;
   vocab: VocabEntry[];
-  items?: { enabled: string[]; order: string[] };
-  /** 面談用紙での並び（P8-d・任意）。無いファイル（それ以前の書き出し）もそのまま読める */
-  sheetOrder?: string[];
-};
+  meeting?: TypeSettings;
+} & TypeSettings;
 
-/** 純関数部分（テスト対象）: 既存の辞書へ追記し、項目設定があれば返す */
+/** 設定の部分を、その種類の項目 id で絞って取り出す（知らない id・型崩れは落とす） */
+function pickTypeSettings(src: unknown, validIds: string[]): TypeSettings {
+  if (!src || typeof src !== "object") return {};
+  const b = src as TypeSettings;
+  const items =
+    b.items && Array.isArray(b.items.enabled) && Array.isArray(b.items.order)
+      ? {
+          enabled: b.items.enabled.filter((id) => validIds.includes(id)),
+          order: b.items.order.filter((id) => validIds.includes(id)),
+        }
+      : undefined;
+  const sheetOrder = Array.isArray(b.sheetOrder)
+    ? b.sheetOrder.filter((id): id is string => typeof id === "string" && validIds.includes(id))
+    : undefined;
+  const sheetFree = typeof b.sheetFree === "boolean" ? b.sheetFree : undefined;
+  return { items, sheetOrder, sheetFree };
+}
+
+/**
+ * 純関数部分（テスト対象）: 既存の辞書へ追記し、項目設定があれば返す。
+ * [DECISION 2026-09-17] **会議の設定（項目の選択・並び・自由形式）も運ぶ**（P9-b・設計側の指示）。
+ *   P8-d で面談の並びを入れたのと同じ理由で、復旧用のファイルなのに面談だけ戻るのでは半分で終わる。
+ *   扱いは面談と同じ（置換）。会議の id は会議の項目で絞る。**会議の設定が無い古いファイルも読める**（会議には触れない）。
+ *   面談の自由形式も同じ理由で運ぶ（それまで入っていなかった）。
+ */
 export function mergeBackup(
   input: unknown,
   current: VocabEntry[],
-  validItemIds: string[]
+  validItemIds: string[],
+  validMeetingIds: string[] = []
 ):
-  | { ok: true; vocab: VocabEntry[]; added: number; skipped: number; items?: Backup["items"]; sheetOrder?: string[] }
+  | ({ ok: true; vocab: VocabEntry[]; added: number; skipped: number; meeting?: TypeSettings } & TypeSettings)
   | { ok: false } {
   if (!input || typeof input !== "object") return { ok: false };
   const b = input as Partial<Backup>;
@@ -157,15 +193,7 @@ export function mergeBackup(
   }
   // sanitize で落ちた分（人名・型崩れ）も除外として数える
   skipped += Array.isArray(b.vocab) ? b.vocab.length - sanitizeForPrompt(b.vocab).length : 0;
-  const items =
-    b.items && Array.isArray(b.items.enabled) && Array.isArray(b.items.order)
-      ? {
-          enabled: b.items.enabled.filter((id) => validItemIds.includes(id)),
-          order: b.items.order.filter((id) => validItemIds.includes(id)),
-        }
-      : undefined;
-  const sheetOrder = Array.isArray(b.sheetOrder)
-    ? b.sheetOrder.filter((id): id is string => typeof id === "string" && validItemIds.includes(id))
-    : undefined;
-  return { ok: true, vocab, added, skipped, items, sheetOrder };
+  const interview = pickTypeSettings(b, validItemIds);
+  const meeting = b.meeting && typeof b.meeting === "object" ? pickTypeSettings(b.meeting, validMeetingIds) : undefined;
+  return { ok: true, vocab, added, skipped, ...interview, meeting };
 }
