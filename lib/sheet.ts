@@ -26,10 +26,17 @@
 // [DECISION 2026-09-10] **選んだ項目が8個までは1枚、9個以上は2枚**（P7-g。書く余裕を優先する）。
 //   以前は罫線を減らして13項目でも1枚に押し込んでいたが、13項目で罫線4本まで痩せて書けなかった。
 //   **枠は途中で分割しない**（現行の方針を維持）。
+//   → **条件変更 2026-09-17（P9-e）: 1ページに入る項目は6つまで**（下）。
 // [DECISION 2026-09-10] 2枚になるとき、**1ページ目は偶数個にする**（P7-h）。
 //   用紙は2列組なので、奇数だと**最後の行が片側だけ埋まって1項目ぶんの空白**ができる。
 //   均等割り（`ceil(n/2)`）を**偶数へ切り上げ**、1ページの上限（8個）と「2ページ目を空にしない」で頭打ちにする。
 //   2ページ目が奇数になるのは許容する（最後のページで、横いっぱいの「その他」が下に来るので収まりが悪くない）。
+//   → P9-e で均等割りはやめた（前のページから6つずつ詰める）。「最後のページ以外は偶数」はそのまま成り立つ（6は偶数）。
+// [DECISION 2026-09-17] **1ページに入る項目は6つまで**（P9-e・設計側の指示）。前のページから6つずつ詰め、
+//   余りを最後のページに置く（7項目＝6＋1、8項目＝6＋2、13項目＝6＋6＋1）。3ページ以上も同じ規則。
+//   7〜8項目を1枚に入れると罫線が6本しかなく、書く余裕が足りなかった。6つまでなら1ページ目は10本（その他が無いページ）。
+//   「その他」は常に**最後のページの最後**。罫線6mm固定・入るだけ・最後に1つ余った枠を横いっぱい、は変えない。
+//   上限は2列組の行が埋まる偶数にする（最後のページ以外に片側だけの行を作らない）。会議は3項目なので影響しない。
 // [DECISION 2026-09-10] **「その他」の枠を常に最後に置く**（P7-g）。想定外の話が出たときの受け皿で、
 //   枠外に書き込まれて読み取りが乱れるのを防ぐ。**用紙だけの欄で、記録の項目ライブラリには足さない**
 //   （記録側には「こぼれ枠」という同じ役割の受け皿が既にある）。紙の「その他」に書かれた内容は、
@@ -75,8 +82,8 @@ export const SHEET = {
   cols: 2,
   /** 「その他」の枠の罫線の本数（他の枠より低くする） */
   otherLines: 3,
-  /** 選んだ項目がこの数までなら1枚（超えたら2枚） */
-  onePageMax: 8,
+  /** 1ページに入る項目の数の上限（P9-e で 8→6。**偶数**にする＝最後のページ以外は2列組の行が埋まる） */
+  perPageMax: 6,
   /**
    * 横いっぱいの大きな枠（`ItemDef.sheet === "wide"`）の行の高さの重み。ほかの行は 1（P9）。
    * [DECISION 2026-09-17] 2.5 → 2.3（P9-b）。記入欄を3行にしたとき、決定事項と右隣の枠の 8本を残すため。
@@ -194,29 +201,18 @@ export function freeSheetLines(): number {
 
 /**
  * 項目の数から割り付けを決める。
- * 枚数は **8個までなら1枚・9個以上は2枚**（`SHEET.onePageMax`）。項目は枚数で均等に割る。
- * 罫線は**どの枠も同じ本数**にしたいので、いちばん詰まるページに合わせて決める
- * （「その他」が載る最後のページは、その枠のぶん狭い）。
+ * **1ページに入る項目は `SHEET.perPageMax`（6）まで**。前のページから6つずつ詰め、余りを最後のページに置く（P9-e）。
+ * 「その他」は最後のページに載る（その枠のぶん狭い）。罫線はページごとに、その高さに入るだけ引く。
  */
 export function sheetLayout(n: number): SheetLayout {
   const count = Math.max(0, Math.floor(n));
   if (count === 0) return { pages: 1, perPage: [0], linesPerPage: [0], pitch: SHEET.line };
 
-  const pages = count <= SHEET.onePageMax ? 1 : 2;
-  let perPage: number[];
-  if (pages === 1) {
-    perPage = [count];
-  } else {
-    // 均等割りを偶数へ切り上げ（2列組なので偶数なら行が埋まる）→ 上限と「2ページ目を空にしない」で抑える
-    const half = Math.ceil(count / 2);
-    let first = half % 2 === 0 ? half : half + 1;
-    first = Math.min(first, SHEET.onePageMax, count - 1);
-    if (first % 2 !== 0) first -= 1; // 頭打ちで奇数になったら1つ戻す
-    perPage = [first, count - first];
-  }
+  const perPage: number[] = [];
+  for (let rest = count; rest > 0; rest -= SHEET.perPageMax) perPage.push(Math.min(SHEET.perPageMax, rest));
   // 罫線は**ページごとに**入るだけ引く（間隔は固定なので、枠が高いページほど行数が多くなる）
   const linesPerPage = perPage.map((c, i) => linesOn(c, i === perPage.length - 1));
-  return { pages, perPage, linesPerPage, pitch: SHEET.line };
+  return { pages: perPage.length, perPage, linesPerPage, pitch: SHEET.line };
 }
 
 /** 項目を1枚ぶんずつに切り分ける（`sheetLayout` が決めた各ページの数に従う） */
@@ -291,6 +287,8 @@ export function gridRowsStyle(rows: SheetRow[]): string | undefined {
  *
  * [DECISION 2026-09-12] **表示領域に収まる最大の倍率**にする。幅と高さの両方を見て、はみ出さない側で決める。
  *   固定値ではなく、表示領域の寸法から毎回計算する（画面の大きさ・向きが変われば倍率も変わる）。
+ * [DECISION 2026-09-17] **3枚以上も同じ考え**（P9-e で13項目が3枚になった）: 全部を横に並べても縦に重ねた場合と同じか
+ *   大きくできるなら横並び、そうでなければ縦に重ねる。
  * [DECISION 2026-09-12] **2枚のとき**: 2枚を横に並べても、縦に重ねた場合と同じか大きくできるなら**横並び**
  *   （2枚とも一度に見える）。そうでなければ**縦に重ね、2枚目の頭が少し覗く大きさ**にする（スクロールで見る）。
  *   2枚目のために1枚あたりを常に小さくすると、見出しや罫線が読めないという元の問題に戻るため。
@@ -306,7 +304,7 @@ export type PreviewFit = { k: number; side: boolean };
 
 /**
  * 表示領域（余白を除いた幅 w・高さ h・ページのあいだの隙間 gap）に収まる最大の倍率 k を返す。
- * side は2枚を横に並べるか。k は小数3桁で切り捨てる（丸めで1pxはみ出してスクロールが出ないように）。
+ * side は全ページを横に並べるか。k は小数3桁で切り捨てる（丸めで1pxはみ出してスクロールが出ないように）。
  */
 export function previewFit(w: number, h: number, pages: number, gap: number): PreviewFit {
   if (!(w > 0 && h > 0)) return { k: 1, side: false };
@@ -314,7 +312,7 @@ export function previewFit(w: number, h: number, pages: number, gap: number): Pr
   const down = (k: number) => Math.max(0.1, Math.floor(k * 1000) / 1000);
   const one = Math.min(w / PREVIEW.baseW, h / baseH);
   if (pages < 2) return { k: down(one), side: false };
-  const side = Math.min((w - gap) / (2 * PREVIEW.baseW), h / baseH);
+  const side = Math.min((w - gap * (pages - 1)) / (pages * PREVIEW.baseW), h / baseH);
   const stack = Math.min(w / PREVIEW.baseW, (h - gap - PREVIEW.peek) / baseH);
   return side >= stack ? { k: down(side), side: true } : { k: down(stack), side: false };
 }

@@ -60,6 +60,19 @@ test("2枚: 横に並べても縦に重ねるより大きくできるなら横�
   }
 });
 
+test("3枚（13項目）: 全部を横に並べても縦に重ねるより大きくできるときだけ横並び。横並びでもはみ出さない（P9-e）", () => {
+  for (const [w, h] of [[1400, 920], [2400, 900], [720, 780], [351, 600], [1000, 500]]) {
+    const f = previewFit(w, h, 3, GAP);
+    const side = Math.min((w - GAP * 2) / (3 * W), h / H);
+    const stack = Math.min(w / W, (h - GAP - PREVIEW.peek) / H);
+    assert.equal(f.side, side >= stack, `${w}×${h}`);
+    if (f.side) assert.ok(3 * W * f.k + 2 * GAP <= w && H * f.k <= h, `${w}×${h}: 横並びではみ出す`);
+    else assert.ok(W * f.k <= w, `${w}×${h}: 縦積みではみ出す`);
+  }
+  // 2枚の計算は以前と同じ（隙間1つ）
+  assert.deepEqual(previewFit(1400, 920, 2, GAP), { k: Math.floor(Math.min((1400 - GAP) / (2 * W), 920 / H) * 1000) / 1000, side: true });
+});
+
 test("CSS: 見本は印刷と同じ mm の値で描き、倍率 --k を基準の幅に掛ける。紙は A4 の縦横比（P8-e）", () => {
   const css = readFileSync("app/globals.css", "utf8");
   const screen = sheetCss(css);

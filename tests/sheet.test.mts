@@ -67,24 +67,29 @@ test("すでに保存されている選択は移行せず、そのまま尊重�
 
 /* ---------- 用紙の割り付け ---------- */
 
-test("用紙は8項目までが1枚・9項目以上は2枚（書く余裕を優先・P7-g）", () => {
-  for (let n = 1; n <= SHEET.onePageMax; n++) assert.equal(sheetLayout(n).pages, 1, `n=${n} は1枚`);
-  for (let n = SHEET.onePageMax + 1; n <= ITEM_LIBRARY.length; n++) {
-    assert.equal(sheetLayout(n).pages, 2, `n=${n} は2枚`);
-  }
-  // 2枚に分かれると枠が大きくなる＝罫線が増える（8項目→9項目でむしろ余裕が出る）
-  assert.ok(
-    sheetLayout(9).linesPerPage[0] > sheetLayout(8).linesPerPage[0],
-    `2枚に分けたのに余裕が増えていない: 8→${sheetLayout(8).linesPerPage} / 9→${sheetLayout(9).linesPerPage}`
-  );
+test("1ページに入る項目は6つまで。前のページから6つずつ詰め、余りは最後のページ（P9-e。以前は8項目までが1枚）", () => {
+  assert.equal(SHEET.perPageMax, 6);
+  assert.equal(SHEET.perPageMax % SHEET.cols, 0, "上限は偶数（最後のページ以外は2列組の行が埋まる）");
+  // 設計側が示した割り振り（1〜13項目すべて）
+  const want: Record<number, number[]> = {
+    1: [1], 2: [2], 3: [3], 4: [4], 5: [5], 6: [6],
+    7: [6, 1], 8: [6, 2], 9: [6, 3], 10: [6, 4], 11: [6, 5], 12: [6, 6], 13: [6, 6, 1],
+  };
   for (let n = 1; n <= ITEM_LIBRARY.length; n++) {
     const l = sheetLayout(n);
+    assert.deepEqual(l.perPage, want[n], `n=${n}`);
+    assert.equal(l.pages, want[n].length);
     assert.equal(l.perPage.reduce((a, b) => a + b, 0), n, `枠が落ちている n=${n}`);
-    assert.equal(l.perPage.length, l.pages);
     assert.equal(l.linesPerPage.length, l.pages);
     for (const lines of l.linesPerPage) assert.ok(lines >= SHEET.minLines, `罫線が下限を割った n=${n}`);
   }
-  assert.equal(sheetLayout(SHEET.onePageMax).pages, 1, "8項目＋その他でも1枚");
+  // 3ページ以上も同じ規則（今のライブラリは13項目までだが、規則として見張る）
+  assert.deepEqual(sheetLayout(19).perPage, [6, 6, 6, 1]);
+  assert.deepEqual(sheetLayout(18).perPage, [6, 6, 6]);
+  // 7〜8項目で罫線が増える（以前は1枚に詰めて 6本）: 1ページ目は6項目で「その他」が無いので 10本、2ページ目は 31本
+  assert.deepEqual(sheetLayout(7).linesPerPage, [10, 31]);
+  assert.deepEqual(sheetLayout(8).linesPerPage, [10, 31]);
+  assert.ok(Math.min(...sheetLayout(7).linesPerPage) > 6 && Math.min(...sheetLayout(8).linesPerPage) > 6);
 });
 
 test("罫線の間隔はどの項目数でも同じ（P8-b）", () => {
@@ -104,9 +109,11 @@ test("罫線の間隔はどの項目数でも同じ（P8-b）", () => {
       assert.ok(l.linesPerPage[i] * SHEET.line <= room + 0.001, `枠からはみ出している n=${n}`);
     });
   }
-  // 項目が少ないほど枠が高く、行数が増える（単調・逆転しない）
-  const oneP = [1, 2, 3, 4, 5, 6, 7, 8].map((n) => sheetLayout(n).linesPerPage[0]);
-  for (let i = 1; i < oneP.length; i++) assert.ok(oneP[i] <= oneP[i - 1], `行数が増えている: ${oneP}`);
+  // 同じページの種類（その他あり／なし）なら、載る項目が少ないほど枠が高く、行数が増える（単調・逆転しない）
+  for (const hasOther of [true, false]) {
+    const byCount = [1, 2, 3, 4, 5, 6].map((c) => linesIn(boxHeight(c, hasOther)));
+    for (let i = 1; i < byCount.length; i++) assert.ok(byCount[i] <= byCount[i - 1], `行数が増えている: ${byCount}`);
+  }
   // 2項目のときに余白が無駄にならない（以前は14本しか引かず行間が15mmまで開いていた）
   assert.ok(sheetLayout(2).linesPerPage[0] >= 30, `少ない項目で余白が余っている: ${sheetLayout(2).linesPerPage}`);
 });
@@ -118,8 +125,8 @@ test("最後の行に1つしか入らない枠は横いっぱいにする（P8-c
     l.perPage.forEach((c, i) => {
       assert.equal(wideLast(c), c % 2 === 1, `n=${n} ページ${i + 1}（${c}個）の判定が違う`);
     });
-    // 1ページ目は必ず偶数なので広げない（P7-h の割り振りとかみ合っていること）
-    if (l.pages === 2) assert.equal(wideLast(l.perPage[0]), false, `n=${n} の1ページ目が奇数`);
+    // 最後のページ以外は6項目（偶数）なので広げない。広げることがあるのは最後のページだけ（P9-e）
+    l.perPage.slice(0, -1).forEach((c, i) => assert.equal(wideLast(c), false, `n=${n} の${i + 1}ページ目が奇数`));
   }
   // 横に広げても行の高さは変わらない＝罫線の本数も間隔も変わらない
   for (const n of [1, 3, 5, 7]) {
@@ -180,9 +187,10 @@ test("枠ありの罫線は全項目数で枠に収まり、縁ぎりぎりに�
   // 2026-09-12 P8-g: 1〜2=33／3〜4=15／5〜6=9／7〜8=6／9〜10=11+15／11〜12=11+9／13=8+9
   // 2026-09-17 P9-b（記入欄を3行に・頭 32.8→42.4mm）: 下のとおり。基本6項目（既定）は 9本のまま
   const want: Record<number, number[]> = {
-    1: [31], 2: [31], 3: [14], 4: [14], 5: [9], 6: [9], 7: [6], 8: [6],
-    9: [10, 14], 10: [10, 14], 11: [10, 9], 12: [10, 9], 13: [7, 9],
+    1: [31], 2: [31], 3: [14], 4: [14], 5: [9], 6: [9], 7: [10, 31], 8: [10, 31],
+    9: [10, 14], 10: [10, 14], 11: [10, 9], 12: [10, 9], 13: [10, 10, 31],
   };
+  // 2026-09-17 P9-e（1ページ6項目まで）: 7〜8 は 6→10+31、13 は 7+9→10+10+31。ほかは P9-b のまま
   // 印刷で実測した枠の並びの高さ（「その他」のあるページ／ないページ）と、線の太さどおりの1本目の位置
   // （2026-09-17 P9-b に測り直した。2026-09-12 は 210.53 / 240.36）
   const MEASURED = { gridWithOther: 200.93, gridNoOther: 230.77, boxTop: 8.35 };
@@ -230,25 +238,24 @@ test("自由形式は記録側の項目選択に触れない（P8-b）", () => {
   );
 });
 
-test("2枚のとき1ページ目は偶数個・枠は途中で分割しない（P7-h）", () => {
-  // 2列組なので、1ページ目が奇数だと最後の行が片側だけ埋まって空白ができる
-  for (let n = SHEET.onePageMax + 1; n <= ITEM_LIBRARY.length; n++) {
+test("最後のページ以外は6項目で偶数・枠は途中で分割しない・「その他」は最後のページ（P7-h→P9-e）", () => {
+  for (let n = 1; n <= ITEM_LIBRARY.length; n++) {
     const l = sheetLayout(n);
-    assert.equal(l.pages, 2);
-    assert.equal(l.perPage[0] % SHEET.cols, 0, `1ページ目が奇数 n=${n} → ${l.perPage.join("+")}`);
-    assert.ok(l.perPage[0] <= SHEET.onePageMax, `1ページ目が上限を超えた n=${n}`);
-    assert.ok(l.perPage[1] >= 1, `2ページ目が空 n=${n}`);
-    assert.ok(l.perPage[1] <= SHEET.onePageMax, `2ページ目が上限を超えた n=${n}`);
-    assert.equal(l.perPage[0] + l.perPage[1], n, `枠が落ちている n=${n}`);
+    l.perPage.forEach((c, i) => {
+      assert.ok(c >= 1 && c <= SHEET.perPageMax, `n=${n} p${i + 1} が ${c}項目`);
+      if (i < l.perPage.length - 1) assert.equal(c, SHEET.perPageMax, `n=${n}: 最後のページ以外に空きがある`);
+    });
+    // 罫線の計算で「その他」のぶん狭くするのは最後のページだけ
+    l.perPage.forEach((c, i) => assert.equal(l.linesPerPage[i], linesIn(boxHeight(c, i === l.perPage.length - 1))));
   }
-  // 設計側が示した想定どおりの割り振り
-  assert.deepEqual(sheetLayout(9).perPage, [6, 3]);
-  assert.deepEqual(sheetLayout(11).perPage, [6, 5]);
-  // 切り分けは割り振りに従い、順番も変わらない
+  // 切り分けは割り振りに従い、順番も変わらない（3ページでも）
   const items = Array.from({ length: 13 }, (_, i) => i);
   const pages = paginate(items, sheetLayout(13).perPage);
   assert.deepEqual(pages.flat(), items, "どの枠も落ちず、順番も変わらない");
-  assert.deepEqual(pages.map((p) => p.length), sheetLayout(13).perPage);
+  assert.deepEqual(pages.map((p) => p.length), [6, 6, 1]);
+  // 画面: 「その他」は最後のページだけに描く
+  const src = readFileSync("app/components/SheetMaker.tsx", "utf8");
+  assert.ok(src.includes("other={!free && i === pages.length - 1}"));
   // 0項目でも落ちない
   assert.deepEqual(paginate([], [0]), [[]]);
 });

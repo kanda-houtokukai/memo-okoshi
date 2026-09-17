@@ -424,10 +424,10 @@ test("記入欄は1項目1行（日時／場所／参加者・出席者）＋会
 
 test("面談の用紙の本数（P9-b の変更後）: 既定の基本6項目は 9本のまま。減るのは 1〜4項目・2枚・自由形式で各1本", () => {
   assert.deepEqual(sheetLayout(6).linesPerPage, [9]);
-  assert.deepEqual(sheetLayout(8).linesPerPage, [6]);
+  assert.deepEqual(sheetLayout(8).linesPerPage, [10, 31]); // P9-e で 1ページ6項目まで（P9-b では [6]）
   assert.deepEqual([1, 2, 3, 4].map((n) => sheetLayout(n).linesPerPage[0]), [31, 31, 14, 14]);
   assert.deepEqual(sheetLayout(9).linesPerPage, [10, 14]);
-  assert.deepEqual(sheetLayout(13).linesPerPage, [7, 9]);
+  assert.deepEqual(sheetLayout(13).linesPerPage, [10, 10, 31]); // P9-e（P9-b では [7, 9]）
   assert.equal(Math.floor(freeAreaH() / SHEET.line), 38);
 });
 
@@ -700,7 +700,14 @@ test("会議の用紙の配分（P9-d）: 決定事項・今後の対応は 8→
   const used = PRINT.head + rows.reduce((a, r) => a + PRINT.boxTop + r.lines * SHEET.line + PRINT.boxBottom, 0) + SHEET.gap +
     (PRINT.boxTop + SHEET.otherLines * SHEET.line + PRINT.boxBottom + SHEET.gap) + PRINT.foot;
   assert.ok(used <= SHEET.pageH - SHEET.margin * 2, `A4 を越える（${used.toFixed(1)}mm）`);
-  // 面談は wide の項目が無いので重みの影響を受けない（本数は P9-b のまま）
-  assert.deepEqual([1, 3, 5, 7, 9, 13].map((n) => sheetLayout(n).linesPerPage.join("+")), ["31", "14", "9", "6", "10+14", "7+9"]);
+  // 面談は wide の項目が無いので重みの影響を受けない（本数は P9-e の1ページ6項目までの割り付けどおり）
+  assert.deepEqual([1, 3, 5, 7, 9, 13].map((n) => sheetLayout(n).linesPerPage.join("+")), ["31", "14", "9", "10+31", "10+14", "10+10+31"]);
   assert.ok(ITEM_LIBRARY.every((l) => l.sheet === undefined));
+});
+
+test("会議の用紙は1ページ6項目までの改ページの影響を受けない（3項目で1枚・内容23/決定事項と今後の対応6のまま・P9-e）", () => {
+  const n = SHEET_MT.length;
+  assert.equal(n, 3);
+  assert.deepEqual(sheetLayout(n).perPage, [3]);
+  assert.deepEqual(sheetRows(SHEET_MT, true).map((r) => r.lines), [23, 6]);
 });
