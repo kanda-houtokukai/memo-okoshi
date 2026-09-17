@@ -16,7 +16,8 @@ export default function manifest(): MetadataRoute.Manifest {
   return {
     name: "メモおこし",
     short_name: "メモおこし",
-    description: "手書きの面談メモを記録の下書きに変換します",
+    // [DECISION 2026-09-18] 面談だけを指す文だったので会議も含める（P10。app/layout.tsx と同じ文にする）
+    description: "手書きの面談メモや会議メモを記録の下書きに変換します",
     lang: "ja",
     start_url: "/",
     scope: "/",

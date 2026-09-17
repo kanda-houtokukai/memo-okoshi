@@ -4,7 +4,8 @@ import "./globals.css";
 
 export const metadata: Metadata = {
   title: "メモおこし",
-  description: "手書きの面談メモを記録の下書きに変換します",
+  // [DECISION 2026-09-18] 面談だけを指す文だったので会議も含める（P10。app/manifest.ts と同じ文にする）
+  description: "手書きの面談メモや会議メモを記録の下書きに変換します",
   // 試験開発中は検索に載せない（app/robots.ts と対）
   robots: { index: false, follow: false },
   // [DECISION 2026-09-09] アイコンは docs/assets/memo-okoshi-icon-src.png（設計側が生成した原本）を
