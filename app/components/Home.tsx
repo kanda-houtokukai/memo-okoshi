@@ -20,8 +20,14 @@
 // [DECISION 2026-09-17] **入口を面談と会議に分ける**（P9・kaigi-mock-v1）。カードは4枚
 //   （面談メモをおこす／会議メモをおこす／用紙を印刷／使い方）。用紙のカードは1枚のままで、
 //   面談と会議の切り替えは用紙の画面の上部に置く。760px 以下は2列、620px 以下は横長の一列。
+// [DECISION 2026-09-23・設計側] **一番下に小さな文字のリンク「利用上の注意」**（P14）。常に出すのはリンクの文字だけで、
+//   本文（Gemini の無料枠の扱い）は押したときだけ開く（`NoticeDialog`・文面は `lib/notice-copy.ts`）。初回の自動表示はしない。
+//   色は --sub で、カードより目立たせない（原則4）。
 
+import { useCallback, useRef, useState } from "react";
 import type { RecordType } from "@/lib/items";
+import { NOTICE } from "@/lib/notice-copy";
+import NoticeDialog from "./NoticeDialog";
 import StepHeader from "./StepHeader";
 import VocabButton from "./VocabButton";
 
@@ -33,6 +39,13 @@ type Props = {
 };
 
 export default function Home({ onMemo, onSheet, toast }: Props) {
+  const [notice, setNotice] = useState(false);
+  const linkRef = useRef<HTMLButtonElement>(null);
+  /** 閉じたら焦点をリンクへ戻す（キーボードで開いた人が迷わないように） */
+  const closeNotice = useCallback(() => {
+    setNotice(false);
+    linkRef.current?.focus();
+  }, []);
   return (
     <div className="home-root">
       <StepHeader right={<VocabButton toast={toast} />} about={false} />
@@ -136,8 +149,12 @@ export default function Home({ onMemo, onSheet, toast }: Props) {
               <div className="ttl">使い方</div>
             </a>
           </div>
+          <button ref={linkRef} className="home-notice" onClick={() => setNotice(true)}>
+            {NOTICE.link}
+          </button>
         </div>
       </div>
+      <NoticeDialog open={notice} onClose={closeNotice} />
     </div>
   );
 }

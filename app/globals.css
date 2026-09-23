@@ -189,12 +189,14 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 /* ---------- 項目カスタマイズ drawer ---------- */
 .drawer-ovl{position:fixed;inset:0;background:rgba(43,42,37,.35);z-index:70;display:none}
 .drawer-ovl.on{display:block}
+/* [DECISION 2026-09-23] **閉じているあいだは影を出さない**（P14）。画面の外（right:-420px）に控えていても、影（-8px・ぼかし28px）が
+   画面の右端に約15px 漏れていた。影は開いたときだけ付け、開閉の動きに合わせて出し入れする */
 .drawer{
   position:fixed;top:0;right:-420px;width:min(400px,94vw);height:100%;background:var(--surface);
-  z-index:75;box-shadow:-8px 0 28px rgba(43,42,37,.15);transition:right .3s ease;
+  z-index:75;box-shadow:none;transition:right .3s ease,box-shadow .3s ease;
   display:flex;flex-direction:column;
 }
-.drawer.on{right:0}
+.drawer.on{right:0;box-shadow:-8px 0 28px rgba(43,42,37,.15)}
 .dr-h{padding:16px 20px 12px;border-bottom:1px solid var(--line)}
 .dr-h h2{font-family:var(--head);font-size:.95rem;letter-spacing:.08em}
 .dr-h p{font-size:.72rem;color:var(--sub);margin-top:4px;line-height:1.6}
@@ -1075,6 +1077,14 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .home-in{position:relative;z-index:2;max-width:880px;margin:0 auto}
 .hero{font-family:var(--head);font-size:1.6rem;letter-spacing:.12em;text-align:center}
 /* 何をする道具かを一言。題より小さく控えめに（カードには説明文を置かない） */
+/* 利用上の注意（P14）: ホームの一番下に小さな文字のリンクだけ。カードより目立たせない（--sub・小さく・下線は薄く） */
+.home-notice{display:block;margin:30px auto 0;padding:6px 10px;border:none;background:none;font-family:inherit;font-size:.76rem;
+  color:var(--sub);letter-spacing:.04em;text-decoration:underline;text-decoration-color:rgba(123,118,108,.45);text-underline-offset:3px;cursor:pointer}
+.home-notice:hover{color:var(--ink)}
+/* 本文は確認ダイアログと同じ作法（.dlg）。画面が低いときは中だけを送る */
+.dlg.notice{max-height:calc(100dvh - 40px);overflow:auto}
+.dlg.notice p{margin-bottom:12px}
+.dlg.notice .dlg-btns{margin-top:18px}
 .hero-sub{margin-top:7px;margin-bottom:34px;text-align:center;font-size:.84rem;color:var(--sub);letter-spacing:.04em}
 /* [DECISION 2026-09-17] カードは4枚（面談／会議／用紙／使い方・P9）。760px 以下は2列、620px 以下は横長の一列 */
 .cards{display:grid;grid-template-columns:repeat(4,1fr);gap:14px}

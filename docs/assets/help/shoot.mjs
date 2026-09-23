@@ -12,6 +12,8 @@
 // [DECISION 2026-09-23] 撮り方をそろえる（P13）: 表示は 1345×775・倍率1（他の写真と大きさと鮮明さを合わせる）、
 //   新しいプロファイル（保存済みの設定が無い既定の状態）、字の読み込みと動きが終わるのを待ち、ホバーとフォーカスを外して撮る。
 //   撮り終えたら（失敗しても）Chrome を閉じ、閉じなければ止め、プロファイルを消す。
+// [DECISION 2026-09-23] **写真ごとに新しいタブで撮る**（P14）。同じタブで続けて撮ると、前の写真の描画が残って
+//   角の丸みの縁取りが明るさ ±2 だけ揺れた（01 のあとの 02 だけ md5 が変わった）。タブを分ければ撮る順番に左右されない。
 
 import { spawn } from "node:child_process";
 import { copyFileSync, existsSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from "node:fs";
@@ -169,11 +171,10 @@ async function settle() {
   await sleep(300);
 }
 
-let failed = false;
-try {
-  if (!port) throw new Error("Chrome が立ち上がらない");
-  const list = await (await fetch(`http://127.0.0.1:${port}/json/list`)).json();
-  ws = new WebSocket(list.find((t) => t.type === "page").webSocketDebuggerUrl);
+/** 新しいタブを開いてつなぐ（写真ごとに1つ。前の写真の状態を持ち越さない） */
+async function newTab() {
+  const t = await (await fetch(`http://127.0.0.1:${port}/json/new?about:blank`, { method: "PUT" })).json();
+  ws = new WebSocket(t.webSocketDebuggerUrl);
   await new Promise((r, j) => { ws.onopen = r; ws.onerror = j; });
   ws.onmessage = (ev) => {
     const m = JSON.parse(ev.data);
@@ -185,11 +186,20 @@ try {
   await send("Page.enable");
   await send("Runtime.enable");
   await send("Emulation.setDeviceMetricsOverride", { ...VIEW, deviceScaleFactor: 1, mobile: false });
-  // スクロールバーを写さない（縦に長い画面を撮るときのため）。
-  // ※ 右端の約15px が少し暗いのは、画面の外に控えている辞書のドロワーの影で、画面そのものの見え方（2026-09-11 の写真にもある）
+  // スクロールバーを写さない（縦に長い画面を撮るときのため）
   await send("Emulation.setScrollbarsHidden", { hidden: true });
+  return t.id;
+}
+async function closeTab(id) {
+  try { ws.close(); } catch {}
+  await fetch(`http://127.0.0.1:${port}/json/close/${id}`).catch(() => {});
+}
 
+let failed = false;
+try {
+  if (!port) throw new Error("Chrome が立ち上がらない");
   for (const name of targets) {
+    const tab = await newTab();
     await SHOTS[name](p);
     await settle();
     const shot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
@@ -202,6 +212,7 @@ try {
     writeFileSync(origin, png);
     copyFileSync(origin, served); // 配信は原本と同じ中身（無加工）
     console.log(`${name}  ${w}×${h}  原本 ${md5(origin)}  配信 ${md5(served)}`);
+    await closeTab(tab);
   }
 } catch (e) {
   failed = true;
