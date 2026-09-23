@@ -8,7 +8,7 @@
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
-import { readFileSync } from "node:fs";
+import { existsSync, readFileSync } from "node:fs";
 import { ITEM_LIBRARY } from "../lib/items.ts";
 import {
   acceptSpill,
@@ -237,18 +237,22 @@ test("こぼれ: 存在しない項目へは移さない（状態を壊さない
 
 /* ============ API応答からの取り込み（実データ形状の担保） ============ */
 
-test("不変条件: 人名の対応表（誰がどの記号か）はサーバーへ送らない", () => {
-  // 置き換え記号は画面の中だけで決める。送信を組み立てる場所と変換APIは対応表を知らない。
-  const page = readFileSync("app/page.tsx", "utf8");
-  const api = readFileSync("app/api/convert/route.ts", "utf8");
-  const prompt = readFileSync("lib/prompt.ts", "utf8");
-  for (const [name, src] of [["app/page.tsx", page], ["app/api/convert/route.ts", api], ["lib/prompt.ts", prompt]]) {
-    assert.ok(!/alias/i.test(src), `${name} が人名の対応表に触れている`);
-  }
-  const alias = readFileSync("lib/alias.ts", "utf8");
+test("不変条件: 赤の確認の状態は保存しない・送らない（原則5・P15）", () => {
+  // 確認した（resolved）は画面の中の状態だけ。記録の状態のロジックは保存も通信もしない
+  const record = readFileSync("lib/record.ts", "utf8");
   for (const sink of ["fetch(", "localStorage", "sessionStorage", "document.cookie"]) {
-    assert.ok(!alias.includes(sink), `lib/alias.ts に ${sink} があってはいけない（保存も通信もしない）`);
+    assert.ok(!record.includes(sink), `lib/record.ts に ${sink} があってはいけない`);
   }
+  // 確認画面が端末に書くのは項目の選び方と並びだけ（記録の中身・確認の状態は書かない）
+  const rv = readFileSync("app/components/Review.tsx", "utf8");
+  const writes = [...rv.matchAll(/localStorage\.setItem\(([\s\S]*?)\);/g)].map((m) => m[1].replace(/\s+/g, " ").trim());
+  assert.deepEqual(writes, ["keyFor(SETTINGS_KEY, type), JSON.stringify({ enabled: activeIds(rec), order: rec.order })"]);
+  // 送信を組み立てる場所と変換APIは、確認の状態を知らない
+  for (const f of ["app/page.tsx", "app/api/convert/route.ts", "lib/prompt.ts"]) {
+    assert.ok(!/resolved/.test(readFileSync(f, "utf8")), `${f} が確認の状態に触れている`);
+  }
+  // 記号の対応表（P6-g）は外した（P15）
+  assert.ok(!existsSync("lib/alias.ts"));
 });
 
 test("fromApi: 実際のAPI応答（開発用フィクスチャ）を取り込める", () => {

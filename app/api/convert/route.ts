@@ -4,7 +4,6 @@ import { buildPrompt } from "@/lib/prompt";
 import { FAIL_TEXT, generateWithFallback, ImagePart } from "@/lib/gemini";
 import { sanitizeForPrompt } from "@/lib/vocab";
 import { enforceNames } from "@/lib/names";
-import { withoutRed } from "@/lib/record";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -104,9 +103,9 @@ export async function POST(req: NextRequest) {
 
     const parsed = parseModelJson(result.text);
     // 原則3の保険: AIが人名を p/y/b に紛れ込ませても、敬称付き氏名は機械的に r へ切り出す。
-    // [DECISION 2026-09-17] **面談だけ**。会議では人名の検知を働かせず（lib/names.ts を通さない）、
-    //   AIが "r" を返しても "p" に落とす（`withoutRed`）。原則3は面談にのみ適用する（P9・設計側の決定）。
-    const data = parsed ? (type === "meeting" ? withoutRed(parsed) : enforceNames(parsed)) : null;
+    // [DECISION 2026-09-23・設計側] **面談・会議とも**通す（P15。原則3を「赤＝伏せ忘れの知らせ」に改め、会議も名前を塗って送る）。
+    //   P9 の「会議では人名の検知を働かせず r を p に落とす（withoutRed）」は改めた。
+    const data = parsed ? enforceNames(parsed) : null;
     if (data) data.record_type = type;
     if (!data) {
       return NextResponse.json(

@@ -1,4 +1,4 @@
-// 人名検知の保険（lib/names.ts）のテスト — 原則3「赤マーカーは強制」の二重防御
+// 人名検知の保険（lib/names.ts）のテスト — 原則3「赤は伏せ忘れの知らせ」の二重防御（P15 で改めた。面談・会議とも）
 
 import { test } from "node:test";
 import assert from "node:assert/strict";

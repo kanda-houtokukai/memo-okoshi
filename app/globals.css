@@ -57,7 +57,7 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
    「要/確/認」「読/取」「辞/書」「完/成」と1文字ずつ折り返し、それでも完成が画面の端から 4px 出ていた。
    入りきらないときは縮めずに**次の行へ送る**。札と完成は .done-group の中なので、送られても離れない。
    [DECISION 2026-09-13] 狭い画面（≤620px）の確認画面は、1行目＝ブランド・使い方・辞書、2行目＝札と完成（右端）。
-   完成は常に見えて押せることを最優先にする（P6-k の「次へ」と同じ考え）。長い「完成（人名の対応が必要）」が
+   完成は常に見えて押せることを最優先にする（P6-k の「次へ」と同じ考え）。長い「完成（赤の確認が必要）」（P15 で「完成（人名の対応が必要）」から改めた）が
    札の横に入らないときは、まとまりの中で札の下へ回る（右端に揃える）。 */
 .done-group{display:flex;align-items:center;gap:12px}
 .done-group > *,.chips > *{flex:0 0 auto;white-space:nowrap}
@@ -153,6 +153,9 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 }
 .mini:hover{border-color:var(--accent);color:var(--accent)}
 .mini.copied{border-color:var(--ok);color:var(--ok);background:var(--ok-bg)}
+/* [DECISION 2026-09-23] 確認していない赤が残る項目の ✎ は押せない（P15）。押せないことが形で分かるよう薄くする */
+.mini:disabled{opacity:.35;cursor:not-allowed}
+.mini:disabled:hover{border-color:var(--line);color:var(--sub)}
 .sec-body{font-size:.95rem;min-height:1.5em;overflow-wrap:anywhere;padding-top:2px;white-space:pre-line}
 .sec-body.empty{color:#b6b0a4;font-size:.85rem}
 .sec-body textarea{width:100%;min-height:5.5em;font:inherit;font-size:.95rem;border:1.5px solid var(--accent);border-radius:8px;padding:9px;resize:vertical;background:var(--faint)}

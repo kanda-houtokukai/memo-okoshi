@@ -11,6 +11,10 @@
 //   (2) 黄マーカーからの学習導線は赤（人名検知）には出さない、(3) プロンプトで「人名は含まれていない
 //   語彙」と明示しモデルが人名を補完しない。ドロワーの脚注にも「人名は入れない」。
 //   ※ 敬称なしの姓名は機械では見分けられない。運用（AI委員会の申し合わせ）で補う前提。
+// [DECISION 2026-09-23] **「辞書に追加」では、その記録で赤になった語を入れない**（P15）。黄の語を確定するときに敬称の無い本名が
+//   辞書に入り、次の変換からプロンプトに載る経路があった。AI（と機械検出）が人名かもしれないと判じた語は、その記録の中に
+//   答えがあるので、それと同じ語・その語の姓や名だけの形を弾く（`nameBlockedBy`）。弾いたときの文言は既存の「人名らしき語は
+//   辞書に入れません」を使い、説明文は足さない。辞書の画面で手で登録する経路は従来どおり（敬称の検査だけ）。
 
 export type VocabEntry = { term: string; gloss?: string };
 
@@ -23,6 +27,20 @@ const NAME_SUFFIX = /(さん|様|さま|くん|君|ちゃん|氏)$/;
 
 export function normalize(s: string): string {
   return s.replace(/\s+/g, " ").trim();
+}
+
+/** 赤の語から、比べるための形（敬称と空白を外した全体・姓・名）を作る。1文字の形は比べない（誤って弾きすぎる） */
+function nameForms(red: string): string[] {
+  const parts = normalize(red).replace(NAME_SUFFIX, "").split(" ").filter(Boolean);
+  const whole = parts.join("");
+  return [...new Set([whole, ...parts])].filter((f) => f.length >= 2);
+}
+
+/** 語が、この記録で赤になった語（人名かもしれない語）と同じか、それを含むなら true（P15） */
+export function nameBlockedBy(term: string, redWords: readonly string[]): boolean {
+  const t = normalize(term).replace(/ /g, "");
+  if (!t) return false;
+  return redWords.some((r) => nameForms(r).some((f) => t === f || t.includes(f)));
 }
 
 /** 敬称で終わる語は人名とみなす（単純だが取りこぼしより誤検知を許容） */
@@ -59,9 +77,10 @@ function validate(list: VocabEntry[], e: VocabEntry, skipIndex: number): Reason 
   return null;
 }
 
-export function addEntry(list: VocabEntry[], entry: VocabEntry): EditResult {
+/** 登録する。redWords を渡したとき（黄の「辞書に追加」）は、その記録で赤になった語も人名として弾く（P15） */
+export function addEntry(list: VocabEntry[], entry: VocabEntry, redWords: readonly string[] = []): EditResult {
   const e = clean(entry);
-  const reason = validate(list, e, -1);
+  const reason = e.term && nameBlockedBy(e.term, redWords) ? "name" : validate(list, e, -1);
   if (reason) return { list, ok: false, reason };
   return { list: [...list, e], ok: true };
 }

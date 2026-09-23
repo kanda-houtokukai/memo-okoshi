@@ -2,8 +2,9 @@
 
 // マーカーのポップオーバー。中身・文言・並びは正本（モックv6の openPop）どおり。
 // 一般化した点:
-//  - 赤の候補は「アルファベット＋元の敬称」を既定にする（2026-09-09）。記号は Review が持つ対応表で決まり、
-//    同じ名前には同じ記号が返る。モックの「イニシャル（先頭1文字）」は元の名前が透けるためやめた。
+//  - [DECISION 2026-09-23・設計側] 赤は**伏せ忘れの知らせ**（原則3を改めた・P15）。選択肢は「確認した」（主・語はそのまま残す）と
+//    「書き換える」の2つ。記号（A君）・「担当」への置き換えはやめた（記録には本名が要り、置き換えてもAIへの保護にならない）。
+//    押したときの一文だけで、塗り忘れていればその語はAIに届いていることを伝える（常時表示の説明は足さない）。
 //  - picker モード: こぼれの移動先を選ぶ一覧。モックにない導線だが、部品は作らず .pop を流用する
 //  - 黄（読取に自信なし）に「辞書に追加」のチェック: 確定した語を組織語彙へ入れる学習導線。
 //    赤（人名）には出さない（人名を辞書に入れさせない配慮）。
@@ -22,8 +23,6 @@ type Props =
       mode?: "token";
       token: Token;
       pos: Pos;
-      /** 赤のときの置き換え記号（例: A君）。Review が対応表から作って渡す */
-      alias?: string;
       onResolve: (val: string | null, learn?: boolean) => void;
       onClose: () => void;
     }
@@ -56,7 +55,7 @@ export default function Popover(props: Props) {
     );
   }
 
-  const { token, pos, alias, onResolve, onClose } = props;
+  const { token, pos, onResolve, onClose } = props;
   const submit = () => {
     const v = val.trim();
     if (!v) return;
@@ -108,19 +107,12 @@ export default function Popover(props: Props) {
 
       {token.t === "r" && (
         <>
-          <div className="pt r">人名を検知 — 置き換えが必要</div>
-          {alias && (
-            <button className="pri" onClick={() => onResolve(alias)}>
-              「{alias}」に置き換える
-            </button>
-          )}
-          <button onClick={() => onResolve("担当")}>「担当」に置き換える</button>
-          <input
-            placeholder="自分で入力して置き換える"
-            value={val}
-            onChange={(e) => setVal(e.target.value)}
-          />
-          <button onClick={submit}>この内容で置き換え</button>
+          <div className="pt r">人名かもしれない語です。塗り忘れていれば、この語はAIに届いています。</div>
+          <button className="pri" onClick={() => onResolve(null)}>
+            確認した
+          </button>
+          <input placeholder="書き換える" value={val} onChange={(e) => setVal(e.target.value)} />
+          <button onClick={submit}>書き換える</button>
         </>
       )}
     </div>

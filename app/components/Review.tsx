@@ -17,7 +17,7 @@ import {
   outputWarnings,
   pendingReconvertIds,
   recordEntries,
-  resolveRedWhere,
+  redTerms,
   resolveToken,
   saveEdit,
   sectionCopyText,
@@ -27,7 +27,6 @@ import {
 } from "@/lib/record";
 import SectionCard from "./SectionCard";
 import Popover from "./Popover";
-import { aliasFor, nameKey, seedAliases, type AliasMap } from "@/lib/alias";
 import Drawer from "./Drawer";
 import OutputOverlay from "./OutputOverlay";
 import MemoPane, { type MemoPage } from "./MemoPane";
@@ -38,8 +37,6 @@ import { keyFor, SETTINGS_KEY } from "@/lib/settings";
 import type { ApiData } from "@/lib/record";
 import Dialog, { type DialogSpec } from "./Dialog";
 import { exportDocx, printRecord } from "@/lib/export";
-
-
 
 function copyText(txt: string, ok: () => void) {
   const fb = () => {
@@ -71,15 +68,10 @@ type Props = {
 
 export default function Review({ initial, pages, onRestart, onStep, onHome, onReconvert }: Props) {
   const [rec, setRec] = useState<RecordState>(initial);
-  /** 記録の種類（P9）。項目ライブラリ・保存の鍵・出力の題がこれで決まる。会議は赤（人名）を持たない */
+  /** 記録の種類（P9）。項目ライブラリ・保存の鍵・出力の題がこれで決まる。赤（伏せ忘れの知らせ）は面談・会議とも働く（P15） */
   const type = rec.type ?? "interview";
   const lib = libraryFor(type);
   const itemById = (id: string) => itemByIdIn(id, lib);
-  /** 人名 → 記号（A,B,C…）の対応表。**この画面の中だけ**に持つ（サーバーへ送らない・保存しない）。
-      1件の記録のあいだ有効で、次の変換では空から始まる（Review は変換ごとに作り直される）。 */
-  const [aliases, setAliases] = useState<AliasMap>(() =>
-    seedAliases(initial.order.flatMap((sid) => (initial.tokens[sid] ?? []).filter((tk) => tk.t === "r").map((tk) => tk.s)))
-  );
   const [editing, setEditing] = useState<string | null>(null);
   const [pop, setPop] = useState<{ sid: string; ti: number; left: number; top: number } | null>(null);
   const [picker, setPicker] = useState<{ index: number; left: number; top: number } | null>(null);
@@ -168,40 +160,19 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
 
   const onTokenClick = (sid: string, ti: number, el: HTMLElement) => {
     setPicker(null);
-    // 赤を開いた時点で記号を確定させる（同じ名前なら常に同じ記号が返る）
-    const tk = rec.tokens[sid]?.[ti];
-    if (tk?.t === "r" && !tk.resolved) {
-      const a = aliasFor(aliases, tk.s);
-      if (a.map !== aliases) setAliases(a.map);
-    }
     setPop({ sid, ti, ...popPos(el) });
   };
 
   const doResolve = (val: string | null, learn?: boolean) => {
     if (!pop) return;
     const tk = rec.tokens[pop.sid]?.[pop.ti];
-    // 赤で「アルファベットの候補」を選んだときは、同じ名前の赤をまとめて置き換える
-    // （同じ名前には同じ記号を割り当てる決まりなので、1つずつ直しても結果は同じになる）
-    const bulk = tk?.t === "r" && val !== null && val === aliasFor(aliases, tk.s).alias;
-    let moved = 1;
-    if (bulk && tk) {
-      const key = nameKey(tk.s);
-      setRec((s) => {
-        const r = resolveRedWhere(
-          s,
-          (x) => nameKey(x.s) === key,
-          (x) => aliasFor(aliases, x.s).alias
-        );
-        moved = r.count;
-        return r.state;
-      });
-    } else {
-      setRec((s) => resolveToken(s, pop.sid, pop.ti, val));
-    }
+    // 赤は「確認した」（val=null・語はそのまま）か「書き換える」で1件ずつ外れる（P15）。まとめて外す道は作らない
+    setRec((s) => resolveToken(s, pop.sid, pop.ti, val));
     setPop(null);
-    // 黄マーカーからの学習: 確定した語を組織語彙へ（赤には出ない導線）
+    // 黄マーカーからの学習: 確定した語を組織語彙へ（赤には出ない導線）。
+    // [DECISION 2026-09-23] この記録で赤になった語（人名かもしれない語）は入れない（P15・`redTerms`／`nameBlockedBy`）
     if (learn && tk?.t === "y") {
-      const r = addEntry(loadVocab(), { term: val ?? tk.s });
+      const r = addEntry(loadVocab(), { term: val ?? tk.s }, redTerms(rec, initial));
       if (r.ok) {
         saveVocab(r.list);
         window.dispatchEvent(new Event(VOCAB_CHANGED));
@@ -211,13 +182,13 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
       toast(r.reason === "dup" ? "確定しました（辞書にあります）" : REASON_TEXT[r.reason!]);
       return;
     }
-    toast(tk?.t === "r" ? `人名を置き換えました${bulk && moved > 1 ? `（${moved}か所）` : ""}` : "確定しました");
+    toast(tk?.t === "r" ? (val === null ? "確認しました" : "書き換えました") : "確定しました");
   };
 
   const onCopySection = (id: string) => {
     const text = sectionCopyText(rec, id);
     if (text === null) {
-      toast("人名（赤）を置き換えるとコピーできます");
+      toast("赤を確認するとコピーできます");
       return;
     }
     const warn = sectionHasWarn(rec.tokens[id] ?? []);
@@ -230,7 +201,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
 
   const onDone = () => {
     if (c.r > 0) {
-      toast("人名（赤）を置き換えると完成できます");
+      toast("赤を確認すると完成できます");
       const sp = document.querySelector(".mk.r") as HTMLElement | null;
       if (sp) {
         sp.scrollIntoView({ behavior: "smooth", block: "center" });
@@ -361,15 +332,13 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
                 <span className={"chip b" + (c.b === 0 ? " zero" : "") + (pulse.b ? " pulse" : "")}>
                   推定 <b>{c.b}</b>
                 </span>
-                {/* 会議は赤（人名）を持たないので札も出さない（原則3は面談にのみ適用・P9） */}
-                {type !== "meeting" && (
-                  <span className={"chip r" + (c.r === 0 ? " zero" : "") + (pulse.r ? " pulse" : "")}>
-                    人名 <b>{c.r}</b>
-                  </span>
-                )}
+                {/* 赤は面談・会議とも働く（P15。P9 の「会議は赤を持たない」は改めた） */}
+                <span className={"chip r" + (c.r === 0 ? " zero" : "") + (pulse.r ? " pulse" : "")}>
+                  人名 <b>{c.r}</b>
+                </span>
               </div>
               <button className={"done-btn" + (doneReady ? " ready" : "")} onClick={onDone}>
-                {c.r > 0 ? "完成（人名の対応が必要）" : c.y + c.b > 0 ? "完成" : "完成 ✓"}
+                {c.r > 0 ? "完成（赤の確認が必要）" : c.y + c.b > 0 ? "完成" : "完成 ✓"}
               </button>
             </div>
           </>
@@ -395,7 +364,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
             <h2>記録（下書き）</h2>
             <span
               className="info"
-              data-tip={type === "meeting" ? "黄=読取に自信なし ／ 青=AIの推定" : "黄=読取に自信なし ／ 青=AIの推定 ／ 赤=人名・対応必須"}
+              data-tip="黄=読取に自信なし ／ 青=AIの推定 ／ 赤=人名・対応必須"
               tabIndex={0}
             >
               ?
@@ -554,11 +523,6 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
         <Popover
           token={rec.tokens[pop.sid][pop.ti]}
           pos={{ left: pop.left, top: pop.top }}
-          alias={
-            rec.tokens[pop.sid][pop.ti].t === "r"
-              ? aliasFor(aliases, rec.tokens[pop.sid][pop.ti].s).alias
-              : undefined
-          }
           onResolve={doResolve}
           onClose={() => setPop(null)}
         />

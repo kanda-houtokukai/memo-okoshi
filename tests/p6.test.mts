@@ -380,7 +380,7 @@ test("黄: 候補の一覧に、いま表示されている語を重ねて出さ
   assert.deepEqual(candidatesFor({ t: "y", s: "作業所" }), []);
 });
 
-test("黄と青は同じ骨格を持つ（そのまま確定が主ボタン）／赤には作らない（原則3）", () => {
+test("黄・青・赤とも「そのまま確定」が主ボタン（赤は「確認した」・P15 で原則3を改めた）", () => {
   const src = readFileSync("app/components/Popover.tsx", "utf8");
   const cut = (from: string, to: string) => src.slice(src.indexOf(from), src.indexOf(to));
   const yellow = cut('{token.t === "y" && (', '{token.t === "b" && (');
@@ -401,6 +401,9 @@ test("黄と青は同じ骨格を持つ（そのまま確定が主ボタン）�
   // 青: 従来どおり「この内容で確定する」がある（欠落なし）
   assert.ok(blue.includes("onResolve(null)"), "青にもそのまま確定がある");
 
-  // 赤: 「そのままでよい」を作らない（置き換えるまで完成できない＝原則3）
-  assert.ok(!red.includes("onResolve(null"), "赤にそのまま確定を作らない（原則3）");
+  // 赤（P15）: 主ボタンは「確認した」（語はそのまま）、ほかは「書き換える」だけ。記号・「担当」への置き換えは無い
+  assert.ok(red.includes('className="pri" onClick={() => onResolve(null)}') && red.includes("確認した"), "赤の主ボタンは「確認した」");
+  assert.ok(red.includes('placeholder="書き換える"') && red.includes(">書き換える<"), "赤は書き換えられる");
+  assert.ok(red.includes("人名かもしれない語です。塗り忘れていれば、この語はAIに届いています。"), "押したときの一文");
+  assert.ok(!/担当|置き換え|alias/.test(red), "赤に記号・「担当」への置き換えが残っている");
 });

@@ -2,8 +2,8 @@
 //
 // 見張ること:
 //  - 記録の種類（面談／会議）で項目・プロンプト・保存の鍵・出力の題が切り替わる
-//  - **会議は赤（人名）を持たない**（原則3は面談にのみ適用。設計側の決定・承認済み）
-//  - **面談側は一切変わらない**（ライブラリ・プロンプト・赤の扱い・用紙の割り付け）
+//  - 赤（伏せ忘れの知らせ）は**面談・会議とも**働く（P15 で原則3を改め、P9 の「会議は赤を持たない」は改めた）
+//  - 面談側のライブラリ・用紙の割り付けは変わらない
 //  - 会議の用紙（内容が横いっぱい・決定事項と今後の対応が2列・最後は「その他」だけ・会議名は題の右）が A4 に収まる
 //    （押印欄は P12 で用紙から外し、完成形へ移した。tests/stamp.test.mts）
 //  - 会議概要は記録だけの項目（用紙の一覧・並べ替え・見本に出さない。P9-c）
@@ -39,8 +39,8 @@ import {
   mergeReconvert,
   outputTitle,
   recordEntries,
+  resolveToken,
   sectionCopyText,
-  withoutRed,
   type ApiData,
 } from "../lib/record.ts";
 import { buildDocxParts } from "../lib/docx.ts";
@@ -163,12 +163,15 @@ test("項目の選択・並び・自由形式は面談と会議で別に保存�
 
 /* ---------- プロンプト ---------- */
 
-test("会議のプロンプト: 人名を r にしない・混ざった走り書きを振り分ける・今後の対応は補わない・決定と検討を分ける", () => {
+test("会議のプロンプト: 人名は面談と同じ赤の規則・塗った箇所は〇〇・混ざった走り書きを振り分ける・今後の対応は補わない", () => {
   const p = buildPrompt(MEETING_LIBRARY, [], "meeting");
   assert.ok(p.includes("会議記録"));
-  assert.ok(!/"r"/.test(p), "会議のプロンプトに r の種別がある");
-  assert.ok(p.includes('種別は "p" "y" "b" の3つだけ'));
-  assert.ok(p.includes("人名は種別を分けず、そのまま本文に書く"));
+  // P15: 人名（赤）の規則と塗りつぶしの規則は面談と同じ文（RED_RULE・MASK_RULE）
+  const iv = buildPrompt(ITEM_LIBRARY.filter((l) => l.defaultOn));
+  const rule = (x: string) => x.slice(x.indexOf('   - "r" = 人名'), x.indexOf("5. 整形の都合で"));
+  assert.equal(rule(p), rule(iv), "会議と面談で赤の規則が違う");
+  assert.ok(p.includes('{"t":"r","s":"人名（敬称込み）"}'), "会議の出力の形に r がない");
+  assert.ok(!p.includes("人名は種別を分けず"), "旧い「人名はそのまま本文に書く」が残っている");
   assert.ok(p.includes("内容・決定事項・今後の対応が混ざって書かれている"));
   assert.ok(p.includes("誰が・いつまでに・何を") && p.includes("担当未定") && p.includes("期限未定"));
   assert.ok(p.includes("書かれていない要素は補わない"));
@@ -187,7 +190,7 @@ test("会議のプロンプト: 人名を r にしない・混ざった走り書
   assert.ok(buildPrompt(MEETING_LIBRARY, [{ term: "サビ管", gloss: "サービス管理責任者" }], "meeting").includes("# 組織の語彙"));
 });
 
-test("面談のプロンプトは変えていない（種類を省いても・明示しても同じ文面。人名は r のまま）", () => {
+test("面談のプロンプト: 種類を省いても・明示しても同じ文面。人名は r（会議の語を含まない）", () => {
   const items = ITEM_LIBRARY.filter((l) => l.defaultOn);
   const a = buildPrompt(items);
   assert.equal(buildPrompt(items, [], "interview"), a);
@@ -195,27 +198,28 @@ test("面談のプロンプトは変えていない（種類を省いても・�
   assert.ok(!a.includes("会議"));
 });
 
-/* ---------- 状態（赤を持たない） ---------- */
+/* ---------- 状態（赤は面談・会議とも。P15） ---------- */
 
-test("会議: AIが r を返しても p に落ち、赤は0件・完成も項目コピーも止まらない（原則3は面談にのみ適用）", () => {
+test("会議でも赤が付き、確認するまで完成・項目コピー・✎ が止まる。確認すると語はそのまま残る（P15）", () => {
   const s = fromApi(meetingApi(), MEETING_LIBRARY, meetingEnabled, MEETING_IDS, "meeting");
   assert.equal(s.type, "meeting");
-  assert.equal(counts(s).r, 0);
+  assert.equal(counts(s).r, 2, "会議でも AI の r は赤のまま");
   assert.equal(counts(s).y, 1, "黄は面談と同じく働く");
-  assert.equal(isDoneBlocked(s), false);
-  for (const id of MEETING_IDS) {
-    assert.equal(isSectionCopyBlocked(s.tokens[id]), false);
-    assert.notEqual(sectionCopyText(s, id), null);
+  assert.equal(isDoneBlocked(s), true);
+  assert.equal(isSectionCopyBlocked(s.tokens.shukudai), true);
+  assert.equal(sectionCopyText(s, "shukudai"), null);
+  // 1件ずつ「確認した」（語はそのまま）で外れる
+  let t = s;
+  for (const sid of ["kaigi", "shukudai"]) {
+    const ti = t.tokens[sid].findIndex((x) => x.t === "r" && !x.resolved);
+    t = resolveToken(t, sid, ti, null);
   }
-  // 人名は本文に残る（伏せない・置き換えない）
-  assert.ok(sectionCopyText(s, "shukudai")!.includes("担当：佐藤／9月末まで"));
-  assert.ok(!Object.values(s.tokens).flat().some((t) => t.t === "r"));
-  // 再変換で r が来ても同じ
-  const m = mergeReconvert({ ...s, tokens: { ...s.tokens, kettei: [] }, converted: ["kaigi", "naiyou", "shukudai"] }, { sections: [{ id: "kettei", tokens: [{ t: "r", s: "田中" }] }], spill: [], insights: [] }, MEETING_LIBRARY);
-  assert.ok(m.tokens.kettei.every((t) => t.t !== "r"));
-  // withoutRed は純関数で、r 以外は触らない
-  const w = withoutRed(meetingApi());
-  assert.deepEqual(w.sections[1].tokens[1], { t: "y", s: "遅れる", cands: ["送れる"] });
+  assert.equal(counts(t).r, 0);
+  assert.equal(isDoneBlocked(t), false);
+  assert.ok(sectionCopyText(t, "shukudai")!.includes("担当：佐藤／9月末まで"), "確認した語はそのまま残る");
+  // 再変換で来た r も赤のまま（会議で落とさない）
+  const m = mergeReconvert({ ...t, tokens: { ...t.tokens, kettei: [] }, converted: ["kaigi", "naiyou", "shukudai"] }, { sections: [{ id: "kettei", tokens: [{ t: "r", s: "田中" }] }], spill: [], insights: [] }, MEETING_LIBRARY);
+  assert.ok(m.tokens.kettei.some((x) => x.t === "r" && !x.resolved));
 });
 
 test("会議: 出力の題は「会議記録」。転記テキスト・Word に気づき・こぼれは混入しない（不変条件1は会議でも維持）", () => {
@@ -251,12 +255,13 @@ test("面談: 種類を省いても従来どおり（type は interview・赤は
 
 /* ---------- API・画面（実装の形を見張る） ---------- */
 
-test("変換API: 種類を受け取り、会議では人名の機械検出を通さず r を落とす。面談は従来どおり", () => {
+test("変換API: 種類を受け取り、面談・会議とも人名の機械検出を通す（P15）", () => {
   const api = readFileSync("app/api/convert/route.ts", "utf8");
   assert.ok(api.includes('form.get("record_type")') && api.includes("isRecordType(rt) ? rt : \"interview\""), "知らない値は面談");
   assert.ok(api.includes("itemsByIds(ids, libraryFor(type))"), "種類のライブラリで項目を引く");
   assert.ok(api.includes("buildPrompt(items, vocab, type)"));
-  assert.ok(api.includes('type === "meeting" ? withoutRed(parsed) : enforceNames(parsed)'), "会議は lib/names.ts を通さない・面談は通す");
+  const apiCode = api.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  assert.ok(apiCode.includes("const data = parsed ? enforceNames(parsed) : null;") && !apiCode.includes("withoutRed"), "面談・会議とも lib/names.ts を通す（P15）");
   const page = readFileSync("app/page.tsx", "utf8");
   assert.ok(page.includes('fd.append("record_type", type)'), "画面が種類を送る");
   assert.ok(page.includes("useState<RecordType>(\"interview\")"), "既定は面談");
@@ -265,14 +270,14 @@ test("変換API: 種類を受け取り、会議では人名の機械検出を通
   assert.ok(page.includes("callConvert(blobs.current, itemIds, type)"));
 });
 
-test("確認画面: 会議では人名の札を出さず、項目・保存の鍵・出力の題は種類に従う", () => {
+test("確認画面: 人名の札は面談・会議とも出す（P15）。項目・保存の鍵・出力の題は種類に従う", () => {
   const rv = readFileSync("app/components/Review.tsx", "utf8");
   assert.ok(rv.includes('const type = rec.type ?? "interview"') && rv.includes("const lib = libraryFor(type)"));
-  assert.ok(rv.includes('{type !== "meeting" && (') && rv.includes("人名 <b>{c.r}</b>"), "会議では人名の札を出さない");
+  assert.ok(!rv.includes('{type !== "meeting" && (') && rv.includes("人名 <b>{c.r}</b>"), "会議でも人名の札を出す");
   assert.ok(rv.includes("keyFor(SETTINGS_KEY, type)"), "保存の鍵は種類ごと");
   assert.ok(!rv.includes("ITEM_LIBRARY"), "面談のライブラリを決め打ちしない");
   assert.ok(rv.includes("lib={lib}"), "項目ドロワーにも種類のライブラリを渡す");
-  assert.ok(rv.includes('"黄=読取に自信なし ／ 青=AIの推定"'), "会議の凡例に赤を出さない");
+  assert.ok(rv.includes('data-tip="黄=読取に自信なし ／ 青=AIの推定 ／ 赤=人名・対応必須"'), "凡例は面談・会議とも同じ");
   // 黄と青のポップオーバーは共通（Popover は変えていない）
   const pop = readFileSync("app/components/Popover.tsx", "utf8");
   assert.ok(pop.includes("このままで確定する") && pop.includes("この内容で確定する"));

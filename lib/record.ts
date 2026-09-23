@@ -3,8 +3,10 @@
 //
 //  不変条件1: 転記用テキスト・項目コピーは insights / spill に一切触れない
 //             （記録と助言を混ぜない = 公式文書への混入防止）
-//  不変条件2: 未解決の赤（人名）が1つでもあれば、完成も項目コピーもブロックされる
-//             （**面談にのみ適用**。会議は赤を持たない＝`withoutRed` で "r" を "p" に落とす。P9・2026-09-17）
+//  不変条件2: 確認していない赤（人名かもしれない語）が1つでもあれば、完成も項目コピーもブロックされ、
+//             その項目は文章を直せない（✎ で開いて確定すると赤が消える抜け道を塞ぐ）。**面談・会議とも**。
+//             [DECISION 2026-09-23・設計側] 原則3を「赤は伏せ忘れの知らせ」に改めた（P15）。赤は置き換えを求めず、
+//             1件ずつ「確認した」（語はそのまま）か「書き換える」まで完成できない。確認の状態は保存しない（原則5）。
 //
 // ※ ランタイム依存を持たない（import type のみ）。tests から node --test で直接読める。
 
@@ -33,7 +35,7 @@ export type SpillItem = {
 export type Insight = { s: string; why: string; refs: string[] };
 
 export type RecordState = {
-  /** 記録の種類（P9）。省略時は面談。会議は赤（人名）を持たず、出力の題も変わる */
+  /** 記録の種類（P9）。省略時は面談。出力の題が変わる（赤は面談・会議とも働く。P15） */
   type?: RecordType;
   tokens: Record<string, Token[]>;
   enabled: Record<string, boolean>;
@@ -53,22 +55,6 @@ export type ApiData = {
   insights: { text: string; why: string; refs: string[] }[];
 };
 
-/**
- * 会議（P9）: 赤（人名）を持たない。AIが "r" を返しても "p" に落とす（機械検出 `lib/names.ts` も会議では通さない）。
- * [DECISION 2026-09-17] **原則3（赤マーカーは強制）は面談にのみ適用する**（設計側の決定・承認済み）。
- *   会議録は出席者名も発言者名も残すのが通常で、置き換えないと完成できない仕組みでは使えない。
- *   面談側はこの関数を通らない（面談の赤の扱いは一切変えない）。黄・青は会議でも面談と同じに働く。
- */
-export function withoutRed<T extends { sections: { id: string; tokens: Token[] }[] }>(data: T): T {
-  return {
-    ...data,
-    sections: data.sections.map((sec) => ({
-      ...sec,
-      tokens: (sec.tokens ?? []).map((tk) => (tk.t === "r" ? { ...tk, t: "p" as TokenKind, note: undefined } : tk)),
-    })),
-  };
-}
-
 export function fromApi(
   data: ApiData,
   lib: ItemDef[],
@@ -76,7 +62,6 @@ export function fromApi(
   order: string[],
   type: RecordType = "interview"
 ): RecordState {
-  if (type === "meeting") data = withoutRed(data);
   const tokens: Record<string, Token[]> = {};
   lib.forEach((l) => {
     tokens[l.id] = [];
@@ -122,7 +107,6 @@ const norm = (s: string) => s.replace(/\s+/g, "").trim();
  * - 気づきは新しい結果で置き換える（記録ではなく参考表示のため）
  */
 export function mergeReconvert(state: RecordState, data: ApiData, lib: ItemDef[]): RecordState {
-  if (state.type === "meeting") data = withoutRed(data);
   const targets = new Set(pendingReconvertIds(state));
   const tokens = { ...state.tokens };
   data.sections.forEach((s) => {
@@ -315,30 +299,27 @@ export function resolveToken(state: RecordState, sid: string, ti: number, val: s
 }
 
 /**
- * 条件に合う**未解決の赤**をまとめて置き換える（同じ名前を1か所ずつ直す手間を省く）。
- * [DECISION 2026-09-09] まとめ置き換えは「アルファベットの候補」を選んだときだけ使う。
- *   同じ名前には同じ記号を割り当てる決まりなので、1つずつ直しても結果は同じになる。
- *   「担当」や自由入力はその場かぎりの判断なので、押した1か所だけに効かせる。
+ * 文章を直して確定する（項目を普通の文1つに置き換える）。
+ * [DECISION 2026-09-23] ⚠️ **確認していない赤が残る項目は直せない**（P15）。直して確定すると赤が普通の文に溶けて消え、
+ *   確認しないまま完成できてしまう（2026-09-23 に開発データで再現した抜け道）。画面は ✎ を押せなくし、ここでも受け付けない。
  */
-export function resolveRedWhere(
-  state: RecordState,
-  match: (tok: Token) => boolean,
-  make: (tok: Token) => string
-): { state: RecordState; count: number } {
-  let count = 0;
-  const tokens: Record<string, Token[]> = {};
-  for (const [sid, list] of Object.entries(state.tokens)) {
-    tokens[sid] = list.map((tk) => {
-      if (tk.t !== "r" || tk.resolved || !match(tk)) return tk;
-      count++;
-      return { ...tk, s: make(tk), resolved: true };
-    });
-  }
-  return { state: { ...state, tokens }, count };
+export function saveEdit(state: RecordState, sid: string, text: string): RecordState {
+  if (isEditBlocked(state.tokens[sid] ?? [])) return state;
+  return { ...state, tokens: { ...state.tokens, [sid]: [{ t: "p", s: text }] } };
 }
 
-export function saveEdit(state: RecordState, sid: string, text: string): RecordState {
-  return { ...state, tokens: { ...state.tokens, [sid]: [{ t: "p", s: text }] } };
+/** 確認していない赤が残る項目は文章を直せない（✎ を押せない）。項目コピーの止め方と同じ条件 */
+export function isEditBlocked(tokens: Token[]): boolean {
+  return tokens.some((t) => t.t === "r" && !t.resolved);
+}
+
+/**
+ * この記録で赤になった語（確認済み・書き換え済みも含む元の語）。「辞書に追加」から人名を入れないために使う（P15）。
+ * 塗りつぶしの「〇〇」は含めない。
+ */
+export function redTerms(state: RecordState, initial?: RecordState): string[] {
+  const all = [state, ...(initial ? [initial] : [])].flatMap((st) => Object.values(st.tokens).flat().filter((t) => t.t === "r").map((t) => t.s));
+  return [...new Set(all)].filter((w) => !/^[〇○◯]+/.test(w.trim()));
 }
 
 /* ---------- カウンタ・ブロック判定 ---------- */
@@ -358,12 +339,12 @@ export function counts(state: RecordState): Counts {
   return c;
 }
 
-/** [DECISION] 赤（人名）が残る間は完成できない */
+/** [DECISION] 確認していない赤が残る間は完成できない（面談・会議とも。P15） */
 export function isDoneBlocked(state: RecordState): boolean {
   return counts(state).r > 0;
 }
 
-/** [DECISION] 赤（人名）が残る項目はコピーできない */
+/** [DECISION] 確認していない赤が残る項目はコピーできない（面談・会議とも。P15） */
 export function isSectionCopyBlocked(tokens: Token[]): boolean {
   return tokens.some((t) => t.t === "r" && !t.resolved);
 }

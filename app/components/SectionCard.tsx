@@ -10,7 +10,7 @@
 
 import { useCallback, useLayoutEffect, useRef, useState } from "react";
 import type { ItemDef } from "@/lib/items";
-import { flatten, hasOpen, type Token } from "@/lib/record";
+import { flatten, hasOpen, isEditBlocked, type Token } from "@/lib/record";
 
 type Props = {
   def: ItemDef;
@@ -60,6 +60,8 @@ export default function SectionCard({
     return () => window.removeEventListener("resize", fitHeight);
   }, [editing, fitHeight]);
   const complete = !hasOpen(tokens);
+  /** [DECISION 2026-09-23] 確認していない赤が残る間は ✎ を押せない（開いて確定すると赤が消える抜け道を塞ぐ・P15） */
+  const editBlocked = isEditBlocked(tokens);
   const text = flatten(tokens);
 
   const cls = ["sec", complete ? "complete" : "", highlighted ? "hl" : ""].filter(Boolean).join(" ");
@@ -88,7 +90,17 @@ export default function SectionCard({
           >
             {copied ? "✓" : "⧉"}
           </button>
-          <button className="mini ic" data-tip="文章を直す" aria-label="文章を直す" onClick={() => { setDraft(text); onStartEdit(); }}>
+          <button
+            className="mini ic"
+            data-tip={editBlocked ? "赤を確認すると直せます" : "文章を直す"}
+            aria-label="文章を直す"
+            disabled={editBlocked}
+            onClick={() => {
+              if (editBlocked) return;
+              setDraft(text);
+              onStartEdit();
+            }}
+          >
             ✎
           </button>
         </div>
