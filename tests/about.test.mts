@@ -68,6 +68,11 @@ const GOLDEN = {
     red: "人名かもしれない語です。記号か「担当」に置き換えます。置き換えるまで完成できません。会議では出ません。",
     done: "面談では、赤い印が残っていると押せません。",
   },
+  /** 撮り直した画面写真の説明（P13・2026-09-23 設計側の文面） */
+  alts: {
+    "/help/01-home.png": "ホーム画面。カードが4枚並んでいる",
+    "/help/02-sheet-maker.png": "用紙を作る画面。上に面談と会議の切り替え、左に項目の一覧、右に用紙の見本",
+  } as Record<string, string>,
   cautions: [
     ["記録の下書き", "そのまま記録にはできません。内容を確かめて、必要なら書き直してから仕上げてください。記録の責任は書いた人にあります。"],
     ["伏せ忘れの確認", "赤い印は保険であり、完全ではありません。会議では印が出ません。送る前に隠し忘れがないか見てください。"],
@@ -350,3 +355,22 @@ test("使い方ページの部品名が、他の画面の規則とぶつから�
   assert.ok(!classes.has("steps") && !classes.has("note") && !classes.has("mk"), "ぶつかると分かっている名前を使っている");
 });
 
+test("撮り直した画面写真（01・02）の説明と撮り方（P13）", () => {
+  const shots = ABOUT.chapters.flatMap((c) => c.steps.flatMap((s) => s.shots ?? []));
+  for (const [src, alt] of Object.entries(GOLDEN.alts)) {
+    const sh = shots.find((s) => s.src === src);
+    assert.ok(sh, `${src} が無い`);
+    assert.equal(sh!.alt, alt, `${src} の説明`);
+    // 撮影の寸法（shoot.mjs の 1345×775・倍率1）どおり
+    assert.deepEqual([sh!.w, sh!.h], [1345, 775], `${src} の寸法`);
+  }
+  // 撮影の道具が撮れる写真は、ゲートを通す写真（HELP_SHOTS）の中だけ（名前を変えると配信されない）
+  const shoot = readFileSync("docs/assets/help/shoot.mjs", "utf8");
+  const list = shoot.slice(shoot.indexOf("const SHOTS = {"), shoot.indexOf("/* ---------------- ここから下は道具"));
+  const names = [...list.matchAll(/^  "([^"]+\.png)":/gm)].map((m) => m[1]);
+  assert.deepEqual(names, ["01-home.png", "02-sheet-maker.png"]);
+  const mw = readFileSync("middleware.ts", "utf8");
+  for (const n of names) assert.ok(mw.includes(`"${n}"`), `${n} がゲートの一覧に無い`);
+  // npm の依存を足さない（Node の標準機能だけ）
+  assert.ok(![...shoot.matchAll(/^import .* from "([^"]+)";$/gm)].some((m) => !m[1].startsWith("node:")), "Node の標準機能以外を読み込んでいる");
+});
