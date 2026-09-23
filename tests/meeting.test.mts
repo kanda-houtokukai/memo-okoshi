@@ -4,7 +4,8 @@
 //  - 記録の種類（面談／会議）で項目・プロンプト・保存の鍵・出力の題が切り替わる
 //  - **会議は赤（人名）を持たない**（原則3は面談にのみ適用。設計側の決定・承認済み）
 //  - **面談側は一切変わらない**（ライブラリ・プロンプト・赤の扱い・用紙の割り付け）
-//  - 会議の用紙（内容が横いっぱい・決定事項と今後の対応が2列・最後は「その他」だけ・会議名は題の右）と押印欄が A4 に収まる
+//  - 会議の用紙（内容が横いっぱい・決定事項と今後の対応が2列・最後は「その他」だけ・会議名は題の右）が A4 に収まる
+//    （押印欄は P12 で用紙から外し、完成形へ移した。tests/stamp.test.mts）
 //  - 会議概要は記録だけの項目（用紙の一覧・並べ替え・見本に出さない。P9-c）
 
 import { test } from "node:test";
@@ -62,7 +63,6 @@ import {
   sheetFileName,
   sheetLayout,
   sheetRows,
-  STAMP,
   wideLast,
 } from "../lib/sheet.ts";
 
@@ -364,64 +364,40 @@ test("会議の用紙が A4 に収まる（見出し・記入欄＋枠＋その�
   assert.equal(Math.floor(freeAreaH() / SHEET.line), 38);
 });
 
-test("押印欄: 15mm 角（認印 10.5〜12mm＋余白）。会議は作成者／署名の2列、面談は記録者の1列。頭の高さより低い", () => {
-  assert.equal(STAMP.cell, 15);
-  // 認印の直径の上限 12mm を入れて、枠線まで 1.5mm ずつ余白が残る
-  assert.ok(STAMP.cell - 12 >= 3, "12mm の印影を入れると枠線に触れる");
-  assert.deepEqual(SHEET_HEAD.meeting.stamps, ["作成者", "署名"]);
-  assert.deepEqual(SHEET_HEAD.interview.stamps, ["記録者"]);
-  assert.equal(SHEET_HEAD.meeting.title, "会議記録メモ");
-  assert.equal(SHEET_HEAD.meeting.people, "出席者");
-  assert.equal(SHEET_HEAD.interview.title, "面談記録メモ");
-  assert.equal(SHEET_HEAD.interview.people, "参加者");
-  // ラベルの行（7pt＋上下 0.6mm）＋押印 15mm＋枠線は、記入欄の頭（実測 32.8mm）より低い＝頭の高さを変えない
-  const labelRow = (STAMP.labelPt * 25.4) / 72 * 1.3 + 0.6 * 2;
-  assert.ok(labelRow + STAMP.cell + 0.25 * 3 < PRINT.head - 2.4, "押印欄が記入欄の頭より高い");
-
+test("用紙に押印欄は無い（P12 で完成形へ移した）。頭の文言は種類ごと（題・参加者／出席者）", () => {
+  assert.deepEqual(SHEET_HEAD.meeting, { title: "会議記録メモ", people: "出席者", name: "会議名" });
+  assert.deepEqual(SHEET_HEAD.interview, { title: "面談記録メモ", people: "参加者" });
   const sm = readFileSync("app/components/SheetMaker.tsx", "utf8");
   const paper = sm.slice(sm.indexOf("function Paper("), sm.indexOf("export default function"));
-  assert.ok(paper.includes('className="p-stamp"') && paper.includes("head.stamps.map"), "押印欄はラベルの数だけ列を作る");
-  assert.ok(paper.indexOf('className="p-stamp"') < paper.indexOf("free ?"), "自由形式でも押印欄を出す（頭の中にある）");
-  assert.ok(paper.indexOf('className="p-main"') < paper.indexOf('className="p-stamp"'), "記入欄の右に置く（重ねない）");
-
+  assert.ok(!/p-stamp|stamps|<table/.test(paper), "用紙に押印欄がある");
+  // 罫線（0.2mm 点線 #bdbdbd）はそのまま
   const css = readFileSync("app/globals.css", "utf8");
-  const screen = css.slice(css.indexOf("/* ---------- 用紙を作る"), css.indexOf("/* ---------- 印刷（PDFで保存）"));
-  const print = css.slice(css.indexOf("/* ---------- 印刷（PDFで保存）"));
-  assert.ok(/\.p-head\{[^}]*display:grid[^}]*align-items:start/.test(screen), "頭は横並び（記入欄＋押印欄。P9-b から grid）");
-  assert.ok(/\.p-stamp td\{[^}]*width:calc\(15 \* var\(--mm\)\)[^}]*height:calc\(15 \* var\(--mm\)\)/.test(screen), "見本の押印は 15mm 角");
-  assert.ok(print.includes(".print-sheet .p-stamp td{width:15mm;height:15mm;border:0.25mm solid #444}"), "印刷の押印は 15mm 角・濃い実線");
-  assert.ok(print.includes(".print-sheet .p-stamp th{padding:0.6mm 1mm;border:0.25mm solid #444;"), "ラベルの行は文字に合わせた高さ（固定しない）");
-  assert.ok(!/\.p-stamp th\{[^}]*[^-]height:/.test(screen + print), "ラベルの行の高さを固定しない");
-  // 罫線（0.2mm 点線 #bdbdbd）より濃い
-  assert.ok(print.includes("border-bottom:0.2mm dotted #bdbdbd"));
+  assert.ok(css.slice(css.indexOf("/* ---------- 印刷（PDFで保存）")).includes("border-bottom:0.2mm dotted #bdbdbd"));
 });
 
-test("記入欄は1項目1行（日時／場所／参加者・出席者）＋会議だけ題の右に会議名。参加者・出席者は押印欄の下を横いっぱい（P9-b・P9-c）", () => {
+test("記入欄は1項目1行（日時／場所／参加者・出席者）＋会議だけ題の右に会議名。どの行も右端まで使う（P9-b・P9-c・P12）", () => {
   const sm = readFileSync("app/components/SheetMaker.tsx", "utf8");
   const paper = sm.slice(sm.indexOf("function Paper("), sm.indexOf("export default function"));
-  const main = paper.slice(paper.indexOf('className="p-main"'), paper.indexOf('className="p-stamp"'));
-  // 題・日時・場所は押印欄の左の列、参加者・出席者は押印欄のあと（頭の2段目・横いっぱい）
+  const main = paper.slice(paper.indexOf('className="p-main"'), paper.indexOf('className="p-fields p-people"'));
+  // 題・日時・場所は頭の1段目、参加者・出席者は2段目（どちらも横いっぱい）
   assert.ok(main.includes('className="f f-date"') && main.includes('className="f f-place"'));
-  assert.ok(!main.includes("f-people"), "参加者・出席者を押印欄の横に置かない");
-  assert.ok(paper.indexOf('className="p-fields p-people"') > paper.indexOf('className="p-stamp"'));
+  assert.ok(!main.includes("f-people"), "参加者・出席者を1段目に置かない");
   assert.equal((paper.match(/className="f f-/g) ?? []).length, 4, "記入欄は日時・場所・参加者/出席者の3行＋会議名（題の行）");
   // 面談と会議で同じ形（見出しの文言だけが違う）
   assert.ok(paper.includes("{head.people}") && !/type === "meeting"/.test(paper), "頭の形を種類で分けない");
 
   const css = readFileSync("app/globals.css", "utf8");
   const screen = css.slice(css.indexOf("/* ---------- 用紙を作る"), css.indexOf("/* ---------- 印刷（PDFで保存）"));
-  assert.ok(/\.p-head\{[^}]*display:grid;grid-template-columns:minmax\(0,1fr\) auto/.test(screen), "頭は 左の列＋押印欄 の2列");
+  assert.ok(/\.p-head\{[^}]*display:grid;grid-template-columns:minmax\(0,1fr\);/.test(screen), "頭は1列（押印欄を外した。P12）");
   assert.ok(screen.includes(".p-people{grid-column:1 / -1;grid-row:2"), "参加者・出席者は横いっぱいの2段目");
   assert.ok(screen.includes(".p-fields{display:grid;grid-template-columns:minmax(0,1fr);"), "記入欄は1列（1項目1行）");
   assert.ok(!screen.includes(".f-people{grid-column"), "旧: 1行目に日時と場所を並べていた指定が残っていない");
 
-  // 印刷の実測（2026-09-17・192mm 幅で印刷の規則を当てて測った値。頭の上端から mm）
-  const MEASURED = { head: 42.4, stampBottom: 19.67, placeTop: 19.0, peopleTop: 29.6, placeToStamp: 3.0, placeW: { interview: 167.2, meeting: 152.21 }, peopleW: 182.4 };
-  assert.ok(MEASURED.peopleTop > MEASURED.stampBottom, "参加者・出席者の行が押印欄に重なる");
-  assert.ok(MEASURED.placeToStamp > 0, "場所の下線が押印欄に重なる");
+  // 印刷の実測（2026-09-23・P12。印刷の規則を当てて 192mm 幅で測った値。mm）。押印欄を外しても頭の高さは同じ（42.26）
+  const MEASURED = { head: 42.26, placeW: { interview: 185.4, meeting: 185.4 }, nameW: 151.1, peopleW: 182.5 };
   assert.ok(PRINT.head >= MEASURED.head, "割り付けの見積もりが実測より小さい");
-  // 場所は以前（面談 約64mm・会議 約49mm）の2倍以上
-  assert.ok(MEASURED.placeW.meeting >= 49 * 2 && MEASURED.placeW.interview >= 64 * 2);
+  // 場所は押印欄があったころ（面談 167mm・会議 152mm）より広く、会議名の下線も右端まで（117.8→151.1mm）
+  assert.ok(MEASURED.placeW.meeting > 152 && MEASURED.placeW.interview > 167 && MEASURED.nameW > 117.8);
 });
 
 test("面談の用紙の本数（P9-b の変更後）: 既定の基本6項目は 9本のまま。減るのは 1〜4項目・2枚・自由形式で各1本", () => {
@@ -722,7 +698,7 @@ test("会議の用紙は最後のページの上限の影響を受けない（3�
   assert.deepEqual(rows.map((r) => [r.lines, r.capped]), [[23, false], [6, false]]);
 });
 
-test("会議の用紙は1枚なので2ページ目以降の規則（題だけ・ページ番号）は現れない。頭は会議名・押印欄つきのまま（P9-g）", () => {
+test("会議の用紙は1枚なので2ページ目以降の規則（題だけ・ページ番号）は現れない。頭は会議名つきのまま（P9-g）", () => {
   const l = sheetLayout(SHEET_MT.length);
   assert.equal(l.pages, 1);
   assert.equal(pageLabel(0, l.pages), undefined);

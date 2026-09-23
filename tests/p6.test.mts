@@ -114,18 +114,26 @@ test("Word: 本文に不可視文字が無く、改行は段落分割で表さ�
   const text = extractText(doc);
   assert.ok(text.includes("【家での様子】\n・朝は不安\n・園の話をする"), "改行が段落として残っていない\n" + text);
   assert.ok(text.includes("行1\n行2"));
-  // 段落は <w:p><w:r>[<w:rPr>]<w:t> の素直な構造だけ
-  const paras = doc.match(/<w:p>[\s\S]*?<\/w:p>/g) ?? [];
+  // 記録の表（本文の最後の表）の段落は <w:p><w:r>[<w:rPr>]<w:t> の素直な構造だけ。
+  // 頭の押印欄（P12・中央寄せ・7pt）は記録ではないので対象外（押印欄は tests/stamp.test.mts）
+  const recordTable = doc.slice(doc.lastIndexOf("<w:tbl>"));
+  const paras = recordTable.match(/<w:p>[\s\S]*?<\/w:p>/g) ?? [];
   assert.ok(paras.length >= 6);
+  // 題と作成日の段落も素直な構造（頭の配置用の表の左の列）
+  for (const t of ["面談・モニタリング記録", "作成（メモおこし下書き）"]) assert.ok(new RegExp(`<w:p><w:r>(<w:rPr><w:b/></w:rPr>)?<w:t xml:space="preserve">[^<]*${t}`).test(doc), t);
   for (const p of paras) assert.ok(/^<w:p><w:r>(<w:rPr><w:b\/><\/w:rPr>)?<w:t xml:space="preserve">[\s\S]*<\/w:t><\/w:r><\/w:p>$/.test(p), "複雑な段落構造: " + p.slice(0, 80));
 });
 
-test("Word: XML の特殊文字はエスケープされ、フォントは游ゴシック・サイズ指定なし", () => {
+test("Word: XML の特殊文字はエスケープされ、フォントは游ゴシック・記録と題はサイズ指定なし", () => {
   const parts = buildDocxParts([{ label: "A<B", text: "x & y \"z\"" }], new Date(2026, 8, 8));
   assert.ok(parts["word/document.xml"].includes("A&lt;B"));
   assert.ok(parts["word/document.xml"].includes("x &amp; y &quot;z&quot;"));
   assert.ok(parts["word/styles.xml"].includes('w:eastAsia="游ゴシック"'));
-  assert.ok(!/<w:sz /.test(parts["word/document.xml"] + parts["word/styles.xml"]), "文字サイズを指定している（Word既定に任せる）");
+  // 記録の表・題・作成日は Word の既定の大きさに任せる。押印欄のラベル（7pt）とページ番号（8pt）だけは指定する（P12）
+  const doc = parts["word/document.xml"];
+  const recordTable = doc.slice(doc.lastIndexOf("<w:tbl>"));
+  const headLeft = doc.slice(doc.indexOf("<w:tc>"), doc.indexOf("</w:tc>"));
+  assert.ok(!/<w:sz /.test(recordTable + headLeft + parts["word/styles.xml"]), "文字サイズを指定している（Word既定に任せる）");
   assert.equal(cleanText("a​b﻿c"), "abc");
 });
 

@@ -626,11 +626,25 @@ html.lock,html.lock body{height:100%;overflow:hidden;overscroll-behavior:none}
   .print-doc{display:block;font-family:"Yu Gothic","游ゴシック","Hiragino Sans",Meiryo,sans-serif;color:#000;font-size:10.5pt;line-height:1.6;overflow-wrap:anywhere}
   .print-doc h1{font-size:13pt;margin:0 0 4pt}
   .print-doc .pd-date{font-size:9pt;color:#444;margin-bottom:8pt}
+  /* [DECISION 2026-09-23] 頭は「左に題と作成日、右に押印欄」の2列（P12）。押印欄の寸法は lib/stamp.ts から印刷のあいだだけ差し込む */
+  .print-doc .pd-head{display:flex;justify-content:space-between;align-items:flex-start;gap:6mm;margin-bottom:8pt}
+  .print-doc .pd-head .pd-date{margin-bottom:0}
   .print-doc table{width:100%;border-collapse:collapse;table-layout:fixed}
   .print-doc th,.print-doc td{border:0.5pt solid #8a8a8a;padding:4pt 6pt;vertical-align:top;text-align:left}
   .print-doc th{width:20%;background:#f3f1eb;font-weight:700}
   .print-doc td{orphans:1}
   .print-doc p{margin:0}
+  /* [DECISION 2026-09-23] **記録の表は、印刷では行を flex で並べる**（P12）。見た目（ラベルの列 20%・0.5pt の罫線）は表のまま。
+     表の行（table-row）のままだと、Chrome は項目が残りに入らないとき、行を割らずに丸ごと次のページへ送ることがある
+     （orphans・widows・break-inside をどう変えても直らなかった。頭に押印欄が入って改ページの位置がずれ、62行の記録で
+     2ページ目の下に約100mm の空きが戻った）。ブロック（flex）の行は、どの位置でも割れる。grid はラベルの列が潰れたので採らない。
+     罫線は隣り合う辺を1本にするため、2行目以降の上の辺と本文の左の辺を消す。押印の表（.pd-head の中）には効かせない */
+  .print-doc > table{display:block}
+  .print-doc > table > tbody{display:block}
+  .print-doc > table tr{display:flex}
+  .print-doc > table th{flex:0 0 20%}
+  .print-doc > table td{flex:1 1 0;min-width:0;border-left:none}
+  .print-doc > table tr + tr > *{border-top:none}
 }
 
 /* ============================================================
@@ -1161,17 +1175,11 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
   flex:0 0 auto;width:var(--pw);height:calc(297 * var(--mm));aspect-ratio:210/297;background:#fff;
   box-shadow:0 3px 16px rgba(43,42,37,.16);padding:calc(9 * var(--mm));display:flex;flex-direction:column}
 .p-head{border-bottom:max(1px,calc(0.5 * var(--mm))) solid #3a3730;padding-bottom:calc(2 * var(--mm));margin-bottom:calc(2.4 * var(--mm));flex:0 0 auto;
-  display:grid;grid-template-columns:minmax(0,1fr) auto;align-items:start;column-gap:calc(3 * var(--mm))}
-/* 記入欄は1項目1行（日時／場所／参加者・出席者。P9-b）。題・日時・場所は左、押印欄は右（P9・6-b）で、その2行は押印欄のぶん狭い（重ねない）。
-   参加者・出席者の行は押印欄より下に来るので、押印欄の下まで横いっぱいに使う */
+  display:grid;grid-template-columns:minmax(0,1fr);align-items:start}
+/* 記入欄は1項目1行（日時／場所／参加者・出席者。P9-b）。
+   [DECISION 2026-09-23] 押印欄を外したので頭は1列（P12）。題・日時・場所（1段目）も参加者・出席者（2段目）も右端まで使う */
 .p-main{grid-column:1;grid-row:1;min-width:0}
-.p-head .p-stamp{grid-column:2;grid-row:1}
 .p-people{grid-column:1 / -1;grid-row:2;margin-top:calc(2.6 * var(--mm))}
-/* 押印欄: 上の行＝ラベル（文字の大きさに合わせた高さ）・下の行＝押印の正方形（15mm角・lib/sheet.ts の STAMP）。
-   枠線は罫線より濃い実線にして、押印欄と分かる見え方にする */
-.p-stamp{flex:0 0 auto;border-collapse:collapse;table-layout:fixed;font-family:var(--head);font-size:calc(2.469 * var(--mm));color:#4a463e}
-.p-stamp th{font-weight:700;letter-spacing:.04em;line-height:1.3;padding:calc(0.6 * var(--mm)) calc(1 * var(--mm));background:#f0eee8;border:max(1px,calc(0.25 * var(--mm))) solid #6f6a60;white-space:nowrap}
-.p-stamp td{width:calc(15 * var(--mm));height:calc(15 * var(--mm));padding:0;border:max(1px,calc(0.25 * var(--mm))) solid #6f6a60}
 .p-title{font-family:var(--head);font-size:calc(4.233 * var(--mm));font-weight:700;letter-spacing:.08em;margin-bottom:calc(2 * var(--mm))}
 /* 記入欄: 日時＝数字だけのマス／場所＝下線／参加者・出席者＝1本の長い下線。**手で書ける高さと幅**を取る。
    [DECISION 2026-09-17] **1項目1行**（日時／場所／参加者・出席者。P9-b）。押印欄のぶん「場所」が狭くなりすぎたため */
@@ -1213,11 +1221,14 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 .p-free{flex:1;min-height:0;display:flex;flex-direction:column;padding:calc(0.5 * var(--mm)) calc(1 * var(--mm)) 0}
 .p-free div{flex:0 0 auto;height:calc(6 * var(--mm));border-bottom:max(1px,calc(0.2 * var(--mm))) dotted #c9c4b8}
 .p-foot{font-size:calc(2.117 * var(--mm));color:#a8a297;text-align:right;margin-top:calc(1.2 * var(--mm));border-top:max(1px,calc(0.2 * var(--mm))) solid #e3dfd6;padding-top:calc(0.8 * var(--mm));flex:0 0 auto}
-/* [DECISION 2026-09-17] 2ページ目以降の頭は題だけ（記入欄・押印欄を出さない）。ページ番号は2ページ以上のときだけ下の行の中央（P9-g）。
-   ページ番号は下の行の高さを取らない（重ねて置く）ので、下の行の実測（PRINT.foot）は変わらない */
+/* [DECISION 2026-09-17] 2ページ目以降の頭は題だけ（記入欄を出さない）。ページ番号は2ページ以上のときだけ下の行の中央（P9-g）。
+   ページ番号は下の行の高さを取らない（重ねて置く）ので、下の行の実測（PRINT.foot）は変わらない。
+   [DECISION 2026-09-23] **ページ番号の行の高さは 1**（P12）。本文の行間 1.75 を引き継ぐと、7pt の行（約4.3mm）が
+   下の行の枠（約3.7mm）より高くなり、紙の下端から約1.5px はみ出していた。紙の高さ 279mm はページの本文の高さちょうどなので、
+   最後の紙のはみ出しが白紙のページを1枚作っていた（2枚組で3ページ目が白紙）。紙の高さ・余白・PRINT の値は変えない */
 .p-head.cont .p-title{margin-bottom:0}
 .p-foot{position:relative}
-.p-foot .p-no{position:absolute;left:0;right:0;top:calc(0.8 * var(--mm));bottom:0;display:flex;align-items:center;justify-content:center;font-size:calc(2.469 * var(--mm));color:#6f6a60;letter-spacing:.08em}
+.p-foot .p-no{position:absolute;left:0;right:0;top:calc(0.8 * var(--mm));bottom:0;display:flex;align-items:center;justify-content:center;font-size:calc(2.469 * var(--mm));line-height:1;color:#6f6a60;letter-spacing:.08em}
 
 /* 狭い画面（確認画面と同じ 900px）: 項目と見本をタブで切り替える。
    トグルの一覧が画面をほぼ占めて見本に辿り着けなかったため（P7-g）。 */
@@ -1241,12 +1252,9 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
     display:flex;flex-direction:column;break-after:page;
   }
   .print-sheet .paper:last-child{break-after:auto}
-  .print-sheet .p-head{border-bottom:0.5mm solid #000;padding-bottom:2mm;margin-bottom:2.4mm;column-gap:3mm}
+  .print-sheet .p-head{border-bottom:0.5mm solid #000;padding-bottom:2mm;margin-bottom:2.4mm}
   .print-sheet .p-people{margin-top:2.6mm}
   .print-sheet .p-title{font-size:12pt;margin-bottom:2mm}
-  .print-sheet .p-stamp{font-size:7pt;color:#000}
-  .print-sheet .p-stamp th{padding:0.6mm 1mm;border:0.25mm solid #444;background:#efece6;-webkit-print-color-adjust:exact;print-color-adjust:exact}
-  .print-sheet .p-stamp td{width:15mm;height:15mm;border:0.25mm solid #444}
   /* 記入欄は手で書ける寸法にする: マスは7mm角、下線の欄は8mm高 */
   .print-sheet .p-fields{font-size:8pt;gap:2.6mm;color:#333}
   .print-sheet .p-fields .lb{color:#000;padding-bottom:1mm}

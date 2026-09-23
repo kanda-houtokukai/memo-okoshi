@@ -8,7 +8,9 @@
 //   「PDF として保存」を標準で持ち、OS のフォントで文字化けせず、文字も選択できる PDF になる。
 //   ファイル名は document.title を一時的に差し替えて日付ベースにする
 
-import { buildDocxParts, cleanText, dateStamp, type DocEntry } from "./docx";
+import { buildDocxParts, cleanText, dateLabel, dateStamp, PAGE_NUMBER, type DocEntry } from "./docx";
+import type { RecordType } from "./items";
+import { stampCss, stampLabels } from "./stamp";
 
 const JSZIP_URL = "https://cdnjs.cloudflare.com/ajax/libs/jszip/3.10.1/jszip.min.js";
 
@@ -43,10 +45,11 @@ function download(blob: Blob, name: string) {
   setTimeout(() => URL.revokeObjectURL(url), 1000);
 }
 
-export async function exportDocx(entries: DocEntry[], title?: string): Promise<void> {
+/** Word で書き出す。type は記録の種類（押印欄のラベルが決まる。P12） */
+export async function exportDocx(entries: DocEntry[], title: string, type: RecordType): Promise<void> {
   const JSZip = await loadJSZip();
   const zip = new JSZip();
-  for (const [p, c] of Object.entries(buildDocxParts(entries, new Date(), title))) zip.file(p, c);
+  for (const [p, c] of Object.entries(buildDocxParts(entries, new Date(), title, type))) zip.file(p, c);
   const blob = await zip.generateAsync({ type: "blob", compression: "DEFLATE" });
   download(
     new Blob([blob], { type: "application/vnd.openxmlformats-officedocument.wordprocessingml.document" }),
@@ -63,20 +66,56 @@ export async function exportDocx(entries: DocEntry[], title?: string): Promise<v
  */
 export const RECORD_PAGE_CSS = "@page{size:A4;margin:15mm}";
 
-/** 印刷用DOMを組んで window.print()。印刷後に片付ける */
-export function printRecord(entries: DocEntry[], title = "面談・モニタリング記録"): void {
+/**
+ * 完成形の PDF の余白の箱（P12）。
+ * [DECISION 2026-09-23] **ブラウザが刷り込む日付・題・URL・ページ番号を消し、自前のページ番号を下の中央に入れる**。
+ *   `@page` の上と下に余白の箱を定義すると、Chrome はその辺のヘッダー／フッターを出さない（上だけだと下が残る。P11 で実測）。
+ *   上は空、下はページ番号「1 / 2」（8pt・#7b766c＝`PAGE_NUMBER`・Word と共通）。余白 15mm は `RECORD_PAGE_CSS` のまま変えない。
+ *   Word もフッターに同じ形で入れる（lib/docx.ts の PAGE / NUMPAGES）。用紙の印刷には差し込まない。
+ */
+export const RECORD_PAGE_MARKS_CSS = `@page{@top-center{content:""}@bottom-center{content:counter(page) " / " counter(pages);font-size:${PAGE_NUMBER.pt}pt;color:${PAGE_NUMBER.color}}}`;
+
+/** 押印欄（PDF）: 上の行＝ラベル・下の行＝押印の枠。ラベルと寸法は lib/stamp.ts（Word と共通） */
+function stampTable(type: RecordType): HTMLTableElement {
+  const t = document.createElement("table");
+  t.className = "pd-stamp";
+  const labels = stampLabels(type);
+  const head = document.createElement("tr");
+  const body = document.createElement("tr");
+  for (const l of labels) {
+    const th = document.createElement("th");
+    th.textContent = l;
+    head.appendChild(th);
+    body.appendChild(document.createElement("td"));
+  }
+  t.appendChild(head);
+  t.appendChild(body);
+  return t;
+}
+
+/**
+ * 印刷用DOMを組んで window.print()。印刷後に片付ける。
+ * [DECISION 2026-09-23] 頭は **左に題と作成日、右に押印欄** の2列（P12）。頭は文書の最初にだけあるので、2ページ目以降には出ない。
+ */
+export function printRecord(entries: DocEntry[], title: string, type: RecordType): void {
   const root = document.createElement("div");
   root.className = "print-doc";
   const page = document.createElement("style");
-  page.textContent = RECORD_PAGE_CSS;
+  page.textContent = RECORD_PAGE_CSS + RECORD_PAGE_MARKS_CSS + stampCss();
   root.appendChild(page);
+  const head = document.createElement("div");
+  head.className = "pd-head";
+  const left = document.createElement("div");
   const h = document.createElement("h1");
   h.textContent = title;
   const d = document.createElement("div");
   d.className = "pd-date";
-  d.textContent = `${new Date().getFullYear()}年${new Date().getMonth() + 1}月${new Date().getDate()}日 作成（メモおこし下書き）`;
-  root.appendChild(h);
-  root.appendChild(d);
+  d.textContent = dateLabel();
+  left.appendChild(h);
+  left.appendChild(d);
+  head.appendChild(left);
+  head.appendChild(stampTable(type));
+  root.appendChild(head);
   const table = document.createElement("table");
   for (const e of entries) {
     const tr = document.createElement("tr");

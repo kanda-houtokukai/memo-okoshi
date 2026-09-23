@@ -62,7 +62,8 @@ test("確認画面のカード・転記用テキスト・Word・PDF の順序が
   const rv = readFileSync("app/components/Review.tsx", "utf8");
   assert.ok(rv.includes("const acts = activeIds(rec)"));
   // P9: ライブラリは記録の種類で決まる（lib）。題は種類ごと。並びは変わらず recordEntries の順
-  assert.ok(rv.includes("exportDocx(recordEntries(rec, lib), outputTitle(type))") && rv.includes("printRecord(recordEntries(rec, lib), outputTitle(type))"));
+  // P12: 記録の種類も渡す（押印欄のラベルが決まる）
+  assert.ok(rv.includes("exportDocx(recordEntries(rec, lib), outputTitle(type), type)") && rv.includes("printRecord(recordEntries(rec, lib), outputTitle(type), type)"));
   const ex = readFileSync("lib/export.ts", "utf8");
   assert.ok(ex.slice(ex.indexOf("export function printRecord")).includes("for (const e of entries)"));
 });

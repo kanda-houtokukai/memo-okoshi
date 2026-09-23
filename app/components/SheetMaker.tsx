@@ -33,8 +33,10 @@
 //   項目の選択・並び・自由形式は**種類ごとに別に保存**する（`lib/settings.ts` の `keyFor`）。辞書は共通。
 //   会議の割り付け（内容は横いっぱいの大きな枠・決定事項と今後の対応は2列・下部は「その他」だけ）は
 //   `lib/sheet.ts` の `sheetRows` が決める。面談の割り付けは変わらない（同じ関数で重みがすべて1）。
-// [DECISION 2026-09-17] **押印欄**を記入欄の頭の右上に置く（P9・6-b。寸法と理由は `lib/sheet.ts` の `STAMP`）。
-//   会議＝作成者／署名の2列、面談＝記録者の1列。自由形式にも同じ欄。記入欄はそのぶん狭くなる（重ねない）。
+// [DECISION 2026-09-17] 押印欄を記入欄の頭の右上に置いた（P9・6-b）。
+//   → [DECISION 2026-09-23] **用紙から外した**（P12・設計側）。押印は完成した記録の承認に押すもので、白紙の用紙には要らない
+//     （P9 で付けたのは設計側の誤解）。完成形（Word・PDF）の1ページ目の右上へ移した（`lib/stamp.ts`）。
+//     頭は1列になり、題・日時・場所・参加者／出席者の各行が右端まで使う（1項目1行・頭の高さは変わらない）。
 // [DECISION 2026-09-17] **用紙の項目は「用紙に載る項目」だけ**（`sheetLibrary`・P9-c）。会議の「会議概要」は記録だけの項目で、
 //   トグルにも並べ替えにも見本にも出さない（一覧で動かせるのに用紙では動かない、という嘘の操作を作らない）。
 //   ⚠️ **オン・オフの保存は種類のライブラリ全体で読み書きする**（用紙の一覧だけで保存すると、記録の会議概要がオフになる）。
@@ -92,7 +94,7 @@ type Drag = { id: string; group: Group; from: number; dy: number; over: number; 
  *  `free` は自由形式（枠なしの罫線だけ・「その他」も出さない）。
  *  行の割り付け（どの項目がどの行に・何本の罫線か）は `sheetRows`（P9）。
  *  `cap` は罫線の上限（2ページ以上の最後のページだけ。`lastPageCap`・P9-f）。止めた枠は引き伸ばさない（`.p-grid.capped`）。
- *  `index`/`pageCount`: 2ページ目以降は頭を題だけにし（記入欄・押印欄なし）、2ページ以上なら下の行にページ番号（P9-g）。 */
+ *  `index`/`pageCount`: 2ページ目以降は頭を題だけにし（記入欄なし）、2ページ以上なら下の行にページ番号（P9-g）。 */
 function Paper({
   type,
   items,
@@ -123,7 +125,7 @@ function Paper({
   return (
     <div className="paper">
       {continued ? (
-        // 2ページ目以降は題だけ（記入欄・押印欄を出さない。P9-g）
+        // 2ページ目以降は題だけ（記入欄を出さない。P9-g）
         <div className="p-head cont">
           <div className="p-title">{head.title}</div>
         </div>
@@ -170,24 +172,7 @@ function Paper({
             </div>
           </div>
         </div>
-        {/* 押印欄: 上の行＝ラベル・下の行＝押印の正方形（会議は2列・面談は1列） */}
-        <table className="p-stamp">
-          <thead>
-            <tr>
-              {head.stamps.map((s) => (
-                <th key={s}>{s}</th>
-              ))}
-            </tr>
-          </thead>
-          <tbody>
-            <tr>
-              {head.stamps.map((s) => (
-                <td key={s} />
-              ))}
-            </tr>
-          </tbody>
-        </table>
-        {/* 参加者／出席者は押印欄より下に来るので、押印欄の下まで横いっぱいに使う（重ならない） */}
+        {/* 参加者／出席者は頭の2段目（横いっぱい） */}
         <div className="p-fields p-people">
           <div className="f f-people">
             <span className="lb">{head.people}</span>

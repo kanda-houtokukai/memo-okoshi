@@ -97,13 +97,10 @@ test("見本の寸法は印刷の規則と1対1（mm の値が同じ）。印刷
   const same: [string, string, ...string[]][] = [
     [".p-head", "padding-bottom", "2"],
     [".p-head", "margin-bottom", "2.4"],
-    [".p-head", "column-gap", "3"],
     [".p-people", "margin-top", "2.6"],
     [".p-titlebar", "gap", "4"],
     [".p-titlebar", "margin-bottom", "2"],
     [".p-name .wr", "height", "7"],
-    [".p-stamp td", "width", "15"],
-    [".p-stamp td", "height", "15"],
     [".p-title", "margin-bottom", "2"],
     [".p-fields", "gap", "2.6"],
     [".p-fields .lb", "padding-bottom", "1"],
@@ -127,7 +124,7 @@ test("見本の寸法は印刷の規則と1対1（mm の値が同じ）。印刷
     assert.ok(rule(print, ".print-sheet " + sel).includes(`${prop}:${printed}`), `印刷 ${sel} ${prop} が ${printed} でない`);
   }
   // 文字の大きさ: 印刷の pt を mm に直した値（1pt = 25.4/72 mm）
-  for (const [sel, pt] of [[".p-title", 12], [".p-fields", 8], [".p-box h4", 8.5], [".p-foot", 6], [".p-stamp", 7]] as const) {
+  for (const [sel, pt] of [[".p-title", 12], [".p-fields", 8], [".p-box h4", 8.5], [".p-foot", 6]] as const) {
     const m = rule(screen, sel).match(/font-size:calc\(([\d.]+) \* var\(--mm\)\)/);
     assert.ok(m && Math.abs(Number(m[1]) - (pt * 25.4) / 72) < 0.002, `見本 ${sel} の文字が印刷の ${pt}pt と違う`);
     assert.ok(rule(print, ".print-sheet " + sel).includes(`font-size:${pt}pt`), `印刷 ${sel} の文字が変わった`);

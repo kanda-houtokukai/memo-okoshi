@@ -70,3 +70,13 @@ test("横にはみ出さない（はみ出すとブラウザが全体を縮め�
 test("完成形の印刷のあいだ、画面の要素（出力の画面を含む）はすべて隠れる", () => {
   assert.ok(docPrint.includes("body > *:not(.print-doc):not(.print-sheet){display:none !important}"));
 });
+
+test("記録の表は印刷で行を flex で並べる（表の行のままだと Chrome が項目ごと次のページへ送る・P12）", () => {
+  assert.ok(docPrint.includes(".print-doc > table{display:block}") && docPrint.includes(".print-doc > table tr{display:flex}"));
+  // ラベルの列は 20%（Word の 1900:7800 と同じ割合）・本文は残り
+  assert.ok(docPrint.includes(".print-doc > table th{flex:0 0 20%}"));
+  assert.ok(/\.print-doc > table td\{[^}]*flex:1 1 0/.test(docPrint));
+  // 罫線は1本（隣り合う辺を消す）。押印の表（.pd-head の中）には効かせない（子の結合子 > で記録の表だけ）
+  assert.ok(docPrint.includes(".print-doc > table tr + tr > *{border-top:none}") && /\.print-doc > table td\{[^}]*border-left:none/.test(docPrint));
+  assert.ok(!/\.print-doc table tr\{display:flex/.test(docPrint));
+});

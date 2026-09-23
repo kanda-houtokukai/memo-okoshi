@@ -593,8 +593,8 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
           setOutCopied(false);
         }}
         onRestart={onRestart}
-        onWord={() => exportDocx(recordEntries(rec, lib), outputTitle(type)).catch(() => toast("Wordを作れませんでした"))}
-        onPdf={() => printRecord(recordEntries(rec, lib), outputTitle(type))}
+        onWord={() => exportDocx(recordEntries(rec, lib), outputTitle(type), type).catch(() => toast("Wordを作れませんでした"))}
+        onPdf={() => printRecord(recordEntries(rec, lib), outputTitle(type), type)}
       />
 
       {reconverting && <div className="progress fill" />}
