@@ -54,10 +54,22 @@ export async function exportDocx(entries: DocEntry[], title?: string): Promise<v
   );
 }
 
+/**
+ * 完成形の PDF のページ（A4・余白 15mm＝Word の `pgMar` 850 twips と同じ。`lib/docx.ts`）。
+ * [DECISION 2026-09-18] **印刷のあいだだけ差し込む**（P11）。`@page` は要素ごとに分けられないので、globals.css に置くと
+ *   用紙の `@page{margin:9mm}` と同じ場所で競い、ファイルの後ろにある用紙のほうが勝つ（P7-e から完成形も 9mm になっていた）。
+ *   印刷用 DOM の中に置けば、文書の順で globals.css より後ろになって完成形のほうが勝ち、片付けと一緒に消える。
+ *   用紙の印刷（`SheetMaker`）はこれを差し込まないので 9mm のまま。`tests/print-doc.test.mts`。
+ */
+export const RECORD_PAGE_CSS = "@page{size:A4;margin:15mm}";
+
 /** 印刷用DOMを組んで window.print()。印刷後に片付ける */
 export function printRecord(entries: DocEntry[], title = "面談・モニタリング記録"): void {
   const root = document.createElement("div");
   root.className = "print-doc";
+  const page = document.createElement("style");
+  page.textContent = RECORD_PAGE_CSS;
+  root.appendChild(page);
   const h = document.createElement("h1");
   h.textContent = title;
   const d = document.createElement("div");
