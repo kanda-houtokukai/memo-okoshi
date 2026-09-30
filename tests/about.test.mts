@@ -74,6 +74,8 @@ const GOLDEN = {
   alts: {
     "/help/01-home.png": "ホーム画面。カードが4枚並んでいる",
     "/help/02-sheet-maker.png": "用紙を作る画面。上に面談と会議の切り替え、左に項目の一覧、右に用紙の見本",
+    "/help/08-review.png": "確認画面。左に元のメモ、右に記録の下書き",
+    "/help/09-review-popover.png": "青い印を押したところ。確定・書き換え・削除が選べる",
   } as Record<string, string>,
   cautions: [
     ["記録の下書き", "そのまま記録にはできません。内容を確かめて、必要なら書き直してから仕上げてください。記録の責任は書いた人にあります。"],
@@ -361,7 +363,7 @@ test("使い方ページの部品名が、他の画面の規則とぶつから�
   assert.ok(!classes.has("steps") && !classes.has("note") && !classes.has("mk"), "ぶつかると分かっている名前を使っている");
 });
 
-test("撮り直した画面写真（01・02）の説明と撮り方（P13）", () => {
+test("撮り直した画面写真（01・02・08・09）の説明と撮り方（P13・P16）", () => {
   const shots = ABOUT.chapters.flatMap((c) => c.steps.flatMap((s) => s.shots ?? []));
   for (const [src, alt] of Object.entries(GOLDEN.alts)) {
     const sh = shots.find((s) => s.src === src);
@@ -374,9 +376,24 @@ test("撮り直した画面写真（01・02）の説明と撮り方（P13）", (
   const shoot = readFileSync("docs/assets/help/shoot.mjs", "utf8");
   const list = shoot.slice(shoot.indexOf("const SHOTS = {"), shoot.indexOf("/* ---------------- ここから下は道具"));
   const names = [...list.matchAll(/^  "([^"]+\.png)":/gm)].map((m) => m[1]);
-  assert.deepEqual(names, ["01-home.png", "02-sheet-maker.png"]);
+  assert.deepEqual(names, ["01-home.png", "02-sheet-maker.png", "08-review.png", "09-review-popover.png", "11-output.png"]);
   const mw = readFileSync("middleware.ts", "utf8");
   for (const n of names) assert.ok(mw.includes(`"${n}"`), `${n} がゲートの一覧に無い`);
   // npm の依存を足さない（Node の標準機能だけ）
   assert.ok(![...shoot.matchAll(/^import .* from "([^"]+)";$/gm)].some((m) => !m[1].startsWith("node:")), "Node の標準機能以外を読み込んでいる");
+});
+
+test("出力画面の写真（11）は要素の範囲で切り出す・原本と配信が同じ中身（P16）", () => {
+  const shots = ABOUT.chapters.flatMap((c) => c.steps.flatMap((s) => s.shots ?? []));
+  const out = shots.find((s) => s.src === "/help/11-output.png");
+  assert.ok(out, "11-output.png が無い");
+  assert.equal(out!.alt, "出力画面。転記用テキストとコピーのボタン");
+  // 11 だけは画面全体でなく、出力画面（転記用テキストとコピーのボタン）の範囲で切り出す
+  const shoot = readFileSync("docs/assets/help/shoot.mjs", "utf8");
+  const entry = shoot.slice(shoot.indexOf('"11-output.png":'), shoot.indexOf("/* ---------------- ここから下は道具"));
+  assert.ok(entry.includes('return { clip: ".ovl.on .out-card" }'), "11 は出力画面の範囲で切り出す");
+  // 撮り直した写真は、原本と配信が同じ中身（無加工）
+  for (const f of ["08-review.png", "09-review-popover.png", "11-output.png"]) {
+    assert.ok(readFileSync("docs/assets/help/" + f).equals(readFileSync("public/help/" + f)), `${f} の原本と配信が違う`);
+  }
 });

@@ -12,6 +12,9 @@
 // [DECISION 2026-09-23] 撮り方をそろえる（P13）: 表示は 1345×775・倍率1（他の写真と大きさと鮮明さを合わせる）、
 //   新しいプロファイル（保存済みの設定が無い既定の状態）、字の読み込みと動きが終わるのを待ち、ホバーとフォーカスを外して撮る。
 //   撮り終えたら（失敗しても）Chrome を閉じ、閉じなければ止め、プロファイルを消す。
+// [DECISION 2026-09-30] **要素の範囲で切り出す撮り方を足した**（P16・11 の出力画面）。表示の条件（1345×775・倍率1）は同じで、
+//   手順が `{ clip: "選択子" }` を返したときだけ、その要素の外形を整数の画素に丸めて切り出す。寸法の検査は切り出した枠と比べる。
+//   ⚠️ 切り出す枠は**文書の座標**（画面がスクロールしていると、画面の座標のままでは上にずれる。スクロールぶんを足す）。
 // [DECISION 2026-09-23] **写真ごとに新しいタブで撮る**（P14）。同じタブで続けて撮ると、前の写真の描画が残って
 //   角の丸みの縁取りが明るさ ±2 だけ揺れた（01 のあとの 02 だけ md5 が変わった）。タブを分ければ撮る順番に左右されない。
 
@@ -28,8 +31,30 @@ const VIEW = { width: 1345, height: 775 };
 const CHROME = process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/MacOS/Google Chrome";
 
 /**
+ * 確認画面を開発データ（`?fixture=1`・public/dev-fixture.json。架空の面談）で開き、項目の設定を画面で変えて
+ * 赤・黄・青が1画面に収まる状態にする（08・09・11 で共用）。
+ * 「次回への申し送り」をオンにすると赤「田中」が出る。記載の無い「健康・服薬」「生活・住環境」をオフにして、赤を画面の中へ上げる。
+ */
+async function reviewWithRed(p) {
+  await p.open("/?fixture=1");
+  await p.waitFor(`document.querySelectorAll('.mk').length >= 3`);
+  await p.clickUntil(`[...document.querySelectorAll('button')].find((b) => b.textContent.includes('☰'))`, `!!document.querySelector('.drawer.on')`);
+  for (const [name, on] of [["次回への申し送り", true], ["健康・服薬", false], ["生活・住環境", false]]) {
+    const item = `[...document.querySelectorAll('.dr-item')].find((e) => e.querySelector('.nm').textContent === ${JSON.stringify(name)})`;
+    await p.clickUntil(item, `${item}.classList.contains('on') === ${on}`);
+  }
+  await p.clickUntil(`document.querySelector('.drawer-ovl.on')`, `!document.querySelector('.drawer.on')`);
+  await p.waitFor(`!!document.querySelector('.mk.r') && !document.querySelector('.toast.on')`);
+}
+
+/**
  * 撮る写真の一覧。**写真を足すときはここに1件足す**（名前＝ファイル名。値＝その画面までたどる手順）。
- * 手順の中では `p`（下の道具）だけを使う。画面をたどるのはボタンを押すなど**利用者と同じ操作**で行い、URL の細工はしない。
+ * 手順の中では `p`（下の道具）だけを使う。画面をたどるのはボタンを押すなど**利用者と同じ操作**で行い、URL の細工はしない
+ * （例外は開発データの入口 `?fixture=1` だけ）。
+ * 手順が要素の選択子を返したときは、画面全体でなく**その要素の範囲だけ**を切り出す（`{ clip: "選択子" }`）。
+ *
+ * [DECISION 2026-09-30] 08・09・11 は開発データ（`?fixture=1`）で撮る（P16）。本番と同じビルド（`next start`）でも開発データは開くので、
+ *   本番の利用者に開発データの入口を見せる手当ては要らない。元メモの欄は開発データの再現表示（写真ではない）になる。
  */
 const SHOTS = {
   /** ホーム: 4枚のカードと題の下の一文 */
@@ -44,6 +69,38 @@ const SHOTS = {
       `[...document.querySelectorAll('.hcard')].find((b) => b.textContent.includes('用紙を印刷'))`,
       `!!document.querySelector('.pv-inner .paper') && !!document.querySelector('.seg')`
     );
+  },
+  /** 確認画面: 左に元メモ、右に記録の下書き。確認していない赤・黄・青が見え、ヘッダーは「完成（赤の確認が必要）」 */
+  "08-review.png": async (p) => {
+    await reviewWithRed(p);
+  },
+  /** 確認画面で青（AIの推定）の印を押したところ（確定・書き換え・削除） */
+  "09-review-popover.png": async (p) => {
+    await reviewWithRed(p);
+    await p.clickUntil(`document.querySelector('.mk.b')`, `!!document.querySelector('.pop.on')`);
+  },
+  /**
+   * 出力画面の転記用テキストとコピーのボタン。印をすべて主ボタンで片付け（赤は「確認した」で名前はそのまま・黄と青はそのまま確定）、
+   * 拾いきれなかった内容を AI の提案した項目（健康・服薬）へ移してから完成を押す（未確認の警告の帯が出ない、ふだんの出方にする）
+   */
+  "11-output.png": async (p) => {
+    await reviewWithRed(p);
+    // 片付けた印は .mk.done になって残る
+    for (let left = await p.count(".mk:not(.done)"); left > 0; left--) {
+      await p.clickUntil(`document.querySelector('.mk:not(.done)')`, `!!document.querySelector('.pop.on .pri')`);
+      await p.clickUntil(`document.querySelector('.pop.on .pri')`, `document.querySelectorAll('.mk:not(.done)').length < ${left}`);
+    }
+    await p.clickUntil(`document.querySelector('[aria-label="他の項目へ移す"]')`, `!!document.querySelector('.pop.on')`);
+    await p.clickUntil(
+      `[...document.querySelectorAll('.pop.on button')].find((b) => b.textContent.includes('健康・服薬'))`,
+      `!document.querySelector('[aria-label="他の項目へ移す"]')`
+    );
+    await p.waitFor(`!document.querySelector('.toast.on')`, 30000);
+    await p.clickUntil(
+      `[...document.querySelectorAll('button')].find((b) => b.textContent.trim() === '完成 ✓' || b.textContent.trim() === '完成')`,
+      `!!document.querySelector('.ovl.on .out-card')`
+    );
+    return { clip: ".ovl.on .out-card" };
   },
 };
 
@@ -144,6 +201,10 @@ const p = {
     }
     throw new Error(`待ちきれない: ${expr}`);
   },
+  /** 選択子に当たる要素の数 */
+  async count(sel) {
+    return evaluate(`document.querySelectorAll(${JSON.stringify(sel)}).length`);
+  },
   /** 要素を押し、画面が変わるまで押し直す（画面が組み上がる前に押しても効かないため） */
   async clickUntil(elExpr, doneExpr, ms = 20000) {
     const t = Date.now();
@@ -200,13 +261,20 @@ try {
   if (!port) throw new Error("Chrome が立ち上がらない");
   for (const name of targets) {
     const tab = await newTab();
-    await SHOTS[name](p);
+    const opt = (await SHOTS[name](p)) ?? {};
     await settle();
-    const shot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false });
+    // 要素の範囲で切り出すときは、その要素の外形（整数の画素に丸める）を切り出す枠にする
+    const clip = opt.clip
+      ? await evaluate(`(() => { const r = document.querySelector(${JSON.stringify(opt.clip)}).getBoundingClientRect();
+          const x = Math.round(r.left), y = Math.round(r.top);
+          return { x: x + scrollX, y: y + scrollY, width: Math.round(r.right) - x, height: Math.round(r.bottom) - y, scale: 1 }; })()`)
+      : null;
+    const shot = await send("Page.captureScreenshot", { format: "png", captureBeyondViewport: false, ...(clip ? { clip } : {}) });
     const png = Buffer.from(shot.data, "base64");
     const w = png.readUInt32BE(16);
     const h = png.readUInt32BE(20);
-    if (w !== VIEW.width || h !== VIEW.height) throw new Error(`${name}: 寸法が ${w}×${h}（${VIEW.width}×${VIEW.height} のはず）`);
+    const want = clip ?? VIEW;
+    if (w !== want.width || h !== want.height) throw new Error(`${name}: 寸法が ${w}×${h}（${want.width}×${want.height} のはず）`);
     const origin = join(HERE, name);
     const served = join(PUBLIC_DIR, name);
     writeFileSync(origin, png);
