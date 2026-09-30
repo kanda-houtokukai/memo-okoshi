@@ -65,6 +65,8 @@ export async function middleware(req: NextRequest) {
   return NextResponse.redirect(new URL("/gate", req.url));
 }
 
+// [DECISION 2026-09-30・設計側] 利用状況の計測の道（/_vercel/insights/…＝script と送信先）だけをゲートの外に出す（P19）。
+//   ミドルウェアを通さない道の一覧に足す（ほかの道は開けない。tests/analytics.test.mts）。
 export const config = {
-  matcher: ["/((?!_next/|favicon.ico|robots.txt).*)"],
+  matcher: ["/((?!_next/|_vercel/insights/|favicon.ico|robots.txt).*)"],
 };

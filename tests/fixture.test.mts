@@ -32,7 +32,7 @@ test("開発データは配る場所（public/）に置かず、撮影用のビ�
   assert.ok(!filesUnder("public").some((f) => readFileSync(f).includes(DATA_MARK)), "public/ に開発データがある");
   // 旗: ビルド時に "1"/"0" の文字として埋め込む（MEMO_OKOSHI_FIXTURE=1 のときだけ "1"）
   const cfg = readFileSync("next.config.mjs", "utf8");
-  assert.ok(cfg.includes('env: { DEV_FIXTURE: process.env.MEMO_OKOSHI_FIXTURE === "1" ? "1" : "0" }'));
+  assert.ok(cfg.includes('DEV_FIXTURE: process.env.MEMO_OKOSHI_FIXTURE === "1" ? "1" : "0",'));
   const pkg = JSON.parse(readFileSync("package.json", "utf8"));
   assert.equal(pkg.scripts["build:shoot"], "MEMO_OKOSHI_FIXTURE=1 next build");
   assert.equal(pkg.scripts.build, "next build", "本番のビルドに旗を立てない");

@@ -1,6 +1,7 @@
 import type { Metadata, Viewport } from "next";
 import type { ReactNode } from "react";
 import "./globals.css";
+import { ANALYTICS_INIT, ANALYTICS_SRC } from "@/lib/analytics";
 
 export const metadata: Metadata = {
   title: "メモおこし",
@@ -42,6 +43,13 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         {/* [DECISION 2026-09-30] 手書き風の字（Klee One）はここで読まない（P17）。使う画面（読みもの・ホームの棚・
             開発データの元メモ）だけが lib/hand-font.ts の link を置く。他の画面の読み込みを重くしないため */}
         <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet" />
+        {/* [DECISION 2026-09-30] 利用状況の計測は本番のビルドだけ（P19・lib/analytics.ts）。送る前にクエリとハッシュを落とす */}
+        {process.env.ANALYTICS === "1" && (
+          <>
+            <script dangerouslySetInnerHTML={{ __html: ANALYTICS_INIT }} />
+            <script defer src={ANALYTICS_SRC} />
+          </>
+        )}
       </head>
       <body>{children}</body>
     </html>
