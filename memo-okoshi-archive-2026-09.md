@@ -3002,6 +3002,76 @@ P9・P9-c・P9-d・P9-e の記録に分かれて書いていたものを、い�
 - /yomimono/memo に訂正後の文面（「面談概要」を書くときにも…・前回の申し送りを書き写す・月/日（曜））があり、「10/2」は無い。
 - 本番の CSS（668a2ff20e58d103.css）は手元と md5 一致（CSS は変えていない）。/about の目次の部品のチャンクに旧い最下端の規則（scrollHeight-4）は無い。
 
+## 2026-09-30 P19: 利用状況の計測（Vercel Web Analytics）を入れる（設計側の指示書）
+
+### 台帳の記録（判断と理由）
+
+- [DECISION 2026-09-30・設計側] 社内でテスト配布しているが、使われているかを知る手段が無かった。開いた回数を個人を特定しない形で数える
+  （Vercel は Hobby のまま・変換の回数は AI Studio）。npm の依存は増やさず script で入れ、本番のビルドだけが読む。
+- [DECISION 2026-09-30・設計側] **原則5との関係**: 送るのは開いた画面の道・script の版・時刻・外からの参照元だけで、記録の中身は送らない。
+  本番で実際の送信を捕まえて（止めて）中身を確かめた。利用上の注意の3段落目に、数えていることを足した。
+- [DECISION 2026-09-30] 本文の URL は beforeSend でクエリとハッシュを落としたが、ブラウザが送信に付ける Referer にページのクエリが載っていた。
+  サイト全体の参照元をオリジンだけにした（`strict-origin`）。
+- [DECISION 2026-09-30] ゲートの外に出すのは `/_vercel/insights/` だけ（ミドルウェアを通さない道に足す）。Web Analytics の有効化は API（`/web/insights/toggle`）で行った。
+- デプロイ後の確認は数に入らない（script が自動操作を見て送らない）。この回は流れの確認のため `/about` を**1回だけ**送った。
+- 検証: → アーカイブ「記録の全文 → 2026-09-30 P19」（送信の中身・道の応答・数の出方・01）
+- テスト 213→218件。本番デプロイまで実施（実装の commit `820a09c`・`994a6d5`）。
+
+### 入れ方
+
+- `app/layout.tsx`: `process.env.ANALYTICS === "1"` のときだけ `<script>`（初期化）→ `<script defer src="/_vercel/insights/script.js">` の順に置く。
+  ANALYTICS は next.config.mjs が `VERCEL_ENV === "production"` のときだけ "1" を埋め込む（手元の `npm run build`・撮影用のビルド・プレビューは "0"）。
+- 初期化（`lib/analytics.ts`）: `window.va` のキューに `beforeSend` を積み、送る URL の search と hash を空にする（読めない URL は送らない）。
+- `middleware.ts`: matcher の除外に `_vercel/insights/` を足した（`_next/`・`_vercel/insights/`・favicon.ico・robots.txt の4つだけ）。完全一致の PUBLIC は変えていない。
+- `referrer: "strict-origin"`（下の実測で Referer にクエリが載っていたため）。
+- Web Analytics の有効化: Vercel API `POST /web/insights/toggle?projectId=…` に `{"value":true}` → `{"value":true}`。プロジェクトの webAnalytics に enabledAt が付いた（Hobby の範囲・費用なし）。
+
+### 手元のビルドで確かめた読み込み
+
+| ビルド | ANALYTICS | /・/about・/gate・/yomimono/memo の HTML に script |
+|---|---|---|
+| `VERCEL_ENV=production next build`（本番と同じ旗） | "1" | 4ページとも、初期化 → script の順で入っている |
+| `npm run build`（手元） | "0" | 入らない |
+| `npm run build:shoot`（撮影用） | "0" | 入らない（`curl /` で 0件） |
+
+### 本番の道の応答（合言葉なし）
+
+| 道 | 応答 |
+|---|---|
+| `/_vercel/insights/script.js` | **200**（4,469 バイトの script） |
+| `/`・`/?fixture=1`・`/dev-fixture.json` | 307 → /gate |
+| `/_vercel/other`・`/_vercel/insightsx`（開けていない似た道） | 307 → /gate |
+| `/gate`・`/about`・`/yomimono/memo`・`/help/01-home.png` | 200 |
+| 未認証 `POST /api/convert` | 401 |
+
+### 送信の中身（本番・ヘッドレス Chrome で自動操作の印を外し、`/_vercel/insights/*` を Fetch で捕まえて**止めた**＝数に入れていない）
+
+| 場面 | 送信 | 本文（body） | Referer（直す前） | Referer（直した後） |
+|---|---|---|---|---|
+| `/about?secret=abc#write` を開く | POST /_vercel/insights/view | `{"o":"https://memookoshi.fknd.jp/about","sv":"0.1.3","ts":…,"r":""}` | `https://memookoshi.fknd.jp/about?secret=abc` | `https://memookoshi.fknd.jp/` |
+| そこから入口（メモの取り方）を押す | 同上 | `{"o":"https://memookoshi.fknd.jp/yomimono/memo","sv":"0.1.3","ts":…}`（同じサイトの参照元は送らない） | …/yomimono/memo | `https://memookoshi.fknd.jp/` |
+| 未認証で `/?q=xyz`（→ /gate） | 同上 | `{"o":"https://memookoshi.fknd.jp/gate","sv":"0.1.3","ts":…,"r":""}` | …/gate | `https://memookoshi.fknd.jp/` |
+| `/yomimono/memo?utm_source=test` | 同上 | `{"o":"https://memookoshi.fknd.jp/yomimono/memo","sv":"0.1.3","ts":…,"r":""}` | …/yomimono/memo?utm_source=test | `https://memookoshi.fknd.jp/` |
+
+- 本文の項目は o（開いた画面の道・クエリとハッシュなし）・sv（script の版）・ts（時刻）・r（外からの参照元。同じサイトからなら付かない）だけ。
+  メモ・記録・辞書・画像・合言葉は入らない。script は localStorage に利用者の印を置く口（userId 等）を持つが、このアプリは使っていない。
+- ⚠️ **ブラウザが付ける Referer にページのクエリが載っていた**（本文は落ちていても）→ `referrer: "strict-origin"` で直し、直した後はオリジンだけ。
+- ホーム（`/`）は合言葉が無いと開けないので、本番では /gate の送信を見た。ホームも同じ layout で、手元の本番と同じ旗のビルドの HTML で読み込みを確かめた。
+- **デプロイ後の確認は数に入らない**: script が `navigator.webdriver` か UA の「Headless」を見ると何もしない（script の中身で確認）。curl は script を動かさない。
+
+### 数の出方（Vercel API `/v1/query/web-analytics/visits/…`・`vercel metrics vercel.analytics.page_view.count`）
+
+- 流れの確認のため、22:06 に `/about` を**1回だけ**通した（台帳に記録）。22:07 の時点で pageviews 1・visitors 1（requestPath /about）。止めた4回は数に入っていない。
+- ダッシュボードの場所: Vercel → プロジェクト memo-okoshi → Analytics。
+
+### 写真 01（撮影用のビルド・2回撮って一致）
+
+| | 実寸 | md5 |
+|---|---|---|
+| 原本・配信・本番 | 1345×775 | 9003c1f72a641b2daa0a35300b0dc56d（3つとも同じ） |
+
+- 表紙は手書き風の字（Klee One）で描かれている（`CSS.getPlatformFontsForNode` で KleeOne-Regular を確認。4秒待って撮った画像と差0画素）。
+
 # 生きている注意事項から外したもの（台帳から移動）
 
 > 台帳の「生きている注意事項」から、**終わったもの・重複したもの**を外したときの原文。要約・圧縮はしない。
@@ -3226,6 +3296,8 @@ P9・P9-c・P9-d・P9-e の記録に分かれて書いていたものを、い�
 - **P17: 使い方の目次を小口のインデックスに・「メモを書く」・読みもの・「ひと息」の棚** ✅（2026-09-30 完了）ChapterIndex（案B）を使い方と読みもので共有・章を id で読む・/yomimono/memo（ゲートの外）・ホームの棚・Klee One を使う画面だけで読む・01 撮り直し
 
 - **P18: 読みものの文面の訂正・最後の章の目次・本番から開発データを外す** ✅（2026-09-30 完了）設計側の訂正5か所・最下端の規則をやめ80pxずつ割り当て（余白なし）・開発データは撮影用のビルド（build:shoot）だけ・制約の主題を2つ移した
+
+- **P19: 利用状況の計測（Vercel Web Analytics）** ✅（2026-09-30 完了）script で本番のビルドだけ・/_vercel/insights/ だけゲートの外・クエリとハッシュを落とす・参照元はオリジンだけ・利用上の注意に1文・01 撮り直し
 
 # いま守る制約（主題ごと移した節）
 
