@@ -13,6 +13,10 @@
 //   ブラウザの戻る・閉じる: 画像か変換結果があれば beforeunload で警告
 //
 // ?fixture=1 は開発用（モックv6の内容で確認画面を開く。API課金なし）。
+// [DECISION 2026-09-30] **撮影用のビルドだけが ?fixture=1 を読む**（P18）。`npm run build:shoot`（MEMO_OKOSHI_FIXTURE=1）のときだけ
+//   `process.env.DEV_FIXTURE` が "1" になり（next.config.mjs がビルド時に埋め込む）、開発データ（lib/dev-fixture.json）もそのときだけ組み込む。
+//   本番のビルド（Vercel・`npm run build`）では "0" で、下の分岐ごとビルドの出力から消える（`tests/fixture.test.mts`）。
+//   以前は public/ に置いていたので、本番でもゲートの内側で配られ、?fixture=1 で開けた。
 
 import { useEffect, useRef, useState } from "react";
 import { ITEM_LIBRARY, libraryFor, type RecordType } from "@/lib/items";
@@ -68,16 +72,19 @@ export default function Page() {
   const { toast, msg, on } = useToast();
 
   useEffect(() => {
-    if (new URLSearchParams(window.location.search).get("fixture") !== "1") return;
-    const s = loadSettings(ITEM_LIBRARY);
-    fetch("/dev-fixture.json")
-      .then((r) => r.json())
-      .then((f: ApiData & { pages?: MemoPage[] }) => {
-        setRec(fromApi(f, ITEM_LIBRARY, s.enabled, s.order));
-        setMemoPages(f.pages ?? []);
-        setMode("review");
-      })
-      .catch((e) => setError(String(e)));
+    // ⚠️ 条件はビルド時に "1" か "0" の文字に置き換わる。"0" のビルドでは分岐の中（import を含む）ごと出力に入らない
+    if (process.env.DEV_FIXTURE === "1") {
+      if (new URLSearchParams(window.location.search).get("fixture") !== "1") return;
+      const s = loadSettings(ITEM_LIBRARY);
+      import("@/lib/dev-fixture.json")
+        .then((m) => {
+          const f = m.default as unknown as ApiData & { pages?: MemoPage[] };
+          setRec(fromApi(f, ITEM_LIBRARY, s.enabled, s.order));
+          setMemoPages(f.pages ?? []);
+          setMode("review");
+        })
+        .catch((e) => setError(String(e)));
+    }
   }, []);
 
   /* 離脱警告: 端末内にしかないものがあるとき */

@@ -5,6 +5,7 @@
   "scripts": {
     "dev": "next dev",
     "build": "next build",
+    "build:shoot": "MEMO_OKOSHI_FIXTURE=1 next build",
     "start": "next start",
     "test": "node --test \"tests/*.test.mts\""
   },

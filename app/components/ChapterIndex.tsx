@@ -26,6 +26,16 @@ type Props = {
   children: ReactNode;
 };
 
+/**
+ * ページの終わりで、頭が判定の線まで上がりきらない章に割り当てるスクロールの幅（px）。
+ * [DECISION 2026-09-30] 最後の章を「最下端なら最後の章」で決めていた規則をやめた（P18）。768px の読みものでは最後の2章が同じ画面に収まり、
+ *   「面談のあとに」の頭が上がりきる前に最下端に着いて、表示が「会議のメモ」に飛んでいた。各章が「いまの章」になる位置を
+ *   min（頭が線に届く位置, 最下端 −（後ろに残る章の数）× この幅）にする。どの幅でも、すべての章がこの幅以上のスクロールのあいだ一度は「いまの章」になる。
+ *   余白は足さない（ページの下に空白を作らず、上がりきる章はこれまでどおり頭が線に届いたときに切り替わる）。
+ *   短いページでは（最下端 ÷ 章の数）まで縮める（先頭の章が最初から「いまの章」にならないように）。
+ */
+const MIN_DWELL = 80;
+
 const reduced = () => typeof window !== "undefined" && window.matchMedia("(prefers-reduced-motion: reduce)").matches;
 const shown = (el: Element | null) => !!el && getComputedStyle(el).display !== "none";
 
@@ -55,13 +65,19 @@ export default function ChapterIndex({ chapters, label, children }: Props) {
 
   const compute = useCallback(() => {
     const th = offset() + 40;
+    const y = window.scrollY;
+    const max = Math.max(0, document.documentElement.scrollHeight - window.innerHeight);
+    const n = chapters.length;
+    const dwell = Math.min(MIN_DWELL, max / Math.max(1, n));
     let idx = -1;
     chapters.forEach((ch, i) => {
       const el = document.getElementById(ch.id);
-      if (el && el.getBoundingClientRect().top <= th) idx = i;
+      if (!el) return;
+      // その章の頭が判定の線に届くスクロール位置。ページの終わりまでに届かない章は、終わりの手前に dwell ずつ割り当てる
+      const natural = y + el.getBoundingClientRect().top - th;
+      const at = Math.min(natural, max - (n - 1 - i) * dwell);
+      if (at <= y + 2) idx = i;
     });
-    const doc = document.documentElement;
-    if (window.scrollY + window.innerHeight >= doc.scrollHeight - 4) idx = chapters.length - 1;
     show(idx);
   }, [chapters, offset, show]);
 

@@ -256,7 +256,7 @@ test("不変条件: 赤の確認の状態は保存しない・送らない（原
 });
 
 test("fromApi: 実際のAPI応答（開発用フィクスチャ）を取り込める", () => {
-  const raw = JSON.parse(readFileSync(new URL("../public/dev-fixture.json", import.meta.url), "utf8")) as ApiData;
+  const raw = JSON.parse(readFileSync(new URL("../lib/dev-fixture.json", import.meta.url), "utf8")) as ApiData;
   const enabled = enabledFor((raw.sections ?? []).map((x) => x.id));
   const s = fromApi(raw, ITEM_LIBRARY, enabled, ITEM_LIBRARY.map((l) => l.id));
 

@@ -1,9 +1,10 @@
 // 使い方ページ（/about）の画面写真を撮る。ヘッドレスの Chrome を DevTools の口で操作する（Node の標準機能だけ・npm 依存なし）。
 //
-// 使い方（本番と同じビルドで撮る。開発サーバーでは左下に Next の開発用の印が写るため）:
-//   npm run build && npm run start -- -p 3211        … 別の窓で立ち上げておく
+// 使い方（**撮影用のビルド**で撮る。開発サーバーでは左下に Next の開発用の印が写るため）:
+//   npm run build:shoot && npm run start -- -p 3211  … 別の窓で立ち上げておく（撮影用のビルド＝本番のビルド＋開発データの入口 ?fixture=1）
 //   node docs/assets/help/shoot.mjs                  … 一覧（SHOTS）の写真をすべて撮る
 //   node docs/assets/help/shoot.mjs 02-sheet-maker.png --base http://localhost:3211   … 名前を挙げたものだけ
+//   node docs/assets/help/shoot.mjs 01-home.png --out /tmp/x   … 置き場所に書かず、別の場所に撮る（今の写真と比べるとき）
 //
 // 撮った写真は docs/assets/help/（原本）に書き、同じ中身を public/help/（配信）にも置く（md5 を表示する）。
 // ⚠️ /about は合言葉ゲートの外なので、写真は誰でも見られる。**実データが写っていないことを確かめてから**差し替える（README）。
@@ -37,7 +38,11 @@ const CHROME = process.env.CHROME ?? "/Applications/Google Chrome.app/Contents/M
  */
 async function reviewWithRed(p) {
   await p.open("/?fixture=1");
-  await p.waitFor(`document.querySelectorAll('.mk').length >= 3`);
+  try {
+    await p.waitFor(`document.querySelectorAll('.mk').length >= 3`);
+  } catch {
+    throw new Error("開発データが開かない。撮影用のビルド（npm run build:shoot）で立ち上げてから撮る（本番のビルドには ?fixture=1 の入口が無い）");
+  }
   await p.clickUntil(`[...document.querySelectorAll('button')].find((b) => b.textContent.includes('☰'))`, `!!document.querySelector('.drawer.on')`);
   for (const [name, on] of [["次回への申し送り", true], ["健康・服薬", false], ["生活・住環境", false]]) {
     const item = `[...document.querySelectorAll('.dr-item')].find((e) => e.querySelector('.nm').textContent === ${JSON.stringify(name)})`;
@@ -53,8 +58,9 @@ async function reviewWithRed(p) {
  * （例外は開発データの入口 `?fixture=1` だけ）。
  * 手順が要素の選択子を返したときは、画面全体でなく**その要素の範囲だけ**を切り出す（`{ clip: "選択子" }`）。
  *
- * [DECISION 2026-09-30] 08・09・11 は開発データ（`?fixture=1`）で撮る（P16）。本番と同じビルド（`next start`）でも開発データは開くので、
- *   本番の利用者に開発データの入口を見せる手当ては要らない。元メモの欄は開発データの再現表示（写真ではない）になる。
+ * [DECISION 2026-09-30] 08・09・11 は開発データ（`?fixture=1`）で撮る（P16）。元メモの欄は開発データの再現表示（写真ではない）になる。
+ *   → [DECISION 2026-09-30] **本番のビルドからは開発データを外した**（P18）。撮るときは `npm run build:shoot`（MEMO_OKOSHI_FIXTURE=1）で
+ *   建てた撮影用のビルドを使う（CSS と画面は本番と同じ。違うのは ?fixture=1 の入口と開発データが入っていることだけ）。
  */
 const SHOTS = {
   /** ホーム: 4枚のカードと題の下の一文 */
@@ -108,9 +114,12 @@ const SHOTS = {
 
 const args = process.argv.slice(2);
 let base = "http://localhost:3211";
+/** 別の置き場所（指定したときは原本・配信に書かない） */
+let outDir = "";
 const names = [];
 for (let i = 0; i < args.length; i++) {
   if (args[i] === "--base") base = args[++i];
+  else if (args[i] === "--out") outDir = args[++i];
   else names.push(args[i]);
 }
 const targets = names.length ? names : Object.keys(SHOTS);
@@ -122,7 +131,7 @@ if (unknown.length) {
 try {
   await fetch(base, { redirect: "manual" });
 } catch {
-  console.error(`${base} につながらない。先に npm run build && npm run start -- -p 3211 で立ち上げる`);
+  console.error(`${base} につながらない。先に npm run build:shoot && npm run start -- -p 3211 で立ち上げる`);
   process.exit(2);
 }
 
@@ -275,11 +284,17 @@ try {
     const h = png.readUInt32BE(20);
     const want = clip ?? VIEW;
     if (w !== want.width || h !== want.height) throw new Error(`${name}: 寸法が ${w}×${h}（${want.width}×${want.height} のはず）`);
-    const origin = join(HERE, name);
-    const served = join(PUBLIC_DIR, name);
-    writeFileSync(origin, png);
-    copyFileSync(origin, served); // 配信は原本と同じ中身（無加工）
-    console.log(`${name}  ${w}×${h}  原本 ${md5(origin)}  配信 ${md5(served)}`);
+    if (outDir) {
+      const other = join(outDir, name);
+      writeFileSync(other, png);
+      console.log(`${name}  ${w}×${h}  ${other} ${md5(other)}（置き場所には書いていない）`);
+    } else {
+      const origin = join(HERE, name);
+      const served = join(PUBLIC_DIR, name);
+      writeFileSync(origin, png);
+      copyFileSync(origin, served); // 配信は原本と同じ中身（無加工）
+      console.log(`${name}  ${w}×${h}  原本 ${md5(origin)}  配信 ${md5(served)}`);
+    }
     await closeTab(tab);
   }
 } catch (e) {
