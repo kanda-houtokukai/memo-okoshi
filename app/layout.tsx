@@ -9,6 +9,9 @@ export const metadata: Metadata = {
   description: "手書きの面談メモや会議メモを記録の下書きに変換します",
   // 試験開発中は検索に載せない（app/robots.ts と対）
   robots: { index: false, follow: false },
+  // [DECISION 2026-09-30] 参照元はオリジンだけを渡す（P19）。解析の送信（POST /_vercel/insights/view）にブラウザが付ける Referer に、
+  //   ページの URL のクエリがそのまま載っていた（本文の URL は beforeSend で落としていても）。サイトの中でも外でも道とクエリを渡さない。
+  referrer: "strict-origin",
   // [DECISION 2026-09-09] アイコンは docs/assets/memo-okoshi-icon-src.png（設計側が生成した原本）を
   //   sips で縮めただけ。原本は加工しない。小サイズ用の作り分けが要るなら画像から作り直す。
   manifest: "/manifest.webmanifest",

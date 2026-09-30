@@ -52,6 +52,11 @@ test("送る前に URL のクエリとハッシュを落とす（読めない UR
   assert.equal(send({ type: "pageview", url: "not a url" }), null);
 });
 
+test("送信に付く Referer もオリジンだけ（ページの URL のクエリを渡さない）", () => {
+  const layout = readFileSync("app/layout.tsx", "utf8");
+  assert.ok(layout.includes('referrer: "strict-origin",'), "参照元の扱いがオリジンだけになっていない");
+});
+
 test("ゲートの外に開けた道は /_vercel/insights/ だけ（ミドルウェアを通さない道の一覧）", () => {
   const mw = readFileSync("middleware.ts", "utf8");
   assert.ok(mw.includes('matcher: ["/((?!_next/|_vercel/insights/|favicon.ico|robots.txt).*)"]'));
