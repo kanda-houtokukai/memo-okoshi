@@ -39,10 +39,9 @@ export default function RootLayout({ children }: { children: ReactNode }) {
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
-        <link
-          href="https://fonts.googleapis.com/css2?family=Klee+One&family=Zen+Kaku+Gothic+New:wght@500;700&display=swap"
-          rel="stylesheet"
-        />
+        {/* [DECISION 2026-09-30] 手書き風の字（Klee One）はここで読まない（P17）。使う画面（読みもの・ホームの棚・
+            開発データの元メモ）だけが lib/hand-font.ts の link を置く。他の画面の読み込みを重くしないため */}
+        <link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&display=swap" rel="stylesheet" />
       </head>
       <body>{children}</body>
     </html>

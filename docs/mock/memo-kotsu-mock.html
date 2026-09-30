@@ -1,0 +1,426 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>メモおこし — メモの取り方（モック）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f1eb; --desk:#eeebe3; --surface:#ffffff; --ink:#2b2a25;
+  --sub:#7b766c; --line:#e3dfd6; --faint:#faf9f5;
+  --accent:#33566b; --accent-deep:#274456;
+  --t1:#8fae9d; --t2:#93a9c0; --t3:#cbb478; --t4:#c39a8a;
+  --t5:#a89bb5; --t6:#9db3ae; --t7:#b5a789; --t8:#a3b0c4;
+  --head:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  --body:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Yu Gothic","Noto Sans JP",sans-serif;
+  --hand:"Klee One","Hiragino Mincho ProN",serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:#d9d5cb;font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ── モックの操作帯（デザインの外） ── */
+.mockbar{position:fixed;inset:0 0 auto 0;min-height:48px;display:flex;flex-wrap:wrap;align-items:center;gap:8px 20px;padding:8px 16px;background:#2b2a25;color:#cfcac0;font-size:12px;z-index:100}
+.mockbar .grp{display:flex;align-items:center;gap:8px}
+.seg{display:inline-flex;border:1px solid #57544c;border-radius:6px;overflow:hidden}
+.seg button{background:none;border:0;color:#cfcac0;padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:#f3f1eb;color:#2b2a25}
+.seg button:disabled{opacity:.35;cursor:default}
+
+/* ── 画面の枠 ── */
+.stage{position:relative;margin:var(--bar,48px) auto 0;width:100%;height:calc(100vh - var(--bar,48px));background:var(--bg);overflow:hidden}
+.stage[data-width="sp"]{width:390px;height:min(800px,calc(100vh - var(--bar,48px) - 28px));margin:calc(var(--bar,48px) + 14px) auto 14px;border-radius:30px;box-shadow:0 0 0 8px #2b2a25,0 24px 48px rgba(0,0,0,.28)}
+.vp{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;container-type:inline-size;container-name:vp}
+.view{display:none}
+.stage[data-view="home"] #home,.stage[data-view="read"] #read{display:block}
+
+.apphead{position:relative;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px 0 20px;background:var(--surface);border-bottom:1px solid var(--line)}
+.apphead .logo{font:700 15px var(--head);color:var(--accent);letter-spacing:.04em}
+.hbtn{display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border:0;border-radius:6px;background:none;color:var(--sub);font-size:13px;cursor:pointer}
+.hbtn:hover{background:var(--desk);color:var(--ink)}
+
+/* ── ホーム（実物の近似） ── */
+.home{max-width:620px;margin:0 auto;padding:40px 20px 56px}
+.brand{margin:0;font:700 30px/1.25 var(--head);letter-spacing:.04em;color:var(--accent)}
+.hero-sub{margin:8px 0 0;font-size:14px;color:var(--sub)}
+.cards{display:grid;grid-template-columns:1fr 1fr;gap:12px;margin-top:28px}
+.card{position:relative;display:flex;align-items:flex-end;min-height:104px;padding:16px 16px 14px;border:1px solid var(--line);border-radius:4px;background:var(--surface);text-align:left;cursor:pointer;font:700 15.5px/1.45 var(--head);transition:transform .18s ease,box-shadow .18s ease}
+.card::before{content:"";position:absolute;left:14px;top:-1px;width:34px;height:7px;border-radius:0 0 3px 3px;background:var(--c)}
+.card:hover{transform:translateY(-2px);box-shadow:0 8px 16px rgba(43,42,37,.07)}
+
+/* 入口A：挟み込みの紙 */
+.slip{display:none;align-items:center;gap:14px;width:100%;margin-top:18px;padding:14px 16px;border:1px solid #e6dfcf;border-left:6px solid var(--t7);border-radius:3px;background:#f7f3e8;cursor:pointer;text-align:left;transform:rotate(-.5deg);transition:transform .2s ease,box-shadow .2s ease}
+.slip:hover{transform:rotate(0) translateY(-1px);box-shadow:0 6px 14px rgba(43,42,37,.08)}
+.slip .t{flex:1}
+.slip b{display:block;font:700 15px/1.4 var(--head)}
+.slip small{display:block;margin-top:2px;font-size:12px;color:var(--sub)}
+.stage[data-entry="a"] .slip{display:flex}
+
+/* 入口B：ひと息の棚 */
+.shelf{display:none;margin-top:30px;padding-top:18px;border-top:1px dashed #d8d2c4}
+.stage[data-entry="b"] .shelf{display:block}
+.shelf-h{margin:0 0 12px;font:600 15px/1 var(--hand);color:var(--sub);letter-spacing:.06em}
+.rcards{display:grid;grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:12px}
+.rcard{display:block;width:100%;padding:0;border:1px solid var(--line);border-radius:4px;background:var(--surface);text-align:left;cursor:pointer;overflow:hidden;transition:transform .2s ease,box-shadow .2s ease}
+.rcard:hover{transform:translateY(-2px);box-shadow:0 8px 16px rgba(43,42,37,.07)}
+.rcover{display:block;position:relative;height:92px;padding:12px 16px 0 22px;background:#fbfaf6 repeating-linear-gradient(transparent 0 25px,#e7e2d6 25px 26px);border-bottom:1px solid var(--line);overflow:hidden;font:400 15px/26px var(--hand);color:#4a4840;white-space:nowrap}
+.rcover::before{content:"";position:absolute;left:12px;top:0;bottom:0;width:1px;background:#e9c9c2}
+.rbody{display:flex;align-items:center;gap:10px;padding:12px 16px 14px}
+.rbody .t{flex:1}
+.rbody b{display:block;font:700 15px/1.4 var(--head)}
+.rbody small{display:block;margin-top:2px;font-size:12px;color:var(--sub)}
+
+.notice{display:block;margin:30px auto 0;padding:6px 10px;border:0;background:none;color:var(--sub);font-size:12px;cursor:pointer}
+.notice:hover{color:var(--ink);text-decoration:underline;text-underline-offset:3px}
+
+/* ── 読みもののページ ── */
+.page{max-width:760px;margin:0 auto;padding:30px 20px 64px}
+.intro h1{font:700 28px/1.3 var(--head);margin:0 0 12px;letter-spacing:.02em}
+.intro p{margin:0;font-size:15px;line-height:1.9}
+
+/* スマホ：いまの章だけを出す帯 */
+.bbar{position:sticky;top:0;z-index:20;margin:26px -20px 0;background:var(--surface);border-bottom:1px solid var(--line)}
+.bbtn{display:flex;align-items:center;gap:12px;width:100%;height:50px;padding:0 20px;background:none;border:0;cursor:pointer;text-align:left}
+.bchip{flex:0 0 auto;width:6px;height:22px;border-radius:2px;background:var(--c,var(--line));transition:background-color .26s ease}
+.bname{flex:1;overflow:hidden;height:24px}
+.bname span{display:block;font:700 16px/24px var(--head)}
+.bname span.in-up{animation:inUp .26s ease both}
+.bname span.in-down{animation:inDown .26s ease both}
+@keyframes inUp{from{transform:translateY(80%);opacity:0}to{transform:none;opacity:1}}
+@keyframes inDown{from{transform:translateY(-80%);opacity:0}to{transform:none;opacity:1}}
+.bmore{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--sub)}
+.bmore svg{transition:transform .26s ease}
+.bbtn[aria-expanded="true"] .bmore svg{transform:rotate(180deg)}
+.bprog{position:absolute;left:0;bottom:-1px;height:2px;width:0;background:var(--c,var(--line));transition:background-color .26s ease}
+.blist{position:absolute;top:100%;left:0;right:0;background:var(--surface);box-shadow:0 14px 28px rgba(43,42,37,.1);max-height:0;overflow:hidden;transition:max-height .28s ease}
+.bbtn[aria-expanded="true"] + .blist{max-height:480px;border-bottom:1px solid var(--line)}
+.blist button{display:flex;align-items:center;gap:12px;width:100%;padding:12px 20px;border:0;background:none;cursor:pointer;font-size:14px;text-align:left}
+.blist button i{width:4px;height:18px;border-radius:2px;background:var(--c)}
+.blist button[aria-current="true"]{background:var(--faint);font-weight:700}
+
+.paper{background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:6px 28px 22px;margin-top:14px}
+.rail{display:none}
+@container vp (max-width: 600px){.paper{padding:4px 18px 18px}}
+
+/* パソコン：紙の小口に並ぶインデックス */
+@container vp (min-width: 880px){
+  .page{max-width:840px}
+  .bbar{display:none}
+  .paperwrap{display:grid;grid-template-columns:minmax(0,1fr) 60px;align-items:start;margin-top:26px}
+  .paper{margin-top:0}
+  .rail{display:flex;flex-direction:column;gap:3px;position:sticky;top:28px;padding-top:18px}
+}
+.rt{position:relative;display:flex;justify-content:center;width:30px;padding:12px 0;border:0;border-radius:0 6px 6px 0;background:color-mix(in srgb,var(--c) 38%,var(--surface));color:var(--sub);cursor:pointer;box-shadow:inset 1px 0 0 var(--line);transition:width .24s ease,background-color .24s ease,color .24s ease}
+.rt .v{display:block;font:500 12px/1.32 var(--head);text-align:center}
+.rt[aria-current="true"] .v{font-weight:700}
+.rt:hover{width:36px;color:var(--ink)}
+.rt[aria-current="true"]{width:46px;background:var(--c);color:var(--ink);box-shadow:1px 1px 0 rgba(43,42,37,.08)}
+
+/* 章とコツ */
+.ch{padding:30px 0 28px;border-top:1px solid var(--line)}
+.ch:first-child{border-top:0}
+.ch h2{display:flex;align-items:center;gap:12px;margin:0;font:700 21px/1.3 var(--head)}
+.ch h2::before{content:"";width:6px;height:24px;border-radius:2px;background:var(--c)}
+.ch .lead{margin:12px 0 0;font-size:15px;line-height:1.9}
+.tips{margin:20px 0 0;padding:0;list-style:none;display:grid;gap:22px}
+.tips li{padding-left:18px;position:relative}
+.tips li::before{content:"";position:absolute;left:0;top:.6em;width:7px;height:7px;border-radius:1px;background:var(--c)}
+.tips h3{margin:0;font:700 15.5px/1.5 var(--head)}
+.tips p{margin:5px 0 0;font-size:14px;line-height:1.9}
+
+.memo{margin:12px 0 0;max-width:460px;padding:6px 14px 6px 24px;position:relative;border-radius:3px;background:#fbfaf6 repeating-linear-gradient(transparent 0 31px,#e7e2d6 31px 32px);font:400 17px/32px var(--hand);color:#34332e}
+.memo::before{content:"";position:absolute;left:12px;top:0;bottom:0;width:1px;background:#e9c9c2}
+.memo div{white-space:pre-wrap}
+
+.cmp{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin-top:12px}
+.cmp .memo{margin:0;flex:0 1 auto}
+.cmp .memo.off{color:#9b968b;background-color:#f6f4ee}
+.cmp .memo.off div{text-decoration:line-through;text-decoration-color:rgba(155,150,139,.55);text-decoration-thickness:1px}
+.cmp svg{flex:0 0 auto;color:var(--sub)}
+
+.legend{display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin:12px 0 0;max-width:460px;padding:10px 16px;border-radius:3px;background:#fbfaf6;font-size:14px;line-height:1.8}
+.legend dt{font:600 18px/1.6 var(--hand);color:#34332e;text-align:center;min-width:2.2em}
+.legend dd{margin:0;align-self:center}
+
+.endnav{display:flex;justify-content:center;margin-top:28px}
+.backbtn{display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 18px;border:1px solid var(--line);border-radius:20px;background:var(--surface);cursor:pointer;font-size:14px}
+.backbtn:hover{border-color:#cfc9bc}
+
+/* 通知 */
+.toast{position:absolute;left:50%;bottom:24px;z-index:70;max-width:calc(100% - 32px);padding:10px 16px;border-radius:6px;background:#2b2a25;color:#f3f1eb;font-size:13px;transform:translate(-50%,12px);opacity:0;pointer-events:none;transition:opacity .2s ease,transform .2s ease}
+.toast.on{opacity:1;transform:translate(-50%,0)}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{transition:none !important;animation:none !important}
+}
+</style>
+</head>
+<body>
+
+<div class="mockbar" id="mockbar" role="toolbar" aria-label="モックの切り替え">
+  <div class="grp">画面
+    <div class="seg" id="segView">
+      <button type="button" data-v="home" aria-pressed="true">ホーム</button>
+      <button type="button" data-v="read" aria-pressed="false">メモの取り方</button>
+    </div>
+  </div>
+  <div class="grp">ホームの入口
+    <div class="seg" id="segEntry">
+      <button type="button" data-v="a" aria-pressed="false">A 挟み込み</button>
+      <button type="button" data-v="b" aria-pressed="true">B ひと息の棚</button>
+    </div>
+  </div>
+  <div class="grp">幅
+    <div class="seg" id="segWidth">
+      <button type="button" data-v="sp" aria-pressed="false">スマホ</button>
+      <button type="button" data-v="pc" aria-pressed="true">パソコン</button>
+    </div>
+  </div>
+</div>
+
+<div class="stage" id="stage" data-view="home" data-entry="b" data-width="pc">
+  <div class="vp" id="vp">
+
+    <!-- ホーム -->
+    <section class="view" id="home" aria-label="ホーム">
+      <header class="apphead">
+        <span class="logo">メモおこし</span>
+        <button type="button" class="hbtn dead">
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M3 2.5h7.5a2 2 0 0 1 2 2V13.5H5a2 2 0 0 1-2-2z M3 11.5a2 2 0 0 1 2-2h7.5" fill="none" stroke="currentColor" stroke-width="1.3" stroke-linejoin="round"/></svg>辞書
+        </button>
+      </header>
+      <main class="home">
+        <h1 class="brand">メモおこし</h1>
+        <p class="hero-sub">面談記録と会議録のための文字おこしツール</p>
+        <div class="cards">
+          <button type="button" class="card dead" style="--c:var(--t1)">面談メモを<br>おこす</button>
+          <button type="button" class="card dead" style="--c:var(--t2)">会議メモを<br>おこす</button>
+          <button type="button" class="card dead" style="--c:var(--t3)">用紙を印刷</button>
+          <button type="button" class="card dead" style="--c:var(--t6)">使い方</button>
+        </div>
+
+        <button type="button" class="slip go-read">
+          <span class="t"><b>メモの取り方</b><small>記録が書きやすくなるコツ</small></span>
+          <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+        </button>
+
+        <section class="shelf" aria-labelledby="shelfH">
+          <h2 class="shelf-h" id="shelfH">ひと息</h2>
+          <div class="rcards">
+            <button type="button" class="rcard go-read">
+              <span class="rcover" aria-hidden="true"><span style="display:block">母：学校の話をあまりしない</span><span style="display:block">本人：「サッカーが楽しい」</span><span style="display:block">次回 10/2（金）14:00 →</span></span>
+              <span class="rbody">
+                <span class="t"><b>メモの取り方</b><small>記録が書きやすくなるコツ</small></span>
+                <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>
+              </span>
+            </button>
+          </div>
+        </section>
+
+        <button type="button" class="notice dead">利用上の注意</button>
+      </main>
+    </section>
+
+    <!-- 読みもののページ -->
+    <section class="view" id="read" aria-label="メモの取り方">
+      <header class="apphead">
+        <button type="button" class="hbtn go-home" aria-label="ホームへ戻る">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M8.5 2.5 4 7l4.5 4.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg>ホーム
+        </button>
+        <span class="logo">メモおこし</span>
+        <span style="width:74px" aria-hidden="true"></span>
+      </header>
+      <main class="page">
+        <div class="intro">
+          <h1>メモの取り方</h1>
+          <p>記録の書きやすさは、面談中のメモで大きく変わります。現場で受け継がれてきたコツを、場面ごとにまとめました。気になるところから読んでください。</p>
+        </div>
+
+        <div class="bbar" id="bbar">
+          <button type="button" class="bbtn" id="bbtn" aria-expanded="false" aria-controls="blist">
+            <span class="bchip"></span>
+            <span class="bname" id="bname"><span>目次</span></span>
+            <span class="bmore">目次
+              <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            </span>
+          </button>
+          <div class="blist" id="blist"></div>
+          <span class="bprog" id="bprog"></span>
+        </div>
+
+        <div class="paperwrap">
+          <article class="paper" id="paper"></article>
+          <nav class="rail" id="rail" aria-label="目次"></nav>
+        </div>
+
+        <div class="endnav"><button type="button" class="backbtn go-home">ホームへ戻る</button></div>
+      </main>
+    </section>
+  </div>
+  <div class="toast" id="toast" role="status"></div>
+</div>
+
+<script>
+const CH = [
+  {id:"before", c:"--t3", rail:"面談前", h:"面談の前に",
+   tips:[
+    {h:"目的を1行で書いておく", p:"今日は何を確かめる面談かを、用紙の上に一言書きます。話が広がっても戻る場所ができ、記録の「目的」もそのまま埋まります。"},
+    {h:"前回の「今後の対応」を書き写す", p:"前回の記録から、決めたことを2〜3行書き写しておきます。聞き漏らしを防げるうえ、変化を書くときに比べる元になります。"},
+    {h:"メモを取ることを最初に伝える", p:"「忘れないように書かせてください」と一言断ってから書き始めます。書いている姿に、相手が身構えにくくなります。"}
+   ]},
+  {id:"during", c:"--t1", rail:"面談中", h:"聞きながら書く",
+   tips:[
+    {h:"全部を書こうとしない", p:"書くのは要点の言葉だけにして、目線は相手に向けます。拾えなかった話は、面談のあとに足せば間に合います。"},
+    {h:"誰の発言かを行の頭に書く", p:"「母：」「本人：」のように、話した人を行の頭に書きます。記録の「家族等の発言」と「本人の発言・様子」に分けやすくなります。",
+     memo:["母：学校の話をあまりしない","本人：「サッカーが楽しい」"]},
+    {h:"数字と約束はその場で書く", p:"次回の日時、回数、金額、期限は、記憶では残りません。話に出たら、すぐに書き留めます。"},
+    {h:"大事な話ではペンを置く", p:"相手が言いにくそうな話をしているときは、書く手を止めて聞きます。話し終えてから短く書き留めれば足ります。"},
+    {h:"余白を残して書く", p:"行を詰めずに書くと、あとで書き足す場所が残ります。話題が変わったら1行空けます。"}
+   ]},
+  {id:"words", c:"--t2", rail:"書き方", h:"言葉の残し方",
+   tips:[
+    {h:"本人の言葉はかぎかっこで残す", p:"言い換えずに「」で書き留めると、あとで事実と自分の解釈を分けられます。短い一言で足ります。",
+     memo:["本人：「朝がしんどい」"]},
+    {h:"様子は見たままを書く", p:"「疲れている様子」ではなく、見えたことを書きます。見たことが残っていれば、判断はあとからできます。",
+     cmp:["疲れている様子","声が小さい　下を向くことが多い"]},
+    {h:"評価の言葉を使わない", p:"「わがまま」「意欲がない」は、書いた人の評価です。起きたことを書けば、読む人が同じ場面を思い浮かべられます。",
+     cmp:["作業に意欲がない","作業を10分で止めて席を立った"]},
+    {h:"自分の考えには印を付ける", p:"支援者の見立ては、頭に（所感）と付けて書きます。事実と考えが混ざらず、記録にするときに書き分けられます。"}
+   ]},
+  {id:"marks", c:"--t5", rail:"記号・略語", h:"記号と略語",
+   tips:[
+    {h:"記号は数個に決めて使う", p:"よく使う意味だけを記号にすると、書く手が話に追いつきます。数を増やすと、あとで自分でも読めなくなります。",
+     legend:[["→","変わった・次につながる"],["↑ ↓","増えた・減った"],["？","まだ確かめていない"],["！","大事な話"]]},
+    {h:"略語は事業所でそろえる", p:"「Dr（医師）」「Ns（看護師）」のような略語は、人によって意味が違うと記録が読めなくなります。事業所で使う略語をそろえ、アプリの辞書にも登録しておきます。"},
+    {h:"日付と時刻の書き方を決める", p:"「10/2（金）14:00」のように、いつも同じ形で書きます。曜日まで書いておくと、日付の書き間違いに気づけます。"}
+   ]},
+  {id:"after", c:"--t6", rail:"面談後", h:"面談のあとに",
+   tips:[
+    {h:"5分以内に書き足す", p:"記憶が新しいうちに、抜けた言葉や話の順番を書き足します。撮る前のこのひと手間で、記録が確かになります。"},
+    {h:"崩れた字を書き直す", p:"急いで書いた字は、あとで自分でも読めないことがあります。書き足すついでに、読みにくい字をはっきり書き直します。"},
+    {h:"決まったことを最後にまとめる", p:"面談の中で決まったことと、誰が何をするかを、用紙の最後にまとめて書きます。記録の「今後の対応」がそのまま埋まります。"}
+   ]},
+  {id:"meeting", c:"--t8", rail:"会議", h:"会議のメモ",
+   tips:[
+    {h:"決まったことに印を付ける", p:"決定事項の頭に「決」と書くなどして、話し合いと決まったことを分けます。あとで記録にするとき、決定事項を探しやすくなります。",
+     memo:["決　送迎の時間を15分早める"]},
+    {h:"担当と期限を一緒に書く", p:"誰が、いつまでに行うかを並べて書きます。片方だけでは、次の会議で確かめられません。"},
+    {h:"意見の違いも残す", p:"反対の意見や、保留になった点も短く残します。結論だけの記録では、あとで経緯をたどれません。"}
+   ]}
+];
+
+const $ = s => document.querySelector(s);
+const stage = $("#stage"), vp = $("#vp"), paper = $("#paper"), rail = $("#rail");
+const bbar = $("#bbar"), bbtn = $("#bbtn"), blist = $("#blist"), bname = $("#bname"), bprog = $("#bprog");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const esc = t => t.replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+const arrow = `<svg width="18" height="18" viewBox="0 0 18 18" aria-hidden="true"><path d="M3 9h11M10 5l4 4-4 4" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>`;
+const memo = (lines, off) => `<div class="memo${off?" off":""}">${lines.map(l => `<div>${esc(l)}</div>`).join("")}</div>`;
+
+/* 紙の中身 */
+paper.innerHTML = CH.map(ch => {
+  let h = `<section class="ch" id="ch-${ch.id}" style="--c:var(${ch.c})"><h2>${esc(ch.h)}</h2>`;
+  if (ch.lead) h += `<p class="lead">${esc(ch.lead)}</p>`;
+  h += `<ul class="tips">` + ch.tips.map(t => {
+    let s = `<li><h3>${esc(t.h)}</h3><p>${esc(t.p)}</p>`;
+    if (t.memo) s += memo(t.memo);
+    if (t.cmp) s += `<div class="cmp">${memo([t.cmp[0]], true)}${arrow}${memo([t.cmp[1]])}</div>`;
+    if (t.legend) s += `<dl class="legend">${t.legend.map(([a,b]) => `<dt>${esc(a)}</dt><dd>${esc(b)}</dd>`).join("")}</dl>`;
+    return s + `</li>`;
+  }).join("") + `</ul>`;
+  return h + `</section>`;
+}).join("");
+
+rail.innerHTML  = CH.map((ch,i) => `<button type="button" class="rt" data-i="${i}" style="--c:var(${ch.c})" aria-label="${esc(ch.h)}"><span class="v">${[...ch.rail].map(esc).join("<br>")}</span></button>`).join("");
+blist.innerHTML = CH.map((ch,i) => `<button type="button" data-i="${i}" style="--c:var(${ch.c})"><i></i>${esc(ch.h)}</button>`).join("");
+
+const secs = CH.map(ch => document.getElementById("ch-" + ch.id));
+let active = -1, jumping = false, jumpTimer = 0;
+const visible = el => getComputedStyle(el).display !== "none";
+const offset = () => visible(bbar) ? bbar.offsetHeight + 14 : 28;
+const topOf = el => el.getBoundingClientRect().top - vp.getBoundingClientRect().top;
+
+function setActive(i){
+  if (i === active) return;
+  const dir = i > active ? "in-up" : "in-down";
+  active = i;
+  document.querySelectorAll("#read [data-i]").forEach(b => b.setAttribute("aria-current", +b.dataset.i === i ? "true" : "false"));
+  bbar.style.setProperty("--c", i >= 0 ? `var(${CH[i].c})` : "var(--line)");
+  const span = document.createElement("span");
+  span.textContent = i >= 0 ? CH[i].h : "目次";
+  if (!reduce) span.className = dir;
+  bname.replaceChildren(span);
+}
+function compute(){
+  if (stage.dataset.view !== "read") return;
+  const th = offset() + 40;
+  let idx = -1;
+  secs.forEach((s,i) => { if (topOf(s) <= th) idx = i; });
+  if (vp.scrollTop + vp.clientHeight >= vp.scrollHeight - 4) idx = secs.length - 1;
+  setActive(idx);
+}
+let ticking = false;
+vp.addEventListener("scroll", () => {
+  const max = vp.scrollHeight - vp.clientHeight;
+  bprog.style.width = (max > 0 ? vp.scrollTop / max * 100 : 0) + "%";
+  if (jumping) { clearTimeout(jumpTimer); jumpTimer = setTimeout(() => { jumping = false; compute(); }, 140); return; }
+  if (!ticking) { ticking = true; requestAnimationFrame(() => { ticking = false; compute(); }); }
+}, {passive:true});
+
+function go(i){
+  closeList();
+  jumping = true;
+  setActive(i);
+  vp.scrollTo({top: vp.scrollTop + topOf(secs[i]) - offset() + 2, behavior: reduce ? "auto" : "smooth"});
+  clearTimeout(jumpTimer);
+  jumpTimer = setTimeout(() => { jumping = false; compute(); }, reduce ? 50 : 900);
+}
+[rail, blist].forEach(n => n.addEventListener("click", e => { const b = e.target.closest("[data-i]"); if (b) go(+b.dataset.i); }));
+
+function closeList(){ bbtn.setAttribute("aria-expanded","false"); }
+bbtn.addEventListener("click", () => bbtn.setAttribute("aria-expanded", bbtn.getAttribute("aria-expanded") === "true" ? "false" : "true"));
+document.addEventListener("click", e => { if (!bbar.contains(e.target)) closeList(); });
+document.addEventListener("keydown", e => { if (e.key === "Escape") closeList(); });
+
+/* 画面の行き来 */
+function show(view){
+  stage.dataset.view = view;
+  document.querySelectorAll("#segView button").forEach(b => b.setAttribute("aria-pressed", b.dataset.v === view ? "true" : "false"));
+  vp.scrollTop = 0; closeList(); active = -2;
+  requestAnimationFrame(() => requestAnimationFrame(() => { compute(); bprog.style.width = "0%"; }));
+}
+document.querySelectorAll(".go-read").forEach(b => b.addEventListener("click", () => show("read")));
+document.querySelectorAll(".go-home").forEach(b => b.addEventListener("click", () => show("home")));
+
+/* このモックで作っていない画面 */
+const toast = $("#toast"); let toastTimer = 0;
+document.querySelectorAll(".dead").forEach(b => b.addEventListener("click", () => {
+  toast.textContent = "このモックでは、ホームと「メモの取り方」だけが動きます";
+  toast.classList.add("on"); clearTimeout(toastTimer);
+  toastTimer = setTimeout(() => toast.classList.remove("on"), 2200);
+}));
+
+/* モックの切り替え */
+function seg(id, fn){
+  const g = document.getElementById(id);
+  g.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    g.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+    fn(b.dataset.v);
+  });
+}
+seg("segView", v => show(v));
+seg("segEntry", v => { stage.dataset.entry = v; if (stage.dataset.view !== "home") show("home"); });
+seg("segWidth", v => { stage.dataset.width = v; closeList(); active = -2; requestAnimationFrame(() => requestAnimationFrame(compute)); });
+
+function fitBar(){ document.documentElement.style.setProperty("--bar", $("#mockbar").offsetHeight + "px"); }
+addEventListener("resize", fitBar); fitBar();
+if (innerWidth < 700) document.querySelector('#segWidth [data-v="sp"]').click();
+</script>
+</body>
+</html>

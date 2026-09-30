@@ -12,6 +12,7 @@
 //   - 画面写真12枚がすべて参照され、配信の場所に実在すること
 //   - ゲートの外に出す道が増えていないこと
 //   - 体裁の構造（手順が縦線でつながる・章の頭がある等）と、横あふれを防ぐ指定（P8-h）
+//   - 「メモを書く」の章と読みものへの入口、目次（小口のインデックス）の並び（P17・2026-09-30 設計側の文面）
 
 import { test } from "node:test";
 import assert from "node:assert/strict";
@@ -25,7 +26,24 @@ const GOLDEN = {
   h1: "使い方",
   lead: "面談や会議で書いたメモを撮ると、記録の形に整います。清書にかかっていた時間を減らせます。ここでは印刷から転記までの流れを、面談を例に説明します。",
   note: "画面の例はすべて架空のものです。",
-  toc: ["用紙を印刷する", "1 取り込み", "2 伏せる", "3 変換", "4 確認", "5 出力", "辞書", "注意事項", "困ったとき"],
+  toc: ["用紙を印刷する", "メモを書く", "1 取り込み", "2 伏せる", "3 変換", "4 確認", "5 出力", "辞書", "注意事項", "困ったとき"],
+  /** 小口のインデックスに縦に並べる短い名前（P17・モックの rail の値） */
+  rail: ["印刷する", "書く", "1取り込み", "2伏せる", "3変換", "4確認", "5出力", "辞書", "注意事項", "困ったとき"],
+  tocLabel: "目次",
+  /** 「メモを書く」（P17・docs/mock/tsukaikata-index-mock.html の文面のまま） */
+  write: {
+    h: "メモを書く",
+    c: "var(--t7)",
+    lead: "書いたメモが、そのまま読み取りの材料になります。次の4つを押さえると、読み取りが安定します。",
+    tips: [
+      ["話題が変わったら、その項目の枠へ移る", "項目の枠に沿って書くと、振り分けがずれにくくなります。"],
+      ["名前は前後の字と少し間を空けて書く", "あとで塗りつぶすとき、隣の字を巻き込まずに済みます。"],
+      ["続け字や崩し字を避ける", "続け字や崩し字は、読み取りが大きく落ちます。"],
+      ["よく使う略語は辞書に入れておく", "事業所でよく使う略語を登録すると、読み違えが減ります。"],
+    ],
+    /** 章の最後の、読みものへの入口（一言はホームの棚のカードと同じ） */
+    insert: { href: "/yomimono/memo", title: "メモの取り方", sub: "記録が書きやすくなるコツ" },
+  },
   leads: {
     prep: "項目の枠に沿って書くと、読み取りが安定します。手元のメモをそのまま撮っても使えますが、用紙を使うほうが振り分けの精度が上がります。",
     take: "ホームで「面談メモをおこす」か「会議メモをおこす」を選び、書いたメモをアプリに入れます。",
@@ -104,6 +122,13 @@ test("使い方ページの文面が承認済みのものと一致する", () =>
   assert.equal(ABOUT.lead, GOLDEN.lead);
   assert.equal(ABOUT.note, GOLDEN.note);
   assert.deepEqual(ABOUT.toc.map((t) => t.label), GOLDEN.toc);
+  assert.deepEqual(ABOUT.toc.map((t) => t.rail), GOLDEN.rail);
+  assert.equal(ABOUT.tocLabel, GOLDEN.tocLabel);
+  assert.equal(ABOUT.write.h, GOLDEN.write.h);
+  assert.equal(ABOUT.write.c, GOLDEN.write.c);
+  assert.equal(ABOUT.write.lead, GOLDEN.write.lead);
+  assert.deepEqual(ABOUT.write.tips.map((t) => [t.h, t.p]), GOLDEN.write.tips);
+  assert.deepEqual(ABOUT.write.insert, GOLDEN.write.insert);
   for (const [id, lead] of Object.entries(GOLDEN.leads)) {
     assert.equal(chapterById(id).lead, lead, `章「${id}」の導入`);
   }
@@ -123,7 +148,9 @@ test("設計側が指示した書き換えが入っている（モックより�
   assert.equal(chapterById("take").steps[0].tip, GOLDEN.changed.pc);
   // 冒頭の断りは、最初の画面写真より前（＝章より前の lead）にある
   const page = readFileSync("app/about/page.tsx", "utf8");
-  assert.ok(page.indexOf("ABOUT.note") < page.indexOf("ABOUT.chapters"), "断りが最初の写真より後ろにある");
+  // 章（写真を含む）は ChapterIndex の中に並ぶ。断りはそれより前
+  const render = page.slice(page.indexOf("export default function AboutPage"));
+  assert.ok(render.indexOf("ABOUT.note") >= 0 && render.indexOf("ABOUT.note") < render.indexOf("<ChapterIndex"), "断りが最初の写真より後ろにある");
 });
 
 test("会議への対応が文面に入っている（章は足さず、該当する章に一文ずつ・P10）", () => {
@@ -147,25 +174,52 @@ test("会議への対応が文面に入っている（章は足さず、該当�
   assert.ok(ABOUT.cautions.find((c) => c.b === "伏せ忘れの確認")?.s.includes("すでにAIに届いている可能性があります"));
   const all = JSON.stringify(ABOUT);
   assert.ok(!/会議では(印が)?出ません|記号か「担当」|置き換えるまで/.test(all), "旧い赤の説明が残っている");
-  // 会議の章は足さない（目次・章の構成は P9 までと同じ）。上の「章の順序は目次のとおり」と対
-  assert.equal(ABOUT.toc.length, 9);
+  // 会議の章は足さない（章の構成は P9 までと同じ。P17 で足したのは「メモを書く」だけ）。上の「章の順序は目次のとおり」と対
+  assert.equal(ABOUT.toc.length, 10);
   assert.ok(!ABOUT.chapters.some((c) => c.h.includes("会議")), "会議の章を足している");
   // 用語: 「宿題」ではなく「今後の対応」と書く（`tests/meeting.test.mts` が lib 配下も走査する）
   assert.ok(GOLDEN.meeting.sheetPair.includes("今後の対応"));
 });
 
-test("章の順序は目次のとおり", () => {
-  // 目次が順序の正本。手順のある7章 → 注意事項 → 困ったとき
+test("章の順序は目次のとおり（章は id で読む・P17）", () => {
+  // 目次が順序の正本。用紙 → メモを書く → 手順の6章 → 注意事項 → 困ったとき
   assert.deepEqual(
     ABOUT.toc.map((t) => t.id),
-    ["prep", "take", "mask", "conv", "check", "out", "dict", "caution", "trouble"]
+    ["prep", "write", "take", "mask", "conv", "check", "out", "dict", "caution", "trouble"]
   );
-  assert.deepEqual(ABOUT.chapters.map((c) => c.id), ABOUT.toc.slice(0, 7).map((t) => t.id));
-  // ページも同じ順に並べている（手順の7章をまとめて出し、最後に注意事項・困ったとき）
+  // 手順のある章は、目次のうち「メモを書く・注意事項・困ったとき」以外（並びも目次と同じ）
+  const special = new Set(["write", "caution", "trouble"]);
+  assert.deepEqual(ABOUT.chapters.map((c) => c.id), ABOUT.toc.map((t) => t.id).filter((id) => !special.has(id)));
+  // 「メモを書く」は用紙と取り込みの間・番号なし・色は --t7
+  assert.equal(ABOUT.toc[1].id, "write");
+  assert.equal(ABOUT.write.id, "write");
+  assert.ok(!/^\d/.test(ABOUT.write.h), "メモを書くに番号を付けている");
+  // ページは目次の順に並べ、章を**位置の番号で読まない**（章を足すと別の章の名前が出るため）
+  const page = readFileSync("app/about/page.tsx", "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  assert.ok(!/ABOUT\.toc\[\d+\]/.test(page), "目次を位置の番号で読んでいる");
+  assert.ok(/ABOUT\.toc\.map\(\(t\) => \(\s*<Section key=\{t\.id\} id=\{t\.id\} \/>/.test(page), "章を目次の順に並べていない");
+  for (const id of special) assert.ok(page.includes(`id === "${id}"`), `章「${id}」を id で読んでいない`);
+  // 章の頭の印（番号の無い章）
+  for (const id of ["prep", "write", "dict", "caution", "trouble"]) assert.ok(new RegExp(`\\b${id}: "`).test(page), `章「${id}」の印がない`);
+});
+
+test("「メモを書く」: コツは番号でなく色の四角・最後に読みものへの入口（P17）", () => {
   const page = readFileSync("app/about/page.tsx", "utf8");
-  const order = [...page.matchAll(/ABOUT\.chapters\.map|<section[^>]*id="(\w+)"/g)].map((m) => m[1] ?? "chapters");
-  assert.deepEqual(order, ["chapters", "caution", "trouble"]);
-  assert.ok(page.indexOf("ABOUT.toc[7]") < page.indexOf("ABOUT.toc[8]"));
+  const css = aboutCss();
+  assert.ok(page.includes('<ul className="ab-tips">'), "コツを並べる入れ物がない");
+  assert.ok(/\.about \.ab-tips li::before\{[^}]*width:7px;height:7px[^}]*background:var\(--c\)/.test(css), "コツの頭に色の四角がない");
+  assert.ok(!/\.about \.ab-tips[^{]*\{[^}]*(counter|list-style:decimal)/.test(css), "コツに番号を付けている");
+  // 入口は行き先を持つリンク（押しても何も起きない部品にしない）
+  assert.ok(page.includes('<a className="ab-insert" href={w.insert.href}>'), "入口がリンクになっていない");
+  assert.ok(existsSync("app/yomimono/[slug]/page.tsx"), "入口の行き先のページがない");
+  assert.equal(ABOUT.write.insert.href, "/yomimono/memo");
+});
+
+test("目次は小口のインデックス（案B）の部品を使い、上部のタブは無い（P17）", () => {
+  const page = readFileSync("app/about/page.tsx", "utf8");
+  assert.ok(page.includes("<ChapterIndex") && page.includes('from "@/app/components/ChapterIndex"'));
+  assert.ok(!page.includes('className="toc"'), "上部のタブが残っている");
+  assert.ok(page.includes("<header data-ix-head>"), "貼り付く見出しの印がない（帯とインデックスが見出しの下に入らない）");
 });
 
 test("画面写真は12枚すべてが参照され、配信の場所に実在する", () => {
@@ -199,14 +253,14 @@ test("画面写真は12枚すべてが参照され、配信の場所に実在す
 });
 
 test("見出しは文にしない（章は短く・手順は動詞句）", () => {
-  const chapterHeads = [ABOUT.h1, ...ABOUT.toc.map((t) => t.label), ...ABOUT.chapters.map((c) => c.h)];
+  const chapterHeads = [ABOUT.h1, ...ABOUT.toc.map((t) => t.label), ...ABOUT.chapters.map((c) => c.h), ABOUT.write.h];
   for (const h of chapterHeads) {
     assert.ok(!h.endsWith("。"), `章の見出しに句点がある → ${h}`);
     assert.ok(!/(ます|ました|ください|です|でした)$/.test(h), `章の見出しが文になっている → ${h}`);
     assert.ok(h.length <= 12, `章の見出しが長い → ${h}`);
   }
   // 手順の見出しは動詞句にする（手順書なので動作で見出す）。ただし文にはしない
-  const stepHeads = ABOUT.chapters.flatMap((c) => c.steps.map((s) => s.h));
+  const stepHeads = [...ABOUT.chapters.flatMap((c) => c.steps.map((s) => s.h)), ...ABOUT.write.tips.map((t) => t.h)];
   for (const h of stepHeads) {
     assert.ok(!h.endsWith("。"), `手順の見出しに句点がある → ${h}`);
     assert.ok(!/(ます|ました|ください|です|でした)$/.test(h), `手順の見出しが文になっている → ${h}`);
@@ -231,6 +285,8 @@ test("本文はすべて述語で終える（体言止めを使わない）", ()
         ...(s.tip ? [s.tip] : []),
       ]),
     ]),
+    ABOUT.write.lead,
+    ...ABOUT.write.tips.map((t) => t.p),
     ...ABOUT.cautions.map((c) => c.s),
     ...ABOUT.troubles.map((t) => t.s),
     ABOUT.footer,
@@ -259,11 +315,12 @@ test("合言葉ゲートの外に出す道は、決めたものだけ（前方�
   const src = readFileSync("middleware.ts", "utf8");
   const block = src.slice(src.indexOf("const PUBLIC"), src.indexOf("]);", src.indexOf("const PUBLIC")));
   const paths = [...block.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-  // 使い方ページ・マニフェスト・アイコンだけ。いずれも静的で秘密を含まない。
+  // 使い方ページ・読みもの（P17）・マニフェスト・アイコンだけ。いずれも静的で秘密を含まない。
   assert.deepEqual(paths, [
     "/gate",
     "/api/gate",
     "/about",
+    "/yomimono/memo",
     "/manifest.webmanifest",
     "/icon-16.png",
     "/icon-32.png",
@@ -309,8 +366,8 @@ test("体裁: 手順は縦の一本線でつなぎ、章の頭と表組みがあ
   // 章の頭: 番号の四角＋見出し＋右に一行の説明、下に章の色の太線
   assert.ok(page.includes('className="sec-head"') && page.includes('className="sec-no"') && page.includes('className="sub"'));
   assert.ok(/\.about \.sec-head\{[^}]*border-bottom:2px solid var\(--c/.test(css), "章の頭の下に章の色の線がない");
-  // どの章にも章の頭がある（手順の7章・注意事項・困ったとき）
-  assert.equal((page.match(/<SecHead /g) ?? []).length, 3, "章の頭を出す場所（手順の章・注意事項・困ったとき）");
+  // どの章にも章の頭がある（手順の章・メモを書く・注意事項・困ったとき）
+  assert.equal((page.match(/<SecHead /g) ?? []).length, 4, "章の頭を出す場所（手順の章・メモを書く・注意事項・困ったとき）");
   // ラベルと説明は表組み（dl/dt/dd）。黄・青・赤はラベルに色
   assert.ok(page.includes('<dl className="pairs">') && page.includes("<dt className={pr.mk}>") && page.includes("<dd>"));
   for (const k of ["y", "b", "r"]) assert.ok(css.includes(`.about .pairs dt.${k}{`), `ラベル ${k} の色がない`);

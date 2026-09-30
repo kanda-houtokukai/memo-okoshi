@@ -7,6 +7,7 @@
 // 「伏せたあとの画像を表示。マーカーを押すと該当行が光ります」へ戻す（2026-09-09に工程名を改称）。
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { HAND_FONT_HREF } from "@/lib/hand-font";
 import { useZoomPan } from "./useZoomPan";
 
 export type MemoSeg = { s: string; m?: boolean };
@@ -101,8 +102,11 @@ function ImageStage({ src }: { src: string }) {
 
 export default function MemoPane({ pages, page, onPage }: Props) {
   const cur = pages[page];
+  // 開発データ（?fixture=1）の再現表示だけが手書き風の字を使う（P17 で共通の読み込みから外した。使うときだけ読む）
+  const hand = pages.some((p) => p.lines);
   return (
     <>
+      {hand && <link rel="stylesheet" href={HAND_FONT_HREF} precedence="default" />}
       <div className="pane-h">
         <h2>元メモ</h2>
         <span className="info" data-tip="伏せたあとの画像を表示" tabIndex={0}>

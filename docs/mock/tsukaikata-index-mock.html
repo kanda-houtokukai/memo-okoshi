@@ -1,0 +1,479 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>メモおこし — 使い方（目次のモック）</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Zen+Kaku+Gothic+New:wght@500;700&family=Klee+One:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --bg:#f3f1eb; --desk:#eeebe3; --surface:#ffffff; --ink:#2b2a25;
+  --sub:#7b766c; --line:#e3dfd6; --faint:#faf9f5;
+  --accent:#33566b; --accent-deep:#274456;
+  --t1:#8fae9d; --t2:#93a9c0; --t3:#cbb478; --t4:#c39a8a;
+  --t5:#a89bb5; --t6:#9db3ae; --t7:#b5a789; --t8:#a3b0c4;
+  --my-bg:#f6e5ae; --my-fg:#7a5e10; --mb-bg:#dbe7f2; --mb-fg:#2f5a80; --mr-bg:#f5d6d1; --mr-fg:#9c352b;
+  --head:"Zen Kaku Gothic New","Hiragino Kaku Gothic ProN","Yu Gothic",sans-serif;
+  --body:"Hiragino Kaku Gothic ProN","Hiragino Sans","Yu Gothic UI","Yu Gothic","Noto Sans JP",sans-serif;
+  --hand:"Klee One","Hiragino Mincho ProN",serif;
+}
+*{box-sizing:border-box}
+html,body{margin:0;height:100%}
+body{background:#d9d5cb;font-family:var(--body);color:var(--ink);-webkit-font-smoothing:antialiased}
+button{font:inherit;color:inherit}
+:focus-visible{outline:2px solid var(--accent);outline-offset:2px}
+
+/* ── モックの操作帯（デザインの外） ── */
+.mockbar{position:fixed;inset:0 0 auto 0;height:48px;display:flex;align-items:center;gap:20px;padding:0 16px;background:#2b2a25;color:#cfcac0;font-size:12px;z-index:100}
+.mockbar .grp{display:flex;align-items:center;gap:8px}
+.seg{display:inline-flex;border:1px solid #57544c;border-radius:6px;overflow:hidden}
+.seg button{background:none;border:0;color:#cfcac0;padding:6px 12px;cursor:pointer}
+.seg button[aria-pressed="true"]{background:#f3f1eb;color:#2b2a25}
+
+/* ── 画面の枠 ── */
+.stage{position:relative;margin:48px auto 0;width:100%;height:calc(100vh - 48px);background:var(--bg);overflow:hidden}
+.stage[data-width="sp"]{width:390px;height:min(800px,calc(100vh - 76px));margin:62px auto 14px;border-radius:30px;box-shadow:0 0 0 8px #2b2a25,0 24px 48px rgba(0,0,0,.28)}
+.vp{position:absolute;inset:0;overflow-y:auto;overflow-x:hidden;container-type:inline-size;container-name:vp}
+
+.apphead{height:52px;display:flex;align-items:center;padding:0 20px;background:var(--surface);border-bottom:1px solid var(--line);font:700 15px var(--head);color:var(--accent);letter-spacing:.04em}
+.page{max-width:760px;margin:0 auto;padding:30px 20px 72px}
+.intro h1{font:700 28px/1.3 var(--head);margin:0 0 12px;letter-spacing:.02em}
+.intro p{margin:0;font-size:15px;line-height:1.9}
+.intro .note{margin-top:8px;font-size:12px;color:var(--sub)}
+
+/* ── 案A：上に貼り付くタブの列 ── */
+.strip{display:none}
+.stage[data-plan="a"] .strip{display:flex;position:sticky;top:0;z-index:20;gap:3px;margin:26px -20px 0;padding:10px 20px 0;background:var(--bg);border-bottom:1px solid var(--line);overflow-x:auto;scrollbar-width:none}
+.strip::-webkit-scrollbar{display:none}
+.tab{flex:0 0 auto;position:relative;border:0;border-radius:6px 6px 0 0;background:var(--desk);color:var(--sub);font:500 13px/1 var(--head);padding:12px 12px 11px;cursor:pointer;transform:translateY(4px);transition:transform .22s ease,background-color .22s ease,color .22s ease}
+.tab::before{content:"";position:absolute;inset:0 0 auto 0;height:3px;border-radius:6px 6px 0 0;background:var(--c);transition:height .22s ease}
+.tab:hover{color:var(--ink)}
+.tab[aria-current="true"]{background:var(--surface);color:var(--ink);transform:translateY(1px);font-weight:700}
+.tab[aria-current="true"]::before{height:6px}
+
+/* ── 案B（狭い幅）：いまの章だけを出す帯 ── */
+.bbar{display:none}
+.stage[data-plan="b"] .bbar{display:block;position:sticky;top:0;z-index:20;margin:26px -20px 0;background:var(--surface);border-bottom:1px solid var(--line)}
+.bbtn{display:flex;align-items:center;gap:12px;width:100%;height:50px;padding:0 20px;background:none;border:0;cursor:pointer;text-align:left}
+.bchip{flex:0 0 auto;width:6px;height:22px;border-radius:2px;background:var(--c,var(--line));transition:background-color .26s ease}
+.bname{flex:1;overflow:hidden;height:24px}
+.bname span{display:block;font:700 16px/24px var(--head)}
+.bname span.in-up{animation:inUp .26s ease both}
+.bname span.in-down{animation:inDown .26s ease both}
+@keyframes inUp{from{transform:translateY(80%);opacity:0}to{transform:none;opacity:1}}
+@keyframes inDown{from{transform:translateY(-80%);opacity:0}to{transform:none;opacity:1}}
+.bmore{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--sub)}
+.bmore svg{transition:transform .26s ease}
+.bbtn[aria-expanded="true"] .bmore svg{transform:rotate(180deg)}
+.bprog{position:absolute;left:0;bottom:-1px;height:2px;width:0;background:var(--c,var(--line));transition:background-color .26s ease}
+.blist{position:absolute;top:100%;left:0;right:0;background:var(--surface);box-shadow:0 14px 28px rgba(43,42,37,.1);max-height:0;overflow:hidden;transition:max-height .28s ease}
+.bbtn[aria-expanded="true"] + .blist{max-height:560px;border-bottom:1px solid var(--line)}
+.blist button{display:flex;align-items:center;gap:12px;width:100%;padding:12px 20px;border:0;background:none;cursor:pointer;font-size:14px;text-align:left}
+.blist button i{width:4px;height:18px;border-radius:2px;background:var(--c)}
+.blist button[aria-current="true"]{background:var(--faint);font-weight:700}
+
+/* ── 紙 ── */
+.paperwrap{margin-top:0}
+.paper{background:var(--surface);border:1px solid var(--line);border-top:0;border-radius:0 0 4px 4px;padding:6px 28px 20px}
+.stage[data-plan="b"] .paper{border-top:1px solid var(--line);border-radius:4px;margin-top:14px}
+.rail{display:none}
+
+/* ── 案B（広い幅）：紙の小口に並ぶインデックス ── */
+@container vp (min-width: 880px){
+  .stage[data-plan="b"] .page{max-width:840px}
+  .stage[data-plan="b"] .bbar{display:none}
+  .stage[data-plan="b"] .paperwrap{display:grid;grid-template-columns:minmax(0,1fr) 60px;align-items:start;margin-top:26px}
+  .stage[data-plan="b"] .paper{margin-top:0}
+  .stage[data-plan="b"] .rail{display:flex;flex-direction:column;gap:3px;position:sticky;top:28px;padding-top:18px}
+}
+.rt{position:relative;display:flex;justify-content:center;width:30px;padding:12px 0;border:0;border-radius:0 6px 6px 0;background:color-mix(in srgb,var(--c) 38%,var(--surface));color:var(--sub);cursor:pointer;box-shadow:inset 1px 0 0 var(--line);transition:width .24s ease,background-color .24s ease,color .24s ease}
+.rt .v{display:block;font:500 12px/1.32 var(--head);text-align:center}
+.rt[aria-current="true"] .v{font-weight:700}
+.rt:hover{width:36px;color:var(--ink)}
+.rt[aria-current="true"]{width:46px;background:var(--c);color:var(--ink);box-shadow:1px 1px 0 rgba(43,42,37,.08)}
+
+/* ── 章 ── */
+.ch{padding:30px 0 26px;border-top:1px solid var(--line)}
+.ch:first-child{border-top:0}
+.ch h2{display:flex;align-items:center;gap:12px;margin:0;font:700 21px/1.3 var(--head)}
+.ch h2::before{content:"";width:6px;height:24px;border-radius:2px;background:var(--c)}
+.ch .lead{margin:12px 0 0;font-size:15px;line-height:1.9}
+.step{margin-top:24px}
+.step h3{display:flex;align-items:center;gap:10px;margin:0;font:700 15px/1.5 var(--head)}
+.step h3 .n{flex:0 0 auto;display:grid;place-items:center;width:24px;height:24px;border-radius:50%;border:1.5px solid var(--c);font:700 12px/1 var(--body)}
+.step p{margin:8px 0 0 34px;font-size:14px;line-height:1.85}
+.pairs{margin:10px 0 0 34px;display:grid;grid-template-columns:auto 1fr;gap:8px 14px;font-size:14px;line-height:1.75}
+.pairs dt{font-weight:700;white-space:nowrap}
+.pairs dt.y,.pairs dt.b,.pairs dt.r{font-weight:700;padding:0 8px;border-radius:3px;align-self:start}
+.pairs dt.y{background:var(--my-bg);color:var(--my-fg)}
+.pairs dt.b{background:var(--mb-bg);color:var(--mb-fg)}
+.pairs dt.r{background:var(--mr-bg);color:var(--mr-fg)}
+.pairs dd{margin:0}
+.tip{margin:10px 0 0 34px;padding-left:12px;border-left:2px solid var(--line);font-size:13px;line-height:1.8;color:var(--sub)}
+.tip.warn{border-left-color:var(--t4);color:var(--ink)}
+.shot{margin:14px 0 0 34px;aspect-ratio:1345/775;max-width:520px;border:1px solid var(--line);border-radius:4px;background:var(--desk);display:grid;place-items:center;font-size:11px;color:var(--sub)}
+.items{margin:14px 0 0;display:grid;gap:14px}
+.items div{display:grid;gap:4px}
+.items dt{font:700 14px/1.5 var(--head)}
+.items dd{margin:0;font-size:14px;line-height:1.85}
+.foot{margin-top:28px;font-size:12px;color:var(--sub);text-align:center}
+
+/* 「メモを書く」のコツ（順番ではないので番号を付けない） */
+.tips{margin:18px 0 0;padding:0;list-style:none;display:grid;gap:16px}
+.tips li{padding-left:18px;position:relative}
+.tips li::before{content:"";position:absolute;left:0;top:.55em;width:7px;height:7px;border-radius:1px;background:var(--c)}
+.tips h3{margin:0;font:700 15px/1.5 var(--head)}
+.tips p{margin:4px 0 0;font-size:14px;line-height:1.85}
+
+/* 差し込みの読みもの（別枠への入口） */
+.insert{display:flex;align-items:center;gap:14px;width:100%;margin-top:26px;padding:16px 18px;border:1px solid #e6dfcf;border-left:6px solid var(--t7);border-radius:3px;background:#f7f3e8;cursor:pointer;text-align:left;transform:rotate(-.4deg);transition:transform .2s ease,box-shadow .2s ease}
+.insert:hover{transform:rotate(0) translateY(-1px);box-shadow:0 6px 14px rgba(43,42,37,.08)}
+.insert .t{flex:1}
+.insert b{display:block;font:700 16px/1.4 var(--head)}
+.insert small{display:block;margin-top:2px;font-size:12px;color:var(--sub)}
+
+/* 別枠の読みもの（シート） */
+.sheet{position:absolute;inset:0;z-index:60;pointer-events:none}
+.scrim{position:absolute;inset:0;background:rgba(43,42,37,.3);opacity:0;transition:opacity .25s ease}
+.panel{position:absolute;top:0;right:0;bottom:0;width:min(460px,100%);background:var(--surface);transform:translateX(100%);transition:transform .32s cubic-bezier(.2,.7,.2,1);overflow-y:auto;overscroll-behavior:contain}
+.stage[data-width="sp"] .panel{top:6%;width:100%;border-radius:16px 16px 0 0;transform:translateY(100%)}
+@media (max-width:600px){.panel{top:6%;width:100%;border-radius:16px 16px 0 0;transform:translateY(100%)}}
+.sheet.open{pointer-events:auto}
+.sheet.open .scrim{opacity:1}
+.sheet.open .panel{transform:none}
+.phead{position:sticky;top:0;display:flex;align-items:center;justify-content:space-between;padding:18px 22px 14px;background:var(--surface);border-bottom:1px solid var(--line)}
+.phead h2{margin:0;display:flex;align-items:center;gap:12px;font:700 20px/1.3 var(--head)}
+.phead h2::before{content:"";width:6px;height:22px;border-radius:2px;background:var(--t7)}
+.x{display:grid;place-items:center;width:36px;height:36px;border:0;border-radius:50%;background:var(--desk);cursor:pointer}
+.pbody{padding:6px 22px 36px}
+.pbody .pl{margin:14px 0 4px;font-size:14px;line-height:1.9;color:var(--sub)}
+.col{margin:0;padding:0;list-style:none}
+.col li{padding:20px 0;border-bottom:1px solid var(--line)}
+.col li:last-child{border-bottom:0}
+.col h3{margin:0;font:700 16px/1.5 var(--head)}
+.col p{margin:6px 0 0;font-size:14px;line-height:1.9}
+.memo{margin:12px 0 0;padding:6px 14px;border-radius:3px;background:#fbfaf6 repeating-linear-gradient(transparent 0 31px,#e7e2d6 31px 32px);font:400 17px/32px var(--hand);color:#34332e}
+.memo div{white-space:nowrap}
+
+@media (prefers-reduced-motion: reduce){
+  *,*::before,*::after{transition:none !important;animation:none !important}
+}
+</style>
+</head>
+<body>
+
+<div class="mockbar" role="toolbar" aria-label="モックの切り替え">
+  <div class="grp">目次
+    <div class="seg" id="segPlan">
+      <button type="button" data-v="a" aria-pressed="false">案A 上のタブ</button>
+      <button type="button" data-v="b" aria-pressed="true">案B 小口のインデックス</button>
+    </div>
+  </div>
+  <div class="grp">幅
+    <div class="seg" id="segWidth">
+      <button type="button" data-v="sp" aria-pressed="false">スマホ</button>
+      <button type="button" data-v="pc" aria-pressed="true">パソコン</button>
+    </div>
+  </div>
+</div>
+
+<div class="stage" id="stage" data-plan="b" data-width="pc">
+  <div class="vp" id="vp">
+    <header class="apphead">メモおこし</header>
+    <main class="page">
+      <div class="intro">
+        <h1>使い方</h1>
+        <p>面談や会議で書いたメモを撮ると、記録の形に整います。清書にかかっていた時間を減らせます。ここでは印刷から転記までの流れを、面談を例に説明します。</p>
+        <p class="note">画面の例はすべて架空のものです。</p>
+      </div>
+
+      <nav class="strip" id="strip" aria-label="目次"></nav>
+
+      <div class="bbar" id="bbar">
+        <button type="button" class="bbtn" id="bbtn" aria-expanded="false" aria-controls="blist">
+          <span class="bchip" id="bchip"></span>
+          <span class="bname" id="bname"><span>目次</span></span>
+          <span class="bmore">目次
+            <svg width="12" height="12" viewBox="0 0 12 12" aria-hidden="true"><path d="M2.5 4.5 6 8l3.5-3.5" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </span>
+        </button>
+        <div class="blist" id="blist"></div>
+        <span class="bprog" id="bprog"></span>
+      </div>
+
+      <div class="paperwrap">
+        <article class="paper" id="paper"></article>
+        <nav class="rail" id="rail" aria-label="目次"></nav>
+      </div>
+
+      <p class="foot">試験運用中です。うまくいかない点や気づいたことがあれば教えてください。</p>
+    </main>
+  </div>
+
+  <div class="sheet" id="sheet" aria-hidden="true">
+    <div class="scrim" id="scrim"></div>
+    <section class="panel" role="dialog" aria-modal="true" aria-labelledby="colTitle">
+      <div class="phead">
+        <h2 id="colTitle">メモの取り方</h2>
+        <button type="button" class="x" id="closeCol" aria-label="閉じる">
+          <svg width="14" height="14" viewBox="0 0 14 14" aria-hidden="true"><path d="M3 3l8 8M11 3l-8 8" stroke="currentColor" stroke-width="1.6" stroke-linecap="round"/></svg>
+        </button>
+      </div>
+      <div class="pbody">
+        <p class="pl">記録の書きやすさは、面談中のメモで大きく変わります。気になるところだけ読んでください。</p>
+        <ul class="col">
+          <li>
+            <h3>誰の発言かを行の頭に書く</h3>
+            <p>「母：」「本人：」のように、話した人を行の頭に書きます。記録の「家族等の発言」と「本人の発言・様子」に分けやすくなります。</p>
+            <div class="memo"><div>母：学校の話をあまりしない</div><div>本人：「サッカーが楽しい」</div></div>
+          </li>
+          <li>
+            <h3>本人の言葉はかぎかっこで残す</h3>
+            <p>言い換えずに「」で書き留めると、あとで事実と自分の解釈を分けられます。短い一言で足ります。</p>
+          </li>
+          <li>
+            <h3>様子は見たままを書く</h3>
+            <p>「疲れている様子」ではなく、「声が小さい」「下を向くことが多い」と書きます。見たことが残っていれば、判断はあとからできます。</p>
+            <div class="memo"><div>声小さい・下を向く（10分ほど）</div></div>
+          </li>
+          <li>
+            <h3>数字と約束はその場で書く</h3>
+            <p>次回の日時、回数、金額、期限は、記憶では残りません。話に出たら、すぐに書き留めます。</p>
+          </li>
+          <li>
+            <h3>全部を書こうとしない</h3>
+            <p>書くのは要点の言葉だけにして、目線は相手に向けます。拾えなかった話は、面談のあとに足せば間に合います。</p>
+          </li>
+          <li>
+            <h3>終わったら5分で書き足す</h3>
+            <p>記憶が新しいうちに、抜けた言葉や話の順番を書き足します。撮る前のこのひと手間で、読み取りも記録も確かになります。</p>
+          </li>
+        </ul>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+const CH = [
+  {id:"prep", c:"--t3", tab:"印刷する", rail:"印刷する", h:"用紙を印刷する",
+   lead:"項目の枠に沿って書くと、読み取りが安定します。手元のメモをそのまま撮っても使えますが、用紙を使うほうが振り分けの精度が上がります。",
+   steps:[
+    {h:"ホームで「用紙を印刷」を選ぶ", shot:true},
+    {h:"用紙の種類と項目を選ぶ", ps:["画面の上で面談と会議を切り替えます。どちらの用紙でも、対象者や議題に合わせて項目を外したり並べ替えたりできます。"],
+     pairs:[["基本","面談で扱う頻度が高い項目です。最初はすべて入っています。"],["追加項目","就労や金銭管理など、必要に応じて足します。"],["会議","内容・決定事項・今後の対応の3つです。足せる項目はありません。用紙の頭に書く会議名・日時・場所・出席者は、記録の「会議概要」に入ります。"],["その他","用紙の最後に必ず付きます。どの項目にも当てはまらない話を書けます。書いた内容は項目に振り分けられ、当てはまらないものは確認画面の「拾いきれなかった内容」に出ます。"]], shot:true},
+    {h:"「印刷」を押す", ps:["1枚に入る項目は6つまでです。7つ以上になると次の用紙に続きます。記入欄は1枚目にだけ付きます。"], tip:"ここで選んだ項目は、記録の項目としてもそのまま使われます。"}
+   ]},
+  {id:"write", c:"--t7", tab:"書く", rail:"書く", h:"メモを書く", tips:true,
+   lead:"書いたメモが、そのまま読み取りの材料になります。次の4つを押さえると、読み取りが安定します。"},
+  {id:"take", c:"--t1", tab:"1 取り込み", rail:"1取り込み", h:"1 取り込み",
+   lead:"ホームで「面談メモをおこす」か「会議メモをおこす」を選び、書いたメモをアプリに入れます。",
+   steps:[
+    {h:"「＋」からメモを選ぶ", pairs:[["カメラで撮影","その場で撮ります。"],["写真から選ぶ","撮ってある写真を使います。"],["ファイルを選ぶ","スキャンした画像やPDFを使います。"]], tip:"パソコンでは「＋」からファイル選択が直接開きます。画面に画像をドラッグしても入ります。", shot:true},
+    {h:"順番を整える", ps:["複数枚は1件の記録にまとまります。読む順番が内容に影響するので、並びを確かめてください。"], pairs:[["つまみ","掴んで動かします。"],["←→","1つずつ動かします。"],["✕","外します。"]], shot:true},
+    {h:"「次へ」を押す"}
+   ]},
+  {id:"mask", c:"--t4", tab:"2 伏せる", rail:"2伏せる", h:"2 伏せる",
+   lead:"氏名など個人が分かる語を隠します。隠したあとの画像だけが送られます。隠した箇所は「〇〇」と書き起こされます。",
+   steps:[
+    {h:"道具を選ぶ", pairs:[["ペン","なぞって隠します。太さは3段階です。"],["四角","広い範囲を一度に隠します。"],["消す","塗りすぎたところを消します。"],["戻す","1つ前に戻します。"]], shot:true},
+    {h:"拡大して細かいところを塗る", pairs:[["＋ −","拡大と縮小をします。"],["全体","画面に収まる大きさに戻します。"],["移動","拡大したまま見る場所を変えます。"]], tip:"画面を2本の指で広げても拡大できます。"},
+    {h:"「次へ」を押して確認する", ps:["伏せた数と、伏せていないページが出ます。ここから先はAIに画像が渡ります。"], tip:"送る前にもう一度、隠し忘れがないか画面を見てください。", warn:true, shot:true}
+   ]},
+  {id:"conv", c:"--t3", tab:"3 変換", rail:"3変換", h:"3 変換",
+   lead:"読み取りと振り分けをします。30秒ほどかかります。",
+   steps:[{h:"待つ", ps:["画面はそのままにしてください。閉じるとやり直しになります。"], shot:true}]},
+  {id:"check", c:"--t2", tab:"4 確認", rail:"4確認", h:"4 確認",
+   lead:"元のメモと見比べて直します。一番大事な工程です。",
+   steps:[
+    {h:"印の付いた箇所を直す", ps:["印を押すと、直し方が出ます。"], pairs:[["黄","読み取れなかった箇所です。そのままでよければ確定し、違っていれば候補から選ぶか自分で直します。","y"],["青","メモにない内容を前後から推測した箇所です。確定するか、書き換えるか、削除します。","b"],["赤","塗り忘れた人名かもしれない語です。確認するまで完成できません。そのまま残すか、書き換えます。","r"]], shot:true},
+    {h:"文章を直す", ps:["項目ごとに書き直せます。右上の鉛筆から開きます。「〇〇」になった箇所には、ここで名前を書き入れます。"]},
+    {h:"拾いきれなかった内容を移す", ps:["どの項目にも入らなかった内容は、下にまとめて出ます。「＋」から項目を選んで移せます。"], shot:true},
+    {h:"AIの気づきを読む", ps:["見落としがないか考えるための参考です。記録には入りません。"]},
+    {h:"「完成」を押す", ps:["確認していない赤い印が残っていると押せません。"]}
+   ]},
+  {id:"out", c:"--t6", tab:"5 出力", rail:"5出力", h:"5 出力",
+   lead:"普段の記録システムに移します。",
+   steps:[
+    {h:"コピーして貼り付ける", pairs:[["項目ごと","項目の右上のボタンでコピーします。"],["全文","完成の画面からまとめてコピーします。"]], shot:true},
+    {h:"ファイルで保存する", ps:["WordとPDFで書き出せます。どちらも1ページ目の右上に押印欄が付きます。"]},
+    {h:"次の記録を始める", ps:["コピーしたあとに出る「新しい変換を始める」から進みます。"], tip:"この画面を閉じると内容は消えます。貼り付けてから閉じてください。", warn:true}
+   ]},
+  {id:"dict", c:"--t5", tab:"辞書", rail:"辞書", h:"辞書",
+   lead:"事業所で使う言葉を登録すると、読み取りが良くなります。",
+   steps:[
+    {h:"言葉を登録する", ps:["ヘッダーの「辞書」から開きます。略語や事業所でよく使う言い方を入れてください。"], tip:"人の名前は登録しないでください。", warn:true, shot:true},
+    {h:"他の端末に移す", ps:["辞書はこの端末の中だけに残ります。別の端末で使うときは書き出して読み込みます。"]}
+   ]},
+  {id:"caution", c:"--t4", tab:"注意事項", rail:"注意事項", h:"注意事項",
+   items:[
+    ["記録の下書き","そのまま記録にはできません。内容を確かめて、必要なら書き直してから仕上げてください。記録の責任は書いた人にあります。"],
+    ["送った内容の扱い","読み取りにはGoogleのAI（Gemini）の無料枠を使っています。送った内容はGoogleのサービス改善に使われることがあり、担当者が目を通す場合もあります。氏名など個人が分かる語は、必ず塗りつぶしてから送ってください。"],
+    ["伏せ忘れの確認","赤い印は保険であり、完全ではありません。赤が付いた名前は、すでにAIに届いている可能性があります。送る前に隠し忘れがないか見てください。"],
+    ["AIの気づき","支援の方針を示すものではありません。見落としを探すきっかけとして使ってください。記録には入りません。"],
+    ["データの保存","内容は保存されません。途中で閉じたり戻ったりすると、それまでの作業は失われます。"],
+    ["辞書の登録","よく使う言葉を登録すると読み取りが良くなります。ただし人の名前は登録しないでください。"],
+    ["用紙の管理","印刷した用紙には氏名などをそのまま書きます。保管や廃棄は事業所の規程に従ってください。"]
+   ]},
+  {id:"trouble", c:"--t2", tab:"困ったとき", rail:"困ったとき", h:"困ったとき",
+   items:[
+    ["読み取りが合っていない","元のメモと見比べて直してください。よく使う言葉は辞書に登録すると次から良くなります。"],
+    ["「本日の利用上限に達しました」と出る","1日に使える回数を超えています。翌日また試してください。"],
+    ["「いま混み合っています」と出る","少し待ってからもう一度試してください。メモと伏せた箇所は残っています。"],
+    ["作業の途中で内容が消えた","このアプリは内容を保存しません。画面を閉じたり戻ったりすると最初からになります。"],
+    ["項目を足したい","確認画面の「項目」から足せます。足したあとに変換をやり直すと、その項目にも内容が入ります。直した内容はそのまま残ります。"]
+   ]}
+];
+
+const WRITE_TIPS = [
+  ["話題が変わったら、その項目の枠へ移る","項目の枠に沿って書くと、振り分けがずれにくくなります。"],
+  ["名前は前後の字と少し間を空けて書く","あとで塗りつぶすとき、隣の字を巻き込まずに済みます。"],
+  ["続け字や崩し字を避ける","続け字や崩し字は、読み取りが大きく落ちます。"],
+  ["よく使う略語は辞書に入れておく","事業所でよく使う略語を登録すると、読み違えが減ります。"]
+];
+
+const $ = s => document.querySelector(s);
+const stage = $("#stage"), vp = $("#vp"), paper = $("#paper"), strip = $("#strip"), rail = $("#rail");
+const bbar = $("#bbar"), bbtn = $("#bbtn"), blist = $("#blist"), bname = $("#bname"), bchip = $("#bchip"), bprog = $("#bprog");
+const reduce = matchMedia("(prefers-reduced-motion: reduce)").matches;
+const esc = t => t.replace(/[&<>"]/g, m => ({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[m]));
+
+/* 紙の中身 */
+paper.innerHTML = CH.map(ch => {
+  let h = `<section class="ch" id="ch-${ch.id}" style="--c:var(${ch.c})"><h2>${esc(ch.h)}</h2>`;
+  if (ch.lead) h += `<p class="lead">${esc(ch.lead)}</p>`;
+  if (ch.steps) ch.steps.forEach((s, i) => {
+    h += `<div class="step"><h3><span class="n">${i+1}</span>${esc(s.h)}</h3>`;
+    (s.ps||[]).forEach(p => h += `<p>${esc(p)}</p>`);
+    if (s.pairs) h += `<dl class="pairs">${s.pairs.map(([d,t,mk]) => `<dt${mk?` class="${mk}"`:""}>${esc(d)}</dt><dd>${esc(t)}</dd>`).join("")}</dl>`;
+    if (s.tip) h += `<p class="tip${s.warn?" warn":""}">${esc(s.tip)}</p>`;
+    if (s.shot) h += `<div class="shot">画面写真</div>`;
+    h += `</div>`;
+  });
+  if (ch.tips) {
+    h += `<ul class="tips">${WRITE_TIPS.map(([t,p]) => `<li><h3>${esc(t)}</h3><p>${esc(p)}</p></li>`).join("")}</ul>`;
+    h += `<button type="button" class="insert" id="openCol"><span class="t"><b>メモの取り方</b><small>記録が書きやすくなる6つのコツ</small></span>
+      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true"><path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" stroke-linejoin="round"/></svg></button>`;
+  }
+  if (ch.items) h += `<dl class="items">${ch.items.map(([b,s]) => `<div><dt>${esc(b)}</dt><dd>${esc(s)}</dd></div>`).join("")}</dl>`;
+  return h + `</section>`;
+}).join("");
+
+/* 目次（3つの形を同じ章の一覧から作る） */
+strip.innerHTML = CH.map((ch,i) => `<button type="button" class="tab" data-i="${i}" style="--c:var(${ch.c})">${esc(ch.tab)}</button>`).join("");
+rail.innerHTML  = CH.map((ch,i) => `<button type="button" class="rt" data-i="${i}" style="--c:var(${ch.c})" aria-label="${esc(ch.h)}"><span class="v">${[...ch.rail].map(esc).join("<br>")}</span></button>`).join("");
+blist.innerHTML = CH.map((ch,i) => `<button type="button" data-i="${i}" style="--c:var(${ch.c})"><i></i>${esc(ch.h)}</button>`).join("");
+
+const secs = CH.map(ch => document.getElementById("ch-" + ch.id));
+let active = -1, jumping = null, jumpTimer = 0;
+
+const visible = el => getComputedStyle(el).display !== "none";
+function offset(){
+  if (visible(strip)) return strip.offsetHeight + 14;
+  if (visible(bbar)) return bbar.offsetHeight + 14;
+  return 28;
+}
+const topOf = el => el.getBoundingClientRect().top - vp.getBoundingClientRect().top;
+
+function setActive(i){
+  if (i === active) return;
+  const dir = i > active ? "in-up" : "in-down";
+  active = i;
+  document.querySelectorAll("[data-i]").forEach(b => {
+    const on = +b.dataset.i === i;
+    b.setAttribute("aria-current", on ? "true" : "false");
+  });
+  const cvar = i >= 0 ? `var(${CH[i].c})` : "var(--line)";
+  bbar.style.setProperty("--c", cvar);
+  const span = document.createElement("span");
+  span.textContent = i >= 0 ? CH[i].h : "目次";
+  if (!reduce) span.className = dir;
+  bname.replaceChildren(span);
+  if (i >= 0 && visible(strip)) {
+    const t = strip.children[i];
+    strip.scrollTo({left: t.offsetLeft - (strip.clientWidth - t.offsetWidth) / 2, behavior: reduce ? "auto" : "smooth"});
+  }
+}
+
+function compute(){
+  const th = offset() + 40;
+  let idx = -1;
+  secs.forEach((s,i) => { if (topOf(s) <= th) idx = i; });
+  if (vp.scrollTop + vp.clientHeight >= vp.scrollHeight - 4) idx = secs.length - 1;
+  setActive(idx);
+}
+
+let ticking = false;
+vp.addEventListener("scroll", () => {
+  const max = vp.scrollHeight - vp.clientHeight;
+  bprog.style.width = (max > 0 ? (vp.scrollTop / max) * 100 : 0) + "%";
+  if (jumping !== null) {
+    clearTimeout(jumpTimer);
+    jumpTimer = setTimeout(() => { jumping = null; compute(); }, 140);
+    return;
+  }
+  if (!ticking) { ticking = true; requestAnimationFrame(() => { ticking = false; compute(); }); }
+}, {passive:true});
+
+function go(i){
+  closeList();
+  jumping = i;
+  setActive(i);
+  const y = vp.scrollTop + topOf(secs[i]) - offset() + 2;
+  vp.scrollTo({top: y, behavior: reduce ? "auto" : "smooth"});
+  clearTimeout(jumpTimer);
+  jumpTimer = setTimeout(() => { jumping = null; compute(); }, reduce ? 50 : 900);
+}
+[strip, rail, blist].forEach(n => n.addEventListener("click", e => {
+  const b = e.target.closest("[data-i]"); if (b) go(+b.dataset.i);
+}));
+
+/* 案B（狭い幅）の一覧の開け閉め */
+function closeList(){ bbtn.setAttribute("aria-expanded","false"); }
+bbtn.addEventListener("click", () => {
+  bbtn.setAttribute("aria-expanded", bbtn.getAttribute("aria-expanded") === "true" ? "false" : "true");
+});
+document.addEventListener("click", e => { if (!bbar.contains(e.target)) closeList(); });
+
+/* 別枠の読みもの */
+const sheet = $("#sheet");
+let lastFocus = null;
+function openCol(){
+  lastFocus = document.activeElement;
+  sheet.classList.add("open"); sheet.setAttribute("aria-hidden","false");
+  setTimeout(() => $("#closeCol").focus(), reduce ? 0 : 200);
+}
+function closeCol(){
+  if (!sheet.classList.contains("open")) return;
+  sheet.classList.remove("open"); sheet.setAttribute("aria-hidden","true");
+  if (lastFocus) lastFocus.focus();
+}
+$("#openCol").addEventListener("click", openCol);
+$("#closeCol").addEventListener("click", closeCol);
+$("#scrim").addEventListener("click", closeCol);
+document.addEventListener("keydown", e => {
+  if (e.key !== "Escape") return;
+  if (sheet.classList.contains("open")) closeCol(); else closeList();
+});
+
+/* モックの切り替え */
+function seg(id, attr){
+  const g = document.getElementById(id);
+  g.addEventListener("click", e => {
+    const b = e.target.closest("button"); if (!b) return;
+    g.querySelectorAll("button").forEach(x => x.setAttribute("aria-pressed", x === b ? "true" : "false"));
+    stage.dataset[attr] = b.dataset.v;
+    closeList(); closeCol();
+    active = -2;
+    requestAnimationFrame(() => requestAnimationFrame(compute));
+  });
+}
+seg("segPlan", "plan");
+seg("segWidth", "width");
+if (innerWidth < 700) { document.querySelector('#segWidth [data-v="sp"]').click(); }
+compute();
+</script>
+</body>
+</html>

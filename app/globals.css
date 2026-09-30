@@ -13,6 +13,7 @@
   /* インデックスシールの色（彩度低めの文具トーン） */
   --t1:#8fae9d; --t2:#93a9c0; --t3:#cbb478; --t4:#c39a8a; --t5:#a89bb5; --t6:#9db3ae; --t7:#b5a789; --t8:#a3b0c4;
   --head:"Zen Kaku Gothic New","Hiragino Sans",sans-serif;
+  --hand:"Klee One","Hiragino Mincho ProN",serif;
 }
 *{box-sizing:border-box;margin:0;padding:0}
 html{font-size:16px}
@@ -778,18 +779,6 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
   border-radius:0 8px 8px 0;padding:8px 14px;margin-bottom:34px;display:inline-block;
 }
 
-/* 目次 */
-.about .toc{
-  background:var(--surface);border:1px solid var(--line);border-radius:12px;
-  padding:13px 16px;display:flex;flex-wrap:wrap;gap:6px 7px;margin-bottom:50px;
-}
-.about .toc a{
-  font-size:.79rem;color:var(--sub);text-decoration:none;padding:5px 12px 5px 9px;border-radius:99px;
-  background:var(--faint);border:1px solid var(--line);display:inline-flex;align-items:center;gap:7px;
-}
-.about .toc a::before{content:"";width:3px;height:12px;border-radius:2px;background:var(--c,var(--t1))}
-.about .toc a:hover{border-color:var(--accent);color:var(--accent)}
-
 /* 章の頭: 番号の四角＋見出し＋右に一行の説明。下に章の色の太線 */
 .about section{margin-bottom:12px;scroll-margin-top:60px}
 .about .sec-head{
@@ -865,8 +854,33 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
 
 .about footer{border-top:1px solid var(--line);margin-top:44px;padding-top:20px;font-size:.82rem;color:#a8a297}
 
+/* 「メモを書く」（P17）: 順番ではないコツは番号でなく色の小さな四角。最後に読みものへの入口（差し込みの紙） */
+.about .ab-tips{list-style:none;margin:0 0 0 47px;padding:0;display:grid;gap:16px;max-width:40em}
+.about .ab-tips li{position:relative;padding-left:18px;min-width:0}
+.about .ab-tips li::before{content:"";position:absolute;left:0;top:.62em;width:7px;height:7px;border-radius:1px;background:var(--c)}
+.about .ab-tips h3{font-family:var(--head);font-size:1rem;line-height:1.5}
+.about .ab-tips p{margin-top:4px;font-size:.93rem;color:#4a463e}
+.about .ab-insert{
+  display:flex;align-items:center;gap:14px;margin:26px 0 6px 47px;max-width:40em;padding:16px 18px;
+  border:1px solid #e6dfcf;border-left:6px solid var(--t7);border-radius:3px;background:#f7f3e8;
+  color:inherit;text-decoration:none;transform:rotate(-.4deg);transition:transform .2s ease,box-shadow .2s ease;
+}
+.about .ab-insert:hover{transform:rotate(0) translateY(-1px);box-shadow:0 6px 14px rgba(43,42,37,.08)}
+.about .ab-insert .t{flex:1;min-width:0}
+.about .ab-insert b{display:block;font-family:var(--head);font-size:1rem;line-height:1.4}
+.about .ab-insert small{display:block;margin-top:2px;font-size:.75rem;color:var(--sub)}
+/* 目次（P17）: 本文は紙（.ix-paper）に載り、広い画面では右に小口のインデックスの列（60px）が付く */
+.about main{--ix-pad:24px}
+@media (min-width:880px){
+  .about main,.about .h-in{max-width:880px}
+}
+@media (prefers-reduced-motion:reduce){
+  .about .ab-insert{transition:none}
+}
+
 @media (max-width:620px){
-  .about main{padding:24px 16px 70px}
+  .about main{padding:24px 16px 70px;--ix-pad:16px}
+  .about .ab-tips,.about .ab-insert{margin-left:0}
   .about h1{font-size:1.32rem}
   .about .sec-head{gap:10px;padding:20px 0 11px;margin-bottom:18px;flex-wrap:wrap}
   .about .sec-head .sub{margin-left:0;text-align:left;flex-basis:100%;max-width:none}
@@ -898,6 +912,153 @@ header [data-tip]:hover::after, header [data-tip]:focus-visible::after,
   /* 狭い画面は冊子だけに縮める（辞書・主ボタンと並ぶ幅を空ける） */
   .h-right .about-link{padding:0 8px}
   .h-right .about-link .lb{display:none}
+}
+
+/* ============================================================
+   章の目次（小口のインデックス・P17）。使い方ページと読みもののページで共有（app/components/ChapterIndex.tsx）
+   設計意図: docs/mock/tsukaikata-index-mock.html の案B（凍結）。
+   [DECISION 2026-09-30] 幅で出し分ける（ページの幅＝画面の幅で判定）: 880px以上は紙の右端の縦のインデックス、
+     880px未満は上に貼り付く帯（いまの章の名前・読んだ位置の細い線・押すと章の一覧）。
+   [DECISION 2026-09-30] ⚠️ 縦の文字は writing-mode を使わない（1字ずつ <br> で改行。Chromium でボタンの中の縦書きが潰れた）。
+   [DECISION 2026-09-30] インデックスが画面より高いとき（章が10ある使い方ページを低い画面で見るとき）は、
+     インデックスの中だけを送る（スクロールバーは出さない。いまの章のタブは JS が見える位置へ送る）。
+   ============================================================ */
+.ix-bar{
+  position:sticky;top:var(--ix-top,0px);z-index:20;margin:26px calc(-1 * var(--ix-pad,0px)) 0;
+  background:var(--surface);border-bottom:1px solid var(--line);
+}
+.ix-bbtn{
+  display:flex;align-items:center;gap:12px;width:100%;height:50px;padding:0 var(--ix-pad,20px);
+  background:none;border:0;text-align:left;color:inherit;
+}
+.ix-chip{flex:0 0 auto;width:6px;height:22px;border-radius:2px;background:var(--c);transition:background-color .26s ease}
+.ix-name{flex:1;min-width:0;overflow:hidden;height:24px}
+.ix-name span{display:block;font:700 16px/24px var(--head);white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.ix-name .in-up{animation:ix-in-up .26s ease both}
+.ix-name .in-down{animation:ix-in-down .26s ease both}
+@keyframes ix-in-up{from{transform:translateY(80%);opacity:0}to{transform:none;opacity:1}}
+@keyframes ix-in-down{from{transform:translateY(-80%);opacity:0}to{transform:none;opacity:1}}
+.ix-more{display:flex;align-items:center;gap:4px;font-size:12px;color:var(--sub);flex:0 0 auto}
+.ix-more svg{transition:transform .26s ease}
+.ix-bbtn[aria-expanded="true"] .ix-more svg{transform:rotate(180deg)}
+.ix-prog{position:absolute;left:0;bottom:-1px;height:2px;width:0;background:var(--c);transition:background-color .26s ease}
+.ix-list{
+  position:absolute;top:100%;left:0;right:0;background:var(--surface);box-shadow:0 14px 28px rgba(43,42,37,.1);
+  max-height:0;overflow:hidden;transition:max-height .28s ease;
+}
+.ix-bbtn[aria-expanded="true"] + .ix-list{
+  max-height:min(560px,calc(100dvh - var(--ix-top,0px) - 60px));overflow-y:auto;border-bottom:1px solid var(--line);
+}
+.ix-list a{display:flex;align-items:center;gap:12px;padding:12px var(--ix-pad,20px);font-size:14px;color:inherit;text-decoration:none}
+.ix-list a i{flex:0 0 auto;width:4px;height:18px;border-radius:2px;background:var(--c)}
+.ix-list a[aria-current="true"]{background:var(--faint);font-weight:700}
+.ix-paper{display:block;min-width:0;background:var(--surface);border:1px solid var(--line);border-radius:4px;padding:6px 28px 22px;margin-top:14px}
+.ix-rail{display:none}
+@media (max-width:600px){
+  .ix-paper{padding:4px 18px 18px}
+}
+@media (min-width:880px){
+  .ix-bar{display:none}
+  .ix-wrap{display:grid;grid-template-columns:minmax(0,1fr) 60px;align-items:start;margin-top:26px}
+  .ix-paper{margin-top:0}
+  .ix-rail{
+    display:flex;flex-direction:column;gap:3px;position:sticky;top:calc(var(--ix-top,0px) + 28px);padding:18px 0 8px;
+    max-height:calc(100dvh - var(--ix-top,0px) - 36px);overflow-y:auto;scrollbar-width:none;
+  }
+  .ix-rail::-webkit-scrollbar{display:none}
+}
+.ix-tab{
+  position:relative;flex:0 0 auto;display:flex;justify-content:center;width:30px;padding:12px 0;border-radius:0 6px 6px 0;
+  background:color-mix(in srgb,var(--c) 38%,var(--surface));color:var(--sub);text-decoration:none;
+  box-shadow:inset 1px 0 0 var(--line);transition:width .24s ease,background-color .24s ease,color .24s ease;
+}
+.ix-tab .v{display:block;font:500 12px/1.32 var(--head);text-align:center}
+.ix-tab[aria-current="true"] .v{font-weight:700}
+.ix-tab:hover{width:36px;color:var(--ink)}
+.ix-tab[aria-current="true"]{width:46px;background:var(--c);color:var(--ink);box-shadow:1px 1px 0 rgba(43,42,37,.08)}
+@media (prefers-reduced-motion:reduce){
+  .ix-chip,.ix-more svg,.ix-prog,.ix-list,.ix-tab{transition:none}
+  .ix-name .in-up,.ix-name .in-down{animation:none}
+}
+
+/* ============================================================
+   読みもの /yomimono/…（P17）。文面の正本は lib/yomimono-copy.ts、設計意図は docs/mock/memo-kotsu-mock.html（凍結）。
+   手書き風の字（--hand＝Klee One）は、このページとホームの棚の表紙だけが読み込む（lib/hand-font.ts）。
+   ============================================================ */
+.ym{min-height:100dvh;background:var(--bg);line-height:1.75;overflow-wrap:anywhere}
+.ym header{position:static}
+.ym .ym-h{max-width:840px;margin:0 auto;height:52px;display:flex;align-items:center;justify-content:space-between;padding:0 16px}
+.ym .ym-home{
+  display:inline-flex;align-items:center;gap:6px;height:34px;padding:0 12px;border-radius:6px;
+  color:var(--sub);font-size:.82rem;text-decoration:none;flex:0 0 auto;
+}
+.ym .ym-home:hover{background:var(--desk);color:var(--ink)}
+.ym .ym-sp{width:74px;flex:0 0 auto}
+.ym-page{max-width:760px;margin:0 auto;padding:30px 20px 64px;--ix-pad:20px}
+.ym-intro h1{font-family:var(--head);font-size:1.75rem;line-height:1.3;letter-spacing:.02em;margin-bottom:12px}
+.ym-intro p{font-size:.94rem;line-height:1.9}
+.ym-ch{padding:30px 0 28px;border-top:1px solid var(--line)}
+.ym-ch:first-child{border-top:0}
+.ym-ch h2{display:flex;align-items:center;gap:12px;font-family:var(--head);font-size:1.31rem;line-height:1.3}
+.ym-ch h2::before{content:"";flex:0 0 auto;width:6px;height:24px;border-radius:2px;background:var(--c)}
+.ym-tips{margin:20px 0 0;padding:0;list-style:none;display:grid;gap:22px}
+.ym-tips li{position:relative;padding-left:18px;min-width:0}
+.ym-tips li::before{content:"";position:absolute;left:0;top:.6em;width:7px;height:7px;border-radius:1px;background:var(--c)}
+.ym-tips h3{font-family:var(--head);font-size:.97rem;line-height:1.5}
+.ym-tips p{margin-top:5px;font-size:.875rem;line-height:1.9}
+.ym-memo{
+  position:relative;margin-top:12px;max-width:460px;padding:6px 14px 6px 24px;border-radius:3px;
+  background:#fbfaf6 repeating-linear-gradient(transparent 0 31px,#e7e2d6 31px 32px);
+  font:400 17px/32px var(--hand);color:#34332e;
+}
+.ym-memo::before{content:"";position:absolute;left:12px;top:0;bottom:0;width:1px;background:#e9c9c2}
+.ym-memo div{white-space:pre-wrap}
+.ym-cmp{display:flex;align-items:center;flex-wrap:wrap;gap:8px 12px;margin-top:12px}
+.ym-cmp .ym-memo{margin:0;flex:0 1 auto}
+.ym-memo.off{color:#9b968b;background-color:#f6f4ee}
+.ym-memo.off div{text-decoration:line-through;text-decoration-color:rgba(155,150,139,.55);text-decoration-thickness:1px}
+.ym-cmp svg{flex:0 0 auto;color:var(--sub)}
+.ym-legend{
+  display:grid;grid-template-columns:auto 1fr;gap:6px 16px;margin-top:12px;max-width:460px;padding:10px 16px;
+  border-radius:3px;background:#fbfaf6;font-size:.875rem;line-height:1.8;
+}
+.ym-legend dt{font:600 18px/1.6 var(--hand);color:#34332e;text-align:center;min-width:2.2em}
+.ym-legend dd{margin:0;align-self:center}
+.ym-end{display:flex;justify-content:center;margin-top:28px}
+.ym-back{
+  display:inline-flex;align-items:center;gap:6px;height:40px;padding:0 18px;border:1px solid var(--line);
+  border-radius:20px;background:var(--surface);font-size:.875rem;color:inherit;text-decoration:none;
+}
+.ym-back:hover{border-color:#cfc9bc}
+@media (min-width:880px){
+  .ym-page{max-width:840px}
+}
+
+/* ============================================================
+   ホームの「ひと息」の棚（P17・docs/mock/memo-kotsu-mock.html の入口B）。カードの下、「利用上の注意」の上。
+   [DECISION 2026-09-30・設計側] 入口であって常時表示の説明ではない（原則4）。読みものの一覧は lib/yomimono-copy.ts の READINGS。
+   ============================================================ */
+.hs-shelf{margin-top:30px;padding-top:18px;border-top:1px dashed #d8d2c4}
+.hs-h{margin:0 0 12px;font:600 15px/1 var(--hand);color:var(--sub);letter-spacing:.06em}
+.hs-cards{display:grid;grid-template-columns:repeat(auto-fill,minmax(236px,1fr));gap:12px}
+.hs-card{
+  display:block;border:1px solid var(--line);border-radius:4px;background:var(--surface);color:inherit;
+  text-decoration:none;overflow:hidden;transition:transform .2s ease,box-shadow .2s ease;
+}
+.hs-card:hover{transform:translateY(-2px);box-shadow:0 8px 16px rgba(43,42,37,.07)}
+.hs-cover{
+  display:block;position:relative;height:92px;padding:12px 16px 0 22px;overflow:hidden;white-space:nowrap;
+  background:#fbfaf6 repeating-linear-gradient(transparent 0 25px,#e7e2d6 25px 26px);border-bottom:1px solid var(--line);
+  font:400 15px/26px var(--hand);color:#4a4840;
+}
+.hs-cover::before{content:"";position:absolute;left:12px;top:0;bottom:0;width:1px;background:#e9c9c2}
+.hs-cover span{display:block}
+.hs-body{display:flex;align-items:center;gap:10px;padding:12px 16px 14px}
+.hs-body .t{flex:1;min-width:0}
+.hs-body b{display:block;font-family:var(--head);font-size:.94rem;line-height:1.4}
+.hs-body small{display:block;margin-top:2px;font-size:.75rem;color:var(--sub)}
+@media (prefers-reduced-motion:reduce){
+  .hs-card{transition:none}
 }
 
 /* ============================================================

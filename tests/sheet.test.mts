@@ -330,7 +330,9 @@ test("ホームが起点で、カードは4枚（面談／会議／用紙／使�
   const home = readFileSync("app/components/Home.tsx", "utf8");
   assert.equal((home.match(/className="hcard"/g) ?? []).length, 4, "カードは4枚（P9: 面談と会議の入口を分けた）");
   for (const t of ["面談メモを", "会議メモを", "用紙を印刷", "使い方"]) assert.ok(home.includes(t), `${t} のカードがある`);
-  assert.equal((home.match(/<svg /g) ?? []).length, 4, "4枚ともSVGの絵を持つ");
+  // 4枚のカードの範囲（下の「ひと息」の棚・P17 の矢印は数えない）
+  const cardsBlock = home.slice(home.indexOf('className="cards"'), home.indexOf('className="hs-shelf"'));
+  assert.equal((cardsBlock.match(/<svg /g) ?? []).length, 4, "4枚ともSVGの絵を持つ");
   assert.ok(home.includes('onMemo("interview")') && home.includes('onMemo("meeting")'), "入口で記録の種類が決まる");
   assert.ok(home.includes("about={false}"), "使い方はカードにあるので、ヘッダーには二重に出さない");
   // タイトル以外の文字を置かない

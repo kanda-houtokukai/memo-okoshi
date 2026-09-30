@@ -23,10 +23,17 @@
 // [DECISION 2026-09-23・設計側] **一番下に小さな文字のリンク「利用上の注意」**（P14）。常に出すのはリンクの文字だけで、
 //   本文（Gemini の無料枠の扱い）は押したときだけ開く（`NoticeDialog`・文面は `lib/notice-copy.ts`）。初回の自動表示はしない。
 //   色は --sub で、カードより目立たせない（原則4）。
+// [DECISION 2026-09-30・設計側] **カードの下、「利用上の注意」の上に「ひと息」の棚**（P17・docs/mock/memo-kotsu-mock.html の入口B）。
+//   記録の作法を読めるページ（読みもの）への**入口**で、常時表示の説明ではない（原則4に触れない）。使い方の本筋と混ぜず、
+//   読まなくても使える位置づけにする。棚に並べる一覧は lib/yomimono-copy.ts の READINGS だけが持つ（今回は「メモの取り方」1枚）。
+//   カードの表紙は罫線の紙に手書き風の3行。手書き風の字（Klee One）はこの棚があるときだけ読む（lib/hand-font.ts）。
+//   押すと同じタブで読みもののページへ移る（ホームには失う作業が無い。読みものの上と最後に「ホーム」へ戻る道がある）。
 
 import { useCallback, useRef, useState } from "react";
 import type { RecordType } from "@/lib/items";
+import { HAND_FONT_HREF } from "@/lib/hand-font";
 import { NOTICE } from "@/lib/notice-copy";
+import { READINGS, YOMIMONO_UI } from "@/lib/yomimono-copy";
 import NoticeDialog from "./NoticeDialog";
 import StepHeader from "./StepHeader";
 import VocabButton from "./VocabButton";
@@ -149,6 +156,34 @@ export default function Home({ onMemo, onSheet, toast }: Props) {
               <div className="ttl">使い方</div>
             </a>
           </div>
+          {READINGS.length > 0 && (
+            <section className="hs-shelf" aria-labelledby="hs-h">
+              <link rel="stylesheet" href={HAND_FONT_HREF} precedence="default" />
+              <h2 className="hs-h" id="hs-h">
+                {YOMIMONO_UI.shelf}
+              </h2>
+              <div className="hs-cards">
+                {READINGS.map((r) => (
+                  <a key={r.slug} className="hs-card" href={r.href}>
+                    <span className="hs-cover" aria-hidden>
+                      {r.cover.map((l) => (
+                        <span key={l}>{l}</span>
+                      ))}
+                    </span>
+                    <span className="hs-body">
+                      <span className="t">
+                        <b>{r.title}</b>
+                        <small>{r.sub}</small>
+                      </span>
+                      <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+                        <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+                      </svg>
+                    </span>
+                  </a>
+                ))}
+              </div>
+            </section>
+          )}
           <button ref={linkRef} className="home-notice" onClick={() => setNotice(true)}>
             {NOTICE.link}
           </button>

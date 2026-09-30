@@ -34,6 +34,7 @@ const PUBLIC = new Set([
   "/gate",
   "/api/gate",
   "/about",
+  "/yomimono/memo",
   "/manifest.webmanifest",
   "/icon-16.png",
   "/icon-32.png",
@@ -53,6 +54,8 @@ export async function middleware(req: NextRequest) {
   //   /about は使い方ページ（仕様と運用ルールのみ。委員会・他施設への紹介に合言葉を渡さず使えるように）。
   //   アイコンとマニフェストは合言葉画面でも要るので通す。中身は静的で、いずれも秘密を含まない。
   //   使い方ページの画面写真も同じ（写っているのは生成したダミーのメモで、実在の利用者情報を含まない）。
+  //   [DECISION 2026-09-30・設計側] 読みもの（/yomimono/memo・P17）も外に出す。記録の作法だけで秘密を含まない。
+  //   読みものを足すときは lib/yomimono-copy.ts の READINGS と、ここに1本ずつ完全一致で足す（tests/yomimono.test.mts が突き合わせる）。
   if (PUBLIC.has(path)) return NextResponse.next();
 
   const ok = req.cookies.get(GATE_COOKIE)?.value === (await gateDigest(code));

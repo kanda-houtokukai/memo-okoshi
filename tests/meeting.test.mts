@@ -637,7 +637,12 @@ function sourcesUnder(dir: string): string[] {
 
 test("「宿題」という語が画面・プロンプト・出力のどこにも残っていない（項目名は「今後の対応」・id は shukudai のまま）", () => {
   // 画面とプロンプトと出力を作るコード（コメントは除く）と、配信する public の文字のファイル
-  for (const f of [...sourcesUnder("app"), ...sourcesUnder("lib"), ...sourcesUnder("public")]) {
+  const files = [...sourcesUnder("app"), ...sourcesUnder("lib"), ...sourcesUnder("public")];
+  // P17: 読みものの文面とページ、使い方ページの新しい章（about-copy）も見張りの中に入っている
+  for (const f of [join("lib", "yomimono-copy.ts"), join("app", "yomimono", "[slug]", "page.tsx"), join("lib", "about-copy.ts")]) {
+    assert.ok(files.includes(f), `${f} が見張りの外にある`);
+  }
+  for (const f of files) {
     const body = f.endsWith(".json") || f.endsWith(".webmanifest") ? readFileSync(f, "utf8") : stripComments(readFileSync(f, "utf8"));
     assert.ok(!body.includes("宿題"), `${f} に「宿題」が残っている`);
   }

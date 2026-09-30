@@ -14,10 +14,15 @@
 //   画像は本文より控えめ（最大520px・縦長は330px）。ラベルと説明は表組み（dl）。
 // [DECISION 2026-09-12] ⚠️ 手順の入れ物は **`ab-steps`**（モックは `steps`）。`steps` は作業画面の工程表示の
 //   規則（`.steps span{white-space:nowrap}` など）とぶつかり、説明文が折り返さずに横へはみ出していた。
+// [DECISION 2026-09-30・設計側] **目次を小口のインデックス（案B）にした**（P17・docs/mock/tsukaikata-index-mock.html）。
+//   上部のタブを置き換え、本文を紙（`ChapterIndex` の `.ix-paper`）に載せる。作りは読みもののページと共有する。
+// [DECISION 2026-09-30] **章は目次の id で読む**（P17）。以前は注意事項・困ったときの見出しを `ABOUT.toc[7]`・`[8]` と
+//   位置の番号で読んでいて、「メモを書く」を足すと別の章の名前が出るところだった。ページは目次の順に、id ごとの作りで並べる。
 
 import { Fragment } from "react";
 import type { Metadata } from "next";
-import { ABOUT, type Shot } from "@/lib/about-copy";
+import { ABOUT, type Chapter, type Shot } from "@/lib/about-copy";
+import ChapterIndex from "@/app/components/ChapterIndex";
 import CloseButton from "./CloseButton";
 
 export const metadata: Metadata = {
@@ -26,10 +31,10 @@ export const metadata: Metadata = {
 };
 
 /** 番号の無い章の頭に置く印（番号のある章は見出しの数字を四角に出す） */
-const MARK: Record<string, string> = { prep: "▢", dict: "▤", caution: "!", trouble: "?" };
+const MARK: Record<string, string> = { prep: "▢", write: "✎", dict: "▤", caution: "!", trouble: "?" };
 
 /** 導入を見出しの右に一行で出さず、見出しの下に段落で出す章（導入が長い） */
-const LEAD_BELOW = new Set(["prep"]);
+const LEAD_BELOW = new Set(["prep", "write"]);
 
 /** 縦長（高さ÷幅がこれ以上）の写真は幅を狭くする（最大330px） */
 const NARROW = 0.9;
@@ -72,10 +77,108 @@ function Shots({ shots }: { shots?: readonly Shot[] }) {
   );
 }
 
+/** 手順のある章: 手順を縦の一本線でつなぐ（v3） */
+function StepsSection({ ch }: { ch: Chapter }) {
+  return (
+    <section id={ch.id} style={{ ["--c" as string]: ch.c }}>
+      <SecHead id={ch.id} h={ch.h} sub={LEAD_BELOW.has(ch.id) ? undefined : ch.lead} />
+      {LEAD_BELOW.has(ch.id) && ch.lead && <p className="sec-lead">{ch.lead}</p>}
+      <div className="ab-steps">
+        {ch.steps.map((st) => (
+          <div className="step" key={st.n}>
+            <span className="n">{st.n}</span>
+            <h3>{st.h}</h3>
+            {st.ps?.map((p) => (
+              <p key={p}>{p}</p>
+            ))}
+            {st.pairs && (
+              <dl className="pairs">
+                {st.pairs.map((pr) => (
+                  <Fragment key={pr.lb}>
+                    <dt className={pr.mk}>{pr.lb}</dt>
+                    <dd>{pr.tx}</dd>
+                  </Fragment>
+                ))}
+              </dl>
+            )}
+            {st.tip && <div className={"tip" + (st.warn ? " warn" : "")}>{st.tip}</div>}
+            <Shots shots={st.shots} />
+          </div>
+        ))}
+      </div>
+    </section>
+  );
+}
+
+/** 「メモを書く」: 順番ではないコツを色の小さな四角で並べ、最後に読みものへの入口（差し込みの紙）を置く */
+function WriteSection() {
+  const w = ABOUT.write;
+  return (
+    <section id={w.id} style={{ ["--c" as string]: w.c }}>
+      <SecHead id={w.id} h={w.h} />
+      <p className="sec-lead">{w.lead}</p>
+      <ul className="ab-tips">
+        {w.tips.map((t) => (
+          <li key={t.h}>
+            <h3>{t.h}</h3>
+            <p>{t.p}</p>
+          </li>
+        ))}
+      </ul>
+      <a className="ab-insert" href={w.insert.href}>
+        <span className="t">
+          <b>{w.insert.title}</b>
+          <small>{w.insert.sub}</small>
+        </span>
+        <svg width="16" height="16" viewBox="0 0 16 16" aria-hidden>
+          <path d="M6 3.5 10.5 8 6 12.5" fill="none" stroke="currentColor" strokeWidth="1.6" strokeLinecap="round" strokeLinejoin="round" />
+        </svg>
+      </a>
+    </section>
+  );
+}
+
+/** 目次の id から、その章の作りを選ぶ（位置の番号で読まない） */
+function Section({ id }: { id: string }) {
+  const label = ABOUT.toc.find((t) => t.id === id)!.label;
+  const c = ABOUT.toc.find((t) => t.id === id)!.c;
+  if (id === "write") return <WriteSection />;
+  if (id === "caution")
+    return (
+      <section id="caution" style={{ ["--c" as string]: c }}>
+        <SecHead id="caution" h={label} />
+        <div className="cautions">
+          {ABOUT.cautions.map((it) => (
+            <div className="item" key={it.b}>
+              <b>{it.b}</b>
+              <span>{it.s}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  if (id === "trouble")
+    return (
+      <section id="trouble" style={{ ["--c" as string]: c }}>
+        <SecHead id="trouble" h={label} />
+        <div className="qa">
+          {ABOUT.troubles.map((it) => (
+            <div className="q" key={it.b}>
+              <b>{it.b}</b>
+              <span>{it.s}</span>
+            </div>
+          ))}
+        </div>
+      </section>
+    );
+  const ch = ABOUT.chapters.find((x) => x.id === id);
+  return ch ? <StepsSection ch={ch} /> : null;
+}
+
 export default function AboutPage() {
   return (
     <div className="about">
-      <header>
+      <header data-ix-head>
         <div className="h-in">
           <div className="brand">{ABOUT.brand}</div>
           <CloseButton />
@@ -87,67 +190,14 @@ export default function AboutPage() {
         <p className="lead">{ABOUT.lead}</p>
         <div className="dummy">{ABOUT.note}</div>
 
-        <nav className="toc">
+        <ChapterIndex
+          label={ABOUT.tocLabel}
+          chapters={ABOUT.toc.map((t) => ({ id: t.id, h: t.label, rail: t.rail, c: t.c }))}
+        >
           {ABOUT.toc.map((t) => (
-            <a key={t.id} href={"#" + t.id} style={{ ["--c" as string]: t.c }}>
-              {t.label}
-            </a>
+            <Section key={t.id} id={t.id} />
           ))}
-        </nav>
-
-        {ABOUT.chapters.map((ch) => (
-          <section key={ch.id} id={ch.id} style={{ ["--c" as string]: ch.c }}>
-            <SecHead id={ch.id} h={ch.h} sub={LEAD_BELOW.has(ch.id) ? undefined : ch.lead} />
-            {LEAD_BELOW.has(ch.id) && ch.lead && <p className="sec-lead">{ch.lead}</p>}
-            <div className="ab-steps">
-              {ch.steps.map((st) => (
-                <div className="step" key={st.n}>
-                  <span className="n">{st.n}</span>
-                  <h3>{st.h}</h3>
-                  {st.ps?.map((p) => (
-                    <p key={p}>{p}</p>
-                  ))}
-                  {st.pairs && (
-                    <dl className="pairs">
-                      {st.pairs.map((pr) => (
-                        <Fragment key={pr.lb}>
-                          <dt className={pr.mk}>{pr.lb}</dt>
-                          <dd>{pr.tx}</dd>
-                        </Fragment>
-                      ))}
-                    </dl>
-                  )}
-                  {st.tip && <div className={"tip" + (st.warn ? " warn" : "")}>{st.tip}</div>}
-                  <Shots shots={st.shots} />
-                </div>
-              ))}
-            </div>
-          </section>
-        ))}
-
-        <section id="caution" style={{ ["--c" as string]: "var(--t4)" }}>
-          <SecHead id="caution" h={ABOUT.toc[7].label} />
-          <div className="cautions">
-            {ABOUT.cautions.map((c) => (
-              <div className="item" key={c.b}>
-                <b>{c.b}</b>
-                <span>{c.s}</span>
-              </div>
-            ))}
-          </div>
-        </section>
-
-        <section id="trouble" style={{ ["--c" as string]: "var(--t2)" }}>
-          <SecHead id="trouble" h={ABOUT.toc[8].label} />
-          <div className="qa">
-            {ABOUT.troubles.map((t) => (
-              <div className="q" key={t.b}>
-                <b>{t.b}</b>
-                <span>{t.s}</span>
-              </div>
-            ))}
-          </div>
-        </section>
+        </ChapterIndex>
 
         <footer>{ABOUT.footer}</footer>
       </main>
