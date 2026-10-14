@@ -3,6 +3,8 @@
 # - 鍵は secrets の GEMINI_EVAL_API_KEY（本番と別のプロジェクトの鍵）だけ。**未登録なら何もせず成功で終わる**（失敗の通知を出さない）。
 # - 記録（state.json・congestion.md・新しいモデルの評価結果）は watch-log ブランチに置く（main には書かない）。
 # - 異常は Issue で知らせる（同じ題の Issue が開いていれば立てない）。
+# - [DECISION 2026-10-14 P24] 走らせる環境は ubuntu-26.04 に固定（ubuntu-latest は 2026-10-19〜11-19 に 24.04 から 26.04 へ移る。
+#   移る途中で日によって環境が変わらないように、確かめた版に固定した）。actions は Node.js 24 で動く版（checkout・setup-node とも v7）。
 name: 毎日の見張り
 
 on:
@@ -20,7 +22,7 @@ concurrency:
 
 jobs:
   watch:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-26.04
     timeout-minutes: 20
     steps:
       - name: 評価用の鍵があるか（無ければ以降は飛ばす）
@@ -35,10 +37,10 @@ jobs:
             echo "has=1" >> "$GITHUB_OUTPUT"
           fi
 
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
         if: steps.key.outputs.has == '1'
 
-      - uses: actions/setup-node@v4
+      - uses: actions/setup-node@v7
         if: steps.key.outputs.has == '1'
         with:
           node-version: 24

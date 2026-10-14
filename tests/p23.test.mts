@@ -81,8 +81,8 @@ test("緊急用も全滅したら、理由ごとの文言で止まる（混雑�
   resetGeminiState();
   const r3 = await tryTiers(TIERS, "p", [], fakeCaller({ t1: 404, e1: 403, e2: [429, "limit: 0"] }).call);
   assert.ok(!r3.ok && r3.reason === "unavailable");
-  // 文言は「困ったとき」と同じ言い方の3つ（混雑・上限・それ以外）。使えないの専用文言は設計側の承認待ち
-  assert.equal(FAIL_TEXT.unavailable, FAIL_TEXT.error);
+  // 「使えない」の文言は P24 で設計側が承認した専用のもの（tests/p6.test.mts が文面を見張る）
+  assert.notEqual(FAIL_TEXT.unavailable, FAIL_TEXT.error);
   assert.ok(FAIL_TEXT.busy.startsWith("いま混み合っています。") && FAIL_TEXT.quota.startsWith("本日の利用上限に達しました。"));
 });
 
@@ -370,4 +370,8 @@ test("ワークフロー: 毎日 22:00（日本時間）に1回・評価用の�
   for (const s of steps.slice(1)) assert.ok(s.includes("if: steps.key.outputs.has == '1'"), `鍵が無ければ飛ばす → ${s.split("\n")[0]}`);
   assert.ok(y.includes("node eval/watch.mts --state watch-state"));
   assert.ok(y.includes("watch-log"), "記録は main ではなく watch-log ブランチ");
+  // P24: Node.js 24 で動く版の actions・環境は確かめた版に固定（ubuntu-latest の移行の途中で変わらないように）
+  assert.deepEqual([...y.matchAll(/runs-on:\s*(\S+)/g)].map((m) => m[1]), ["ubuntu-26.04"]);
+  assert.ok(y.includes("uses: actions/checkout@v7") && y.includes("uses: actions/setup-node@v7"));
+  assert.ok(!/@v[1-6]\b/.test(y), "Node.js 20 向けの古い版を使わない");
 });

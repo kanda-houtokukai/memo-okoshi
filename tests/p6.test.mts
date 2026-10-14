@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { FAIL_TEXT, MODEL_TIERS, orderForTry, reasonOfKinds, tiersIn } from "../lib/gemini.ts";
+import { FAIL_TEXT, MODEL_TIERS, orderForTry, reasonOfKinds, resetGeminiState, tiersIn, tryTiers } from "../lib/gemini.ts";
 import { ITEM_LIBRARY } from "../lib/items.ts";
 import { buildOutputText, candidatesFor, counts, fromApi, mergeReconvert, pendingReconvertIds, recordEntries, resolveToken, saveEdit, toggleItem, type ApiData, type RecordState, type Token } from "../lib/record.ts";
 import { buildDocxParts, cleanText, extractText } from "../lib/docx.ts";
@@ -267,19 +267,46 @@ test("枠切れ（429）で他のモデルへ流れない（実装の形を見�
   assert.ok(src.includes("試験済みも緊急用も使えません"), "全滅時は正直に止める");
 });
 
-test("429（枠切れ）と 503（混雑）で違う案内を出す（P7-d）", () => {
+test("429（枠切れ）と 503（混雑）と使えない（無くなった・課金が要る）で違う案内を出す（P7-d → P24）", async () => {
   assert.equal(reasonOfKinds(["quota"]), "quota");
   assert.equal(reasonOfKinds(["quota", "quota"]), "quota");
   assert.equal(reasonOfKinds(["busy"]), "busy");
   assert.equal(reasonOfKinds(["quota", "busy"]), "busy", "待てば直るかもしれない方を優先して伝える");
   assert.equal(reasonOfKinds(["error"]), "error");
   assert.equal(reasonOfKinds([]), "error");
+  assert.equal(reasonOfKinds(["gone"]), "unavailable");
+  assert.equal(reasonOfKinds(["paid", "gone", "paid"]), "unavailable");
+  assert.equal(reasonOfKinds(["gone", "quota"]), "quota", "上限が混じれば明日に直る見込みがある");
 
-  // 3つとも違う文言で、枠切れは「明日」・混雑は「少し待って」と分かること
-  const texts = [FAIL_TEXT.quota, FAIL_TEXT.busy, FAIL_TEXT.error];
-  assert.equal(new Set(texts).size, 3, "理由ごとに違う文言");
+  // 4つとも違う文言で、枠切れは「明日」・混雑は「少し待って」・使えないは「担当者に知らせて」と分かること
+  const texts = [FAIL_TEXT.quota, FAIL_TEXT.busy, FAIL_TEXT.unavailable, FAIL_TEXT.error];
+  assert.equal(new Set(texts).size, 4, "理由ごとに違う文言");
   assert.ok(FAIL_TEXT.quota.includes("本日") && FAIL_TEXT.quota.includes("明日"));
   assert.ok(FAIL_TEXT.busy.includes("混み合") && FAIL_TEXT.busy.includes("少し待って"));
+  // 設計側の文面のまま（P24）。使い方「困ったとき」の見出しと対になる
+  assert.equal(FAIL_TEXT.unavailable, "いまは変換を使えません。時間をおいても同じときは、担当者に知らせてください。メモと伏せた箇所はそのまま残っています。");
+  const about = readFileSync("lib/about-copy.ts", "utf8");
+  assert.ok(about.includes('b: "「いまは変換を使えません」と出る"'));
+
+  // 「使えない」が出る場面: 試験済みも緊急用も、無くなった（404・一覧に無い）か課金が要る（403・枠が 0）とき
+  const fake = (st: Record<string, [number, string?]>) => async (m: string) => {
+    const [code, body = ""] = st[m] ?? [200];
+    return code === 200 ? { ok: true as const, text: "{}" } : { ok: false as const, status: code, error: body };
+  };
+  resetGeminiState();
+  const u1 = await tryTiers({ tested: ["t"], emergency: ["e1", "e2"] }, "p", [], fake({ t: [404], e1: [403], e2: [429, "limit: 0"] }));
+  assert.ok(!u1.ok && u1.reason === "unavailable" && FAIL_TEXT[u1.reason] === FAIL_TEXT.unavailable);
+  resetGeminiState();
+  const u2 = await tryTiers({ tested: [], emergency: [] }, "p", [], fake({}));
+  assert.ok(!u2.ok && u2.reason === "unavailable", "試験済みも緊急用も一覧から消えたときも「使えない」");
+  assert.deepEqual(u2.tried, [], "そのときは何も呼ばない");
+  resetGeminiState();
+  // 混雑が1つでも混じれば「使えない」ではなく「混み合っています」（待てば直るかもしれない）
+  const u3 = await tryTiers({ tested: ["t"], emergency: ["e1"] }, "p", [], fake({ t: [404], e1: [503] }));
+  assert.ok(!u3.ok && u3.reason === "busy");
+  resetGeminiState();
+  const gem = readFileSync("lib/gemini.ts", "utf8");
+  assert.ok(!gem.includes("throw new Error(\"試験済みも緊急用も一覧にありません"), "一覧から消えたときに例外（＝「変換できませんでした」）にしない");
   // どれも「入力が残っている」ことを伝える（作業が消えたのかが最初の不安）
   for (const t of texts) assert.ok(t.includes("そのまま残っています"), `残っていると伝える → ${t}`);
 
@@ -287,6 +314,7 @@ test("429（枠切れ）と 503（混雑）で違う案内を出す（P7-d）", 
   const route = readFileSync("app/api/convert/route.ts", "utf8");
   assert.ok(route.includes('result.reason === "quota" ? 429'), "枠切れは429で返す");
   assert.ok(route.includes('result.reason === "busy" ? 503'), "混雑は503で返す");
+  assert.ok(route.includes(': 502; // unavailable・error は 502'), "使えないは502で返す");
   assert.ok(route.includes("FAIL_TEXT[result.reason]"), "画面に出す文言は正本から取る");
   const page = readFileSync("app/page.tsx", "utf8");
   assert.ok(!page.includes("json.raw"), "生のモデル出力を画面に出さない");

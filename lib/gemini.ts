@@ -132,9 +132,9 @@ const ERROR_TEXT = "変換できませんでした。もう一度試してくだ
 export const FAIL_TEXT: Record<FailReason, string> = {
   quota: "本日の利用上限に達しました。明日また試してください。メモと伏せた箇所はそのまま残っています。",
   busy: "いま混み合っています。少し待ってから、もう一度試してください。メモと伏せた箇所はそのまま残っています。",
-  // [DECISION 2026-10-14] 使えない（無くなった・課金が要る）ときの専用の文言は設計側の承認待ち（P23 の報告で提案）。
-  //   それまでは既存の「変換できませんでした」を使う（新しい文言を勝手に足さない）
-  unavailable: ERROR_TEXT,
+  // [DECISION 2026-10-14・設計側] 使えない（試験済みも緊急用も、無くなった・課金が要る）ときの文言（P23 で提案 → P24 で承認）。
+  //   使い方「困ったとき」の「「いまは変換を使えません」と出る」と対になる（lib/about-copy.ts）
+  unavailable: "いまは変換を使えません。時間をおいても同じときは、担当者に知らせてください。メモと伏せた箇所はそのまま残っています。",
   error: ERROR_TEXT,
 };
 
@@ -153,13 +153,12 @@ export async function listCandidates(key: string = apiKey()): Promise<string[]> 
   return orderCandidates(json.models ?? []);
 }
 
-/** 一覧を引いて2段に分ける（一覧にあるものだけ）。どちらも空なら止める（2段の外へは流さない） */
+/**
+ * 一覧を引いて2段に分ける（一覧にあるものだけ。2段の外へは流さない）。
+ * どちらも空なら空のまま返し、`tryTiers` が「使えない」（無くなった）で止める（P24。以前は例外にして「変換できませんでした」を出していた）。
+ */
 async function listTiers(): Promise<{ tested: string[]; emergency: string[] }> {
-  const t = tiersIn(await listCandidates());
-  if (t.tested.length + t.emergency.length === 0) {
-    throw new Error("試験済みも緊急用も一覧にありません（MODEL_TIERS の見直しが必要です）");
-  }
-  return t;
+  return tiersIn(await listCandidates());
 }
 
 export type ImagePart = { mimeType: string; base64: string };
@@ -289,7 +288,10 @@ export async function tryTiers(
     lastError = r.error;
     return { ok: false, kind };
   };
-  if (tiers.tested.length === 0) kinds.push("gone"); // 試験済みが一覧から消えた
+  if (tiers.tested.length === 0) {
+    kinds.push("gone"); // 試験済みが一覧から消えた
+    lastError = tiers.emergency.length ? "試験済みが一覧にありません" : "試験済みも緊急用も一覧にありません（MODEL_TIERS の見直しが必要です）";
+  }
   for (const model of orderForTry(tiers.tested, workingModel)) {
     const r = await attempt(model);
     if (r.ok) {
