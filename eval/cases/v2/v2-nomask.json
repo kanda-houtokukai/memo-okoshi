@@ -1,0 +1,257 @@
+{
+ "id": "v2-nomask",
+ "title": "面談（塗った四角なし）。本当に読めない5か所・読みにくいが読める2か所（P26）",
+ "source": "docs/samples/dummy-memo-10-v2-nomask.png",
+ "image": "eval/cases/v2/v2-nomask.jpg",
+ "record_type": "interview",
+ "items": [
+  "gaiyou",
+  "honnin",
+  "kazoku",
+  "kadai",
+  "kenko",
+  "seikatsu",
+  "kinsen",
+  "moushiokuri"
+ ],
+ "text": "面談 10/20(月) 13:30〜 自宅訪問\n本人 ＋ 父 同席\n【服薬】\n・頓服 は 不安 の とき だけ\n・眠前 2錠、飲み忘れ は ない\n【生活】\n・起床 8:00、昼まで 寝ている 日 あり\n・買い物 は 父と 週1\n・GH の 見学 を 希望\n【金銭】\n・小遣い 月 15,000円、残り は 父 が 管理\n【次回】\n・受診 11/12、モニタ は 12月",
+ "facts": [
+  {
+   "id": "date",
+   "all": [
+    [
+     "10/20",
+     "10月20日"
+    ],
+    [
+     "13:30",
+     "13時30分",
+     "13時半"
+    ]
+   ],
+   "items": [
+    "gaiyou"
+   ]
+  },
+  {
+   "id": "place",
+   "all": [
+    [
+     "自宅"
+    ]
+   ],
+   "items": [
+    "gaiyou"
+   ]
+  },
+  {
+   "id": "father",
+   "all": [
+    [
+     "父"
+    ],
+    [
+     "同席"
+    ]
+   ],
+   "items": [
+    "gaiyou",
+    "kazoku"
+   ]
+  },
+  {
+   "id": "anxiety",
+   "all": [
+    [
+     "不安"
+    ]
+   ],
+   "items": [
+    "kenko",
+    "honnin"
+   ]
+  },
+  {
+   "id": "nomiwasure",
+   "all": [
+    [
+     "飲み忘れ"
+    ]
+   ],
+   "items": [
+    "kenko"
+   ]
+  },
+  {
+   "id": "oversleep",
+   "all": [
+    [
+     "昼"
+    ],
+    [
+     "寝"
+    ]
+   ],
+   "items": [
+    "seikatsu",
+    "honnin",
+    "kenko"
+   ]
+  },
+  {
+   "id": "shopping",
+   "all": [
+    [
+     "買い物"
+    ]
+   ],
+   "items": [
+    "seikatsu",
+    "honnin",
+    "kazoku"
+   ]
+  },
+  {
+   "id": "visit",
+   "all": [
+    [
+     "見学"
+    ],
+    [
+     "希望"
+    ]
+   ],
+   "items": [
+    "honnin",
+    "seikatsu"
+   ]
+  },
+  {
+   "id": "fathermoney",
+   "all": [
+    [
+     "父"
+    ],
+    [
+     "管理"
+    ]
+   ],
+   "items": [
+    "kinsen"
+   ]
+  },
+  {
+   "id": "jushin",
+   "all": [
+    [
+     "受診"
+    ]
+   ],
+   "items": [
+    "moushiokuri",
+    "kenko"
+   ]
+  },
+  {
+   "id": "monitor",
+   "all": [
+    [
+     "12月"
+    ]
+   ],
+   "items": [
+    "moushiokuri"
+   ]
+  }
+ ],
+ "marks": [
+  {
+   "id": "頓服",
+   "answer": [
+    "頓服",
+    "頓用",
+    "とんぷく",
+    "屯服"
+   ],
+   "context": [
+    "不安"
+   ]
+  },
+  {
+   "id": "2錠",
+   "answer": [
+    "2錠",
+    "２錠",
+    "2T",
+    "2粒"
+   ],
+   "context": [
+    "眠前",
+    "寝る前",
+    "就寝前",
+    "眠る前"
+   ]
+  },
+  {
+   "id": "GH",
+   "answer": [
+    "GH",
+    "ＧＨ",
+    "グループホーム"
+   ],
+   "context": [
+    "見学"
+   ]
+  },
+  {
+   "id": "15,000円",
+   "answer": [
+    "15,000",
+    "15000",
+    "1万5千",
+    "1万5000"
+   ],
+   "context": [
+    "小遣い",
+    "こづかい"
+   ]
+  },
+  {
+   "id": "11/12",
+   "answer": [
+    "11/12",
+    "11月12日"
+   ],
+   "context": [
+    "受診"
+   ]
+  }
+ ],
+ "legible": [
+  {
+   "id": "8:00",
+   "answer": [
+    "8:00",
+    "8時",
+    "午前8時"
+   ],
+   "context": [
+    "起床"
+   ]
+  },
+  {
+   "id": "週1",
+   "answer": [
+    "週1",
+    "週に1",
+    "週一"
+   ],
+   "context": [
+    "買い物"
+   ]
+  }
+ ],
+ "masks": [],
+ "maskedNames": [],
+ "forbidden": []
+}

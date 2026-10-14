@@ -6,7 +6,7 @@ from PIL import Image
 
 MAX_SIDE = 2200      # lib/pages.ts の MAX_SIDE
 QUALITY = 92         # lib/pages.ts の JPEG_QUALITY（0.92）
-for path in sorted(glob.glob("eval/cases/*.json")):
+for path in sorted(glob.glob("eval/cases/*.json") + glob.glob("eval/cases/v2/*.json")):  # v1 と v2（P26）
     case = json.load(open(path, encoding="utf-8"))
     im = Image.open(case["source"]).convert("RGB")
     s = min(1.0, MAX_SIDE / max(im.size))

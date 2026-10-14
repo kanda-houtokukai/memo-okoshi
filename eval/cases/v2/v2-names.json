@@ -1,0 +1,257 @@
+{
+ "id": "v2-names",
+ "title": "面談。架空の名前3か所を黒く塗ってある。本当に読めない4か所・読みにくいが読める2か所（P26）",
+ "source": "docs/samples/dummy-memo-11-v2-names.png",
+ "image": "eval/cases/v2/v2-names.jpg",
+ "record_type": "interview",
+ "items": [
+  "gaiyou",
+  "honnin",
+  "kazoku",
+  "kadai",
+  "kenko",
+  "seikatsu",
+  "nicchu",
+  "moushiokuri"
+ ],
+ "text": "面談 10/22(水) 10:00〜 事業所 相談室\n本人 ＋ 母（〇〇さん）同席\n【健康】\n・インスリン は 朝夕 自己注射\n・HbA1c 7.8、先月 より 上がった\n・体重 3kg 増（2か月で）\n【日中】\n・B型 週5、ヘルパー 〇〇さん と 通う\n・作業中 に 低血糖 1回 あり\n【次回】\n・サ担会 を 来月 開く\n・担当：〇〇W と 共有",
+ "facts": [
+  {
+   "id": "date",
+   "all": [
+    [
+     "10/22",
+     "10月22日"
+    ],
+    [
+     "10:00",
+     "10時"
+    ]
+   ],
+   "items": [
+    "gaiyou"
+   ]
+  },
+  {
+   "id": "room",
+   "all": [
+    [
+     "相談室"
+    ]
+   ],
+   "items": [
+    "gaiyou"
+   ]
+  },
+  {
+   "id": "mother",
+   "all": [
+    [
+     "母"
+    ],
+    [
+     "同席"
+    ]
+   ],
+   "items": [
+    "gaiyou",
+    "kazoku"
+   ]
+  },
+  {
+   "id": "asayu",
+   "all": [
+    [
+     "朝"
+    ],
+    [
+     "夕"
+    ]
+   ],
+   "items": [
+    "kenko"
+   ]
+  },
+  {
+   "id": "inject",
+   "all": [
+    [
+     "自己注射",
+     "自分で注射"
+    ]
+   ],
+   "items": [
+    "kenko"
+   ]
+  },
+  {
+   "id": "lastmonth",
+   "all": [
+    [
+     "先月"
+    ]
+   ],
+   "items": [
+    "kenko"
+   ]
+  },
+  {
+   "id": "months",
+   "all": [
+    [
+     "2か月",
+     "2ヶ月",
+     "2カ月",
+     "二か月"
+    ]
+   ],
+   "items": [
+    "kenko"
+   ]
+  },
+  {
+   "id": "helper",
+   "all": [
+    [
+     "ヘルパー"
+    ]
+   ],
+   "items": [
+    "nicchu",
+    "honnin"
+   ]
+  },
+  {
+   "id": "atwork",
+   "all": [
+    [
+     "作業中"
+    ]
+   ],
+   "items": [
+    "kenko",
+    "nicchu"
+   ]
+  },
+  {
+   "id": "nextmonth",
+   "all": [
+    [
+     "来月"
+    ]
+   ],
+   "items": [
+    "moushiokuri"
+   ]
+  },
+  {
+   "id": "share",
+   "all": [
+    [
+     "共有"
+    ]
+   ],
+   "items": [
+    "moushiokuri"
+   ]
+  }
+ ],
+ "marks": [
+  {
+   "id": "インスリン",
+   "answer": [
+    "インスリン"
+   ],
+   "context": [
+    "朝夕",
+    "自己注射",
+    "注射"
+   ]
+  },
+  {
+   "id": "7.8",
+   "answer": [
+    "7.8"
+   ],
+   "context": [
+    "HbA1c",
+    "A1c",
+    "ヘモグロビン"
+   ]
+  },
+  {
+   "id": "低血糖",
+   "answer": [
+    "低血糖"
+   ],
+   "context": [
+    "作業中"
+   ]
+  },
+  {
+   "id": "サ担会",
+   "answer": [
+    "サ担会",
+    "サービス担当者会議",
+    "担当者会議",
+    "サ担"
+   ],
+   "context": [
+    "来月"
+   ]
+  }
+ ],
+ "legible": [
+  {
+   "id": "3kg",
+   "answer": [
+    "3kg",
+    "3キロ",
+    "3 kg"
+   ],
+   "context": [
+    "体重"
+   ]
+  },
+  {
+   "id": "週5",
+   "answer": [
+    "週5",
+    "週に5"
+   ],
+   "context": [
+    "B型",
+    "Ｂ型"
+   ]
+  }
+ ],
+ "masks": [
+  {
+   "id": "母の名前",
+   "context": [
+    "母"
+   ]
+  },
+  {
+   "id": "ヘルパーの名前",
+   "context": [
+    "ヘルパー"
+   ]
+  },
+  {
+   "id": "担当",
+   "context": [
+    "担当",
+    "W",
+    "ワーカー"
+   ]
+  }
+ ],
+ "maskedNames": [
+  "山田",
+  "花子",
+  "佐藤",
+  "井上"
+ ],
+ "forbidden": []
+}

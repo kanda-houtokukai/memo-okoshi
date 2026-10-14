@@ -27,6 +27,36 @@ function idealOutput(c: EvalCase): Converted {
   return { record_type: c.record_type, sections: [...sec.values()], spill: [], insights: [] };
 }
 
+test("v2 のメモ（P26）は3件: 本当に読めない箇所を各4か所以上・読みにくいが読める箇所を分けて持ち・塗った四角の無いメモを含む", async () => {
+  const { loadCases } = await import("../eval/cases.ts");
+  const v2 = loadCases([], "v2");
+  assert.equal(v2.length, 3);
+  assert.ok(v2.some((c) => c.masks.length === 0), "塗った四角の無いメモ（〇〇の保険を測る）");
+  assert.ok(v2.some((c) => c.masks.length > 0 && c.maskedNames.length > 0), "名前を塗ったメモ");
+  for (const c of v2) {
+    assert.ok(c.marks.length >= 4, `${c.id}: 本当に読めない箇所が4か所未満`);
+    assert.ok((c.legible ?? []).length >= 1, `${c.id}: 読みにくいが読める箇所を分けて持つ`);
+    assert.ok(existsSync(c.source) && existsSync(c.image) && c.image.startsWith("eval/cases/v2/"), `${c.id}: 画像`);
+    assert.ok(c.source.startsWith("docs/samples/dummy-memo-"), "架空のダミーだけ");
+    for (const m of [...c.marks, ...(c.legible ?? [])]) assert.ok(norm(c.text).includes(norm(m.answer[0])) && m.context.some((x) => norm(c.text).includes(norm(x))), `${c.id}.${m.id}: 答えと前後の語が正解の文にある`);
+    for (const nm of c.maskedNames) assert.ok(!c.text.includes(nm));
+    // 正解どおり（読めない箇所は黄・読める箇所は正しく読む）なら満点で合格
+    const sec = new Map<string, Converted["sections"][number]>();
+    for (const id of c.items) sec.set(id, { id, tokens: [] });
+    for (const f of c.facts) sec.get(f.items[0])!.tokens.push({ t: "p", s: f.all.map((g) => g[0]).join(" ") + "。" });
+    for (const m of c.marks) sec.get(c.items[0])!.tokens.push({ t: "p", s: m.context[0] }, { t: "y", s: m.answer[0] }, { t: "p", s: "。" });
+    for (const m of c.legible ?? []) sec.get(c.items[0])!.tokens.push({ t: "p", s: `${m.context[0]}${m.answer[0]}。` });
+    for (const mk of c.masks) sec.get(c.items[0])!.tokens.push({ t: "p", s: `${mk.context[0]}〇〇。` });
+    const s = scoreRun(c, { record_type: c.record_type, sections: [...sec.values()], spill: [], insights: [] });
+    assert.equal(s.recall, 1, `${c.id}: 要点 ${s.facts.missing.join(",")}`);
+    assert.deepEqual(s.unreadable, { total: c.marks.length, yellow: c.marks.length });
+    assert.ok(s.marks.filter((m) => m.legible).every((m) => m.outcome === "正読"), `${c.id}: 読める箇所は正読`);
+    assert.ok(judgeRun(c, s).pass, `${c.id}: ${judgeRun(c, s).reasons.join("・")}`);
+  }
+  // v1 は今日までの結果と比べるために残す（既定の組は v1）
+  assert.deepEqual(loadCases().map((c) => c.id), ["hard", "names", "symbols"]);
+});
+
 test("評価のメモは3件: 名前を塗った1件・記号（→↑↓？！）の1件を含み、どれにも読みにくくした箇所（印）がある", () => {
   assert.equal(cases.length, 3);
   assert.ok(cases.some((c) => c.masks.length > 0 && c.maskedNames.length > 0), "名前を塗ったメモがない");
@@ -159,7 +189,7 @@ test("本番と同じプロンプトと読み取りの経路を使う（評価�
   // メモの組み立ては評価キットと見張りで共通（eval/cases.ts・P23）
   const cases = readFileSync("eval/cases.ts", "utf8");
   assert.ok(cases.includes('import { buildPrompt } from "../lib/prompt.ts"') && cases.includes("buildPrompt(items, [], c.record_type)"));
-  assert.ok(run.includes('import { inputs as baseInputs, loadCases } from "./cases.ts"'));
+  assert.ok(run.includes('import { inputs as baseInputs, loadCases, type CaseSet } from "./cases.ts"'));
   // プロンプトの案（P25）は、本番の buildPrompt の出力に足すだけ（--variant を付けたときだけ。本番の lib/prompt.ts は変えない）
   assert.ok(run.includes("VARIANT ? { ...x, prompt: applyVariant(x.prompt, VARIANT) } : x"));
   assert.ok(run.includes('import { finishConversion } from "../lib/convert-core.ts"') && run.includes("finishConversion(r.text, c.record_type)"));

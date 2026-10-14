@@ -22,8 +22,9 @@ import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
 import { ALL_TIER_MODELS } from "../lib/gemini.ts";
 import { finishConversion } from "../lib/convert-core.ts";
+import { guardOO } from "../lib/oo-guard.ts";
 import { keyFor, loadEnvLocal, parseModelSpec } from "./providers.ts";
-import { inputs as baseInputs, loadCases } from "./cases.ts";
+import { inputs as baseInputs, loadCases, type CaseSet } from "./cases.ts";
 import { applyVariant, VARIANTS } from "./prompt-variants.ts";
 import { scoreRun, type RunScore } from "./score.ts";
 import { CRITERIA, judgeRun } from "./criteria.ts";
@@ -40,6 +41,8 @@ const CASES = opt("--cases", "").split(",").filter(Boolean);
 const OUT = opt("--out", "docs/eval");
 const GAP_MS = Number(opt("--gap", "4000"));
 const DRY = args.includes("--dry");
+/** メモの組（eval/cases.ts の CASE_DIRS・P26）。既定は v1 */
+const SET = opt("--set", "v1") as CaseSet;
 /** プロンプトの案（eval/prompt-variants.ts・P25）。付けなければ本番のプロンプトのまま */
 const VARIANT = opt("--variant", "");
 
@@ -47,7 +50,7 @@ const VARIANT = opt("--variant", "");
 loadEnvLocal();
 
 /* ---------- 正解 ---------- */
-const cases = loadCases(CASES);
+const cases = loadCases(CASES, SET);
 /** 送る中身（案があれば本番のプロンプトに足す。本番の lib/prompt.ts は変えない） */
 const inputs = (c: Parameters<typeof baseInputs>[0]) => {
   const x = baseInputs(c);
@@ -73,12 +76,14 @@ type RunRecord = {
   pass?: boolean;
   reasons?: string[];
   output?: unknown;
+  /** 〇〇の保険（lib/oo-guard.ts・P26）をかけたときの採点。塗りのまとまりの数はメモの塗った四角の数。保険で変わらなければ付けない */
+  guard?: { score: RunScore; pass: boolean; reasons: string[] };
 };
 
 if (DRY) {
   for (const c of cases) {
     const { prompt, image } = inputs(c);
-    console.log(`${c.id}: 項目 ${c.items.length}・要点 ${c.facts.length}・印 ${c.marks.length}・塗り ${c.masks.length}・プロンプト ${prompt.length}字（${sha(prompt)}）・画像 ${image.base64.length}字`);
+    console.log(`${c.id}: 項目 ${c.items.length}・要点 ${c.facts.length}・印 ${c.marks.length}${c.legible ? `（ほかに読める印 ${c.legible.length}）` : ""}・塗り ${c.masks.length}・プロンプト ${prompt.length}字（${sha(prompt)}）・画像 ${image.base64.length}字`);
   }
   for (const m of MODELS) {
     const { provider, model } = parseModelSpec(m);
@@ -136,10 +141,19 @@ for (let run = 1; run <= RUNS; run++) {
           rec.pass = j.pass;
           rec.reasons = j.reasons;
           rec.output = data;
+          // 本番の画面は、返答の〇〇が塗りのまとまりより多ければ〇〇を黄にする（P26）。評価では塗った四角1つを1まとまりと数える
+          const guarded = guardOO(data, c.masks.length);
+          if (guarded !== data) {
+            const gs = scoreRun(c, guarded);
+            const gj = judgeRun(c, gs);
+            rec.guard = { score: gs, pass: gj.pass, reasons: gj.reasons };
+          }
         }
       }
       records.push(rec);
-      const tag = rec.ok ? (rec.pass ? "合" : `否（${rec.reasons!.join("・")}）`) : `失敗 ${rec.status}`;
+      const tag = rec.ok
+        ? (rec.pass ? "合" : `否（${rec.reasons!.join("・")}）`) + (rec.guard ? `／保険あり ${rec.guard.pass ? "合" : `否（${rec.guard.reasons.join("・")}）`}` : "")
+        : `失敗 ${rec.status}`;
       console.log(`${jst(at)} ${spec} ${c.id} #${run}  ${(ms / 1000).toFixed(1)}秒  ${tag}`);
       await sleep(GAP_MS);
     }
@@ -156,11 +170,11 @@ try {
   commit = execSync("git rev-parse --short HEAD").toString().trim();
 } catch {}
 lines.push(`# 評価キットの結果 ${stamp.slice(0, 10)}`, "");
-lines.push(`- 実行: ${stamp}（commit ${commit}）・各メモ ${RUNS}回・モデル: ${MODELS.join("、")}${VARIANT ? `・**プロンプトの案 ${VARIANT}（${VARIANTS[VARIANT].label}）**` : ""}`);
+lines.push(`- 実行: ${stamp}（commit ${commit}）・メモ ${SET}・各メモ ${RUNS}回・モデル: ${MODELS.join("、")}${VARIANT ? `・**プロンプトの案 ${VARIANT}（${VARIANTS[VARIANT].label}）**` : ""}`);
 lines.push(`- 合否の目安（eval/criteria.ts）: 作り話 ${CRITERIA.maxFabrications}・印の箇所を申告なし ${CRITERIA.maxUndeclared}・黄が印の ${CRITERIA.minYellowOnMarksRatio * 100}%以上と重なる・要点の一致率 ${CRITERIA.minRecall * 100}%以上・塗った箇所はすべて「〇〇」`);
 lines.push(`- プロンプト: ${cases.map((c) => `${c.id}=${sha(inputs(c).prompt)}`).join("・")}（lib/prompt.ts の buildPrompt・辞書なし${VARIANT ? `＋案 ${VARIANT}（eval/prompt-variants.ts）` : ""}）`, "");
-lines.push("| モデル | メモ | 成功/試行 | 要点の一致率 | 振り分け | 黄（件） | 黄∩印 | 申告なし | 作り話 | 〇〇 | 時間（秒） | 失敗 | 合否 |");
-lines.push("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
+lines.push("| モデル | メモ | 成功/試行 | 要点の一致率 | 振り分け | 黄（件） | 黄∩読めない印 | 申告なし（〇〇） | 作り話 | 塗った箇所の〇〇 | 時間（秒） | 失敗 | 合否 | 〇〇の保険ありの合否 |");
+lines.push("|---|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 /** 合格／不合格／判定できない（成功していないメモがある＝混雑・枠切れで測れなかった） */
 const verdict = new Map<string, "合格" | "不合格" | "判定できない">();
 for (const spec of MODELS) {
@@ -174,7 +188,7 @@ for (const spec of MODELS) {
     if (ok.length === 0) anyUntested = true;
     const s = ok.map((r) => r.score!);
     lines.push(
-      `| ${spec} | ${c.id} | ${ok.length}/${rs.length} | ${s.length ? s.map((x) => pct(x.recall)).join("・") : "—"} | ${s.length ? s.map((x) => pct(x.placement)).join("・") : "—"} | ${range(s.map((x) => x.yellow))} | ${s.length ? s.map((x) => `${x.yellowOnMarks}/${c.marks.length}`).join("・") : "—"} | ${s.length ? s.map((x) => x.undeclared).join("・") : "—"} | ${s.length ? s.map((x) => x.fabrications.length).join("・") : "—"} | ${c.masks.length ? (s.length ? s.map((x) => `${x.masks.ok}/${x.masks.total}`).join("・") : "—") : "—"} | ${ok.length ? (ok.reduce((a, r) => a + r.ms, 0) / ok.length / 1000).toFixed(1) : "—"} | ${fails.length ? fails.join("・") : "0"} | ${ok.length === 0 ? "—" : ok.every((r) => r.pass) ? "合" : "否"} |`
+      `| ${spec} | ${c.id} | ${ok.length}/${rs.length} | ${s.length ? s.map((x) => pct(x.recall)).join("・") : "—"} | ${s.length ? s.map((x) => pct(x.placement)).join("・") : "—"} | ${range(s.map((x) => x.yellow))} | ${s.length ? s.map((x) => `${x.unreadable.yellow}/${x.unreadable.total}`).join("・") : "—"} | ${s.length ? s.map((x) => `${x.undeclared}${x.marks.some((m) => m.outcome === "〇〇") ? `（〇〇 ${x.marks.filter((m) => m.outcome === "〇〇").length}）` : ""}`).join("・") : "—"} | ${s.length ? s.map((x) => x.fabrications.length).join("・") : "—"} | ${c.masks.length ? (s.length ? s.map((x) => `${x.masks.ok}/${x.masks.total}`).join("・") : "—") : "—"} | ${ok.length ? (ok.reduce((a, r) => a + r.ms, 0) / ok.length / 1000).toFixed(1) : "—"} | ${fails.length ? fails.join("・") : "0"} | ${ok.length === 0 ? "—" : ok.every((r) => r.pass) ? "合" : "否"} | ${ok.length === 0 ? "—" : ok.map((r) => (r.guard ? (r.guard.pass ? "合" : "否") : "同じ")).join("・")} |`
     );
   }
   // 1回でも否があれば不合格（測れなかったメモがあっても）。否が無く、測れなかったメモがあれば判定できない
@@ -204,7 +218,7 @@ const name = `${stamp.slice(0, 10)}-${stamp.slice(11, 19).replace(/:/g, "")}`;
 writeFileSync(join(OUT, `${name}.md`), lines.join("\n") + "\n");
 writeFileSync(
   join(OUT, `${name}.json`),
-  JSON.stringify({ started: stamp, commit, models: MODELS, runs: RUNS, variant: VARIANT || null, criteria: CRITERIA, prompts: Object.fromEntries(cases.map((c) => [c.id, sha(inputs(c).prompt)])), records }, null, 1) + "\n"
+  JSON.stringify({ started: stamp, commit, models: MODELS, runs: RUNS, set: SET, variant: VARIANT || null, criteria: CRITERIA, prompts: Object.fromEntries(cases.map((c) => [c.id, sha(inputs(c).prompt)])), records }, null, 1) + "\n"
 );
 console.log(`\n${join(OUT, name)}.md / .json に残した（API ${calls}回）`);
 for (const spec of MODELS) console.log(`${spec}: ${verdict.get(spec)}`);

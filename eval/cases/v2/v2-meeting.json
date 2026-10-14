@@ -1,0 +1,208 @@
+{
+ "id": "v2-meeting",
+ "title": "会議（塗った四角なし）。本当に読めない5か所・読みにくいが読める2か所（P26）",
+ "source": "docs/samples/dummy-memo-12-v2-meeting.png",
+ "image": "eval/cases/v2/v2-meeting.jpg",
+ "record_type": "meeting",
+ "items": [
+  "kaigi",
+  "naiyou",
+  "kettei",
+  "shukudai"
+ ],
+ "text": "ケース会議 10/24(金) 14:00〜15:00 会議室\n出席：管理者・サビ管・看護師 3名\n【様子】\n・通所 週3 に 減った\n・服薬 拒否 が 続く？\n【決定】\n・送迎 を 20分 早める\n・家族面談 を 10/31 に 設定\n【今後】\n・主治医 へ 連絡：看護師 11/7 まで\n・計画相談 と 調整：担当 未定！\n・次回 11/21",
+ "facts": [
+  {
+   "id": "date",
+   "all": [
+    [
+     "10/24",
+     "10月24日"
+    ],
+    [
+     "14:00",
+     "14時"
+    ]
+   ],
+   "items": [
+    "kaigi"
+   ]
+  },
+  {
+   "id": "room",
+   "all": [
+    [
+     "会議室"
+    ]
+   ],
+   "items": [
+    "kaigi"
+   ]
+  },
+  {
+   "id": "members",
+   "all": [
+    [
+     "管理者"
+    ],
+    [
+     "看護師"
+    ]
+   ],
+   "items": [
+    "kaigi"
+   ]
+  },
+  {
+   "id": "decrease",
+   "all": [
+    [
+     "通所"
+    ],
+    [
+     "減"
+    ]
+   ],
+   "items": [
+    "naiyou"
+   ]
+  },
+  {
+   "id": "medicine",
+   "all": [
+    [
+     "服薬"
+    ]
+   ],
+   "items": [
+    "naiyou"
+   ]
+  },
+  {
+   "id": "pickup",
+   "all": [
+    [
+     "送迎"
+    ],
+    [
+     "早め"
+    ]
+   ],
+   "items": [
+    "kettei"
+   ]
+  },
+  {
+   "id": "familymeeting",
+   "all": [
+    [
+     "家族面談",
+     "家族との面談"
+    ]
+   ],
+   "items": [
+    "kettei"
+   ]
+  },
+  {
+   "id": "doctor",
+   "all": [
+    [
+     "主治医"
+    ]
+   ],
+   "items": [
+    "shukudai"
+   ]
+  },
+  {
+   "id": "undecided",
+   "all": [
+    [
+     "未定"
+    ]
+   ],
+   "items": [
+    "shukudai"
+   ]
+  }
+ ],
+ "marks": [
+  {
+   "id": "拒否",
+   "answer": [
+    "拒否",
+    "拒薬"
+   ],
+   "context": [
+    "服薬"
+   ]
+  },
+  {
+   "id": "20分",
+   "answer": [
+    "20分"
+   ],
+   "context": [
+    "送迎",
+    "早め"
+   ]
+  },
+  {
+   "id": "10/31",
+   "answer": [
+    "10/31",
+    "10月31日"
+   ],
+   "context": [
+    "家族面談",
+    "家族との面談"
+   ]
+  },
+  {
+   "id": "11/7",
+   "answer": [
+    "11/7",
+    "11月7日"
+   ],
+   "context": [
+    "主治医"
+   ]
+  },
+  {
+   "id": "計画相談",
+   "answer": [
+    "計画相談",
+    "相談支援"
+   ],
+   "context": [
+    "調整"
+   ]
+  }
+ ],
+ "legible": [
+  {
+   "id": "週3",
+   "answer": [
+    "週3",
+    "週に3"
+   ],
+   "context": [
+    "通所"
+   ]
+  },
+  {
+   "id": "11/21",
+   "answer": [
+    "11/21",
+    "11月21日"
+   ],
+   "context": [
+    "次回"
+   ]
+  }
+ ],
+ "masks": [],
+ "maskedNames": [],
+ "forbidden": []
+}

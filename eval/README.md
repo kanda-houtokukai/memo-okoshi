@@ -11,6 +11,7 @@ node eval/run.mts --models gemini:gemini-3.7-flash --runs 2
 node eval/run.mts --cases hard --runs 1            # 1件だけ
 node eval/run.mts --dry                            # API を呼ばずに組み立てだけ確かめる
 node eval/run.mts --models gemini:gemini-3.5-flash-lite --variant B   # プロンプトの案を試す（評価の中だけ・P25）
+node eval/run.mts --set v2 --runs 1               # v2 のメモで（P26。既定は v1）
 ```
 
 - 鍵は `.env.local` の **`GEMINI_EVAL_API_KEY`（評価用・本番と別のプロジェクトで作った鍵）だけ**（P23）。値は表示も保存もしない。
@@ -62,7 +63,23 @@ GitHub Actions（`.github/workflows/watch.yml`）が**毎日 22:00（日本時�
 プロンプト＝`lib/prompt.ts` の `buildPrompt`（辞書は空）／呼び出し＝`lib/gemini.ts` の `callModel`（本番の `generateWithFallback` が使う1回の呼び出し・temperature 0）／
 返答の読み取りと人名の機械検出＝`lib/convert-core.ts` の `finishConversion`（変換API と同じ）。画像はアプリが送る形（JPEG 0.92・`eval/make-inputs.py`）。
 
-## メモ（正解は `eval/cases/*.json`・すべて架空のダミー）
+## 〇〇の保険をかけた採点（P26）
+
+本番の画面は、返答の〇〇が塗りのまとまりの数より多ければ〇〇をすべて黄にする（`lib/oo-guard.ts`）。評価では各回に、メモの塗った四角の数を
+まとまりの数として同じ関数をかけた採点も付ける（json の `guard`・表の「〇〇の保険ありの合否」。保険で変わらなければ「同じ」）。
+
+## メモ v2（P26・`eval/cases/v2/*.json`・`--set v2`）
+
+`marks`＝**本当に読めない箇所**（半径 10 でにじませ、拡大しても形がたどれないことを確かめた）・`legible`＝**読みにくいが読める箇所**（半径 2.4）。
+印の前後の語はにじませていない。画像は `python3 docs/samples/make-dummy-eval-v2.py` → `python3 eval/make-inputs.py`。
+
+| id | 元の画像 | 中身 | 本当に読めない | 読みにくいが読める |
+|---|---|---|---|---|
+| v2-nomask | docs/samples/dummy-memo-10-v2-nomask.png | 面談・**塗った四角なし** | 頓服・2錠・GH・15,000円・11/12 | 8:00・週1 |
+| v2-names | docs/samples/dummy-memo-11-v2-names.png | 面談・架空の名前3か所を塗った | インスリン・7.8・低血糖・サ担会 | 3kg・週5 |
+| v2-meeting | docs/samples/dummy-memo-12-v2-meeting.png | 会議・**塗った四角なし** | 拒否・20分・10/31・11/7・計画相談 | 週3・11/21 |
+
+## メモ v1（正解は `eval/cases/*.json`・すべて架空のダミー。P25 までの結果と比べるために残す）
 
 | id | 元の画像 | 中身 | 印（読みにくくした箇所） |
 |---|---|---|---|

@@ -12,7 +12,8 @@
 import type { Converted, Token } from "../lib/convert-core.ts";
 
 export type Fact = { id: string; all: string[][]; items: string[] };
-export type Mark = { id: string; answer: string[]; context: string[] };
+/** 印。legible＝読みにくいが読める箇所（v2・P26）。付いていなければ本当に読めない箇所（v1 は区別していない） */
+export type Mark = { id: string; answer: string[]; context: string[]; legible?: boolean };
 export type Mask = { id: string; context: string[] };
 export type EvalCase = {
   id: string;
@@ -27,7 +28,12 @@ export type EvalCase = {
   masks: Mask[];
   maskedNames: string[];
   forbidden: string[];
+  /** 読みにくいが読める箇所（v2・P26）。採点は印と同じに扱い、表では分けて出す */
+  legible?: Mark[];
 };
+
+/** 採点に使う印のすべて（本当に読めない印 ＋ 読みにくいが読める印） */
+export const allMarks = (c: EvalCase): Mark[] => [...c.marks, ...(c.legible ?? []).map((m) => ({ ...m, legible: true }))];
 
 /** 比べる前にそろえる: 全角・半角（NFKC）・空白を消す・波ダッシュをそろえる */
 export function norm(s: string): string {
@@ -94,7 +100,7 @@ export const NEAR = 30;
  * [DECISION 2026-10-14 P25] 〇〇 は「申告なし」に数えたまま、内訳として分ける（誤読・欠落とは別のふるまいなので、表で見分けられるように）。
  */
 export type MarkOutcome = "黄" | "青" | "正読" | "申告なし" | "〇〇" | "抜け";
-export type MarkResult = { id: string; outcome: MarkOutcome; token?: string; excerpt?: string };
+export type MarkResult = { id: string; outcome: MarkOutcome; token?: string; excerpt?: string; legible?: boolean };
 
 /** 語の大きさの青とみなす長さの上限（字）。これより長い青は「誰の話か」などの文ごとの推定で、印の語の申告ではない */
 export const WORD_BLUE_MAX = 15;
@@ -162,6 +168,8 @@ export type RunScore = {
   red: number;
   marks: MarkResult[];
   yellowOnMarks: number;
+  /** 本当に読めない印（legible でない印）のうち黄の数と、その数（v2 の表に出す） */
+  unreadable: { total: number; yellow: number };
   undeclared: number;
   fabrications: Fabrication[];
   masks: { total: number; ok: number; oo: number };
@@ -178,6 +186,7 @@ function ooNearContext(out: Converted, m: Mark): boolean {
 
 export function scoreRun(c: EvalCase, out: Converted): RunScore {
   const segs = segments(out);
+  const marksAll = allMarks(c);
   // 要点と振り分け
   const missing: string[] = [];
   const misplaced: string[] = [];
@@ -196,7 +205,7 @@ export function scoreRun(c: EvalCase, out: Converted): RunScore {
   const all = segs.flatMap((s) => s.toks);
   // 印（読みにくくした箇所）。判定の順は 黄 → 正読 → 青 → 〇〇 → 申告なし → 抜け（P25 で 正読 を 青 の前にした）
   const yTaken = new Map<string, string>();
-  assign(segs, c.marks, "y", yTaken);
+  assign(segs, marksAll, "y", yTaken);
   /** 正読を見る文: 黄と語の大きさの青は伏せる（それは申告であって、読んで確定した字ではない）。文まるごとの青は残す */
   const plain = segs.map((seg) => ({
     ...seg,
@@ -211,23 +220,24 @@ export function scoreRun(c: EvalCase, out: Converted): RunScore {
         positions(seg.text, cx).some((p) => hasAny(seg.text.slice(Math.max(0, p - NEAR), p + norm(cx).length + NEAR), m.answer))
       )
     );
-  const correct = new Set(c.marks.filter((m) => !yTaken.has(m.id) && readOk(m)).map((m) => m.id));
+  const correct = new Set(marksAll.filter((m) => !yTaken.has(m.id) && readOk(m)).map((m) => m.id));
   const bTaken = new Map<string, string>();
   assign(
     segs,
-    c.marks.filter((m) => !yTaken.has(m.id) && !correct.has(m.id)),
+    marksAll.filter((m) => !yTaken.has(m.id) && !correct.has(m.id)),
     "b",
     bTaken,
     wordBlue
   );
-  const marks: MarkResult[] = c.marks.map((m) => {
-    if (yTaken.has(m.id)) return { id: m.id, outcome: "黄", token: yTaken.get(m.id) };
-    if (correct.has(m.id)) return { id: m.id, outcome: "正読" };
-    if (bTaken.has(m.id)) return { id: m.id, outcome: "青", token: bTaken.get(m.id) };
+  const marks: MarkResult[] = marksAll.map((m) => {
+    const lg = m.legible ? { legible: true } : {};
+    if (yTaken.has(m.id)) return { id: m.id, outcome: "黄", token: yTaken.get(m.id), ...lg };
+    if (correct.has(m.id)) return { id: m.id, outcome: "正読", ...lg };
+    if (bTaken.has(m.id)) return { id: m.id, outcome: "青", token: bTaken.get(m.id), ...lg };
     // 申告なし: 前後の語だけあれば誤読か欠落（〇〇と書いたものは分ける）、前後の語も無ければ抜け
     const ex = excerptAround(segs, m.context);
-    if (ex && ooNearContext(out, m)) return { id: m.id, outcome: "〇〇", excerpt: ex };
-    return ex ? { id: m.id, outcome: "申告なし", excerpt: ex } : { id: m.id, outcome: "抜け" };
+    if (ex && ooNearContext(out, m)) return { id: m.id, outcome: "〇〇", excerpt: ex, ...lg };
+    return ex ? { id: m.id, outcome: "申告なし", excerpt: ex, ...lg } : { id: m.id, outcome: "抜け", ...lg };
   });
   // 作り話: ①正解に無い数（申告なし） ②塗った名前 ③作り話の語
   const truthNums = new Set(numbers(c.text));
@@ -268,6 +278,7 @@ export function scoreRun(c: EvalCase, out: Converted): RunScore {
     red: all.filter((t) => t.t === "r").length,
     marks,
     yellowOnMarks,
+    unreadable: { total: marks.filter((m) => !m.legible).length, yellow: marks.filter((m) => !m.legible && m.outcome === "黄").length },
     undeclared: marks.filter((m) => m.outcome === "申告なし" || m.outcome === "〇〇" || m.outcome === "抜け").length,
     fabrications,
     masks: { total: c.masks.length, ok: maskOk, oo },
