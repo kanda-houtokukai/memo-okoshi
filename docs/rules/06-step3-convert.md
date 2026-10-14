@@ -22,6 +22,8 @@
   使い方「困ったとき」と対・`tests/p6.test.mts`）[DECISION 2026-10-14・設計側 P24]。
 - **プロンプトの案は評価キットの中だけで試す**（`eval/prompt-variants.ts`・`--variant`。本番の `lib/prompt.ts` は変えない・案は2つまで・
   `tests/eval.test.mts`）。本番に入れるのは設計側が決めてから [DECISION 2026-10-14・設計側 P25]。
+- **評価のメモは v1（P20 の3件・既定）と v2（P26。本当に読めない箇所 `marks` と読みにくいが読める箇所 `legible` を分けて持つ・塗りの無いメモを含む）**。
+  `--set` で選ぶ。各回に〇〇の保険をかけた採点も付ける（`tests/eval.test.mts`）[DECISION 2026-10-14・設計側 P26]。
 - **生成パラメータを明示する**: `temperature: 0`／`response_mime_type: "application/json"`／`maxOutputTokens: 16384`。
   既定値まかせにしない。
 - **どの項目に入れるかは「何について書かれているか」で決める。「誰が話したか」では決めない**（プロンプト規則9）。
