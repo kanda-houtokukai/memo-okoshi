@@ -56,6 +56,8 @@ const cases: EvalCase[] = readdirSync("eval/cases")
   .filter((c) => CASES.length === 0 || CASES.includes(c.id));
 if (cases.length === 0) throw new Error("評価するメモがありません");
 
+/** 日本時間の時:分:秒（記録と表示用） */
+const jst = (iso: string) => new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(11, 19);
 const sha = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 12);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
 
@@ -68,6 +70,8 @@ function inputs(c: EvalCase) {
 }
 
 type RunRecord = {
+  /** 呼んだ時刻（ISO・混雑の時間帯の目安にする） */
+  at: string;
   model: string;
   case: string;
   run: number;
@@ -107,9 +111,10 @@ for (let run = 1; run <= RUNS; run++) {
       if (stopped.has(spec)) break;
       const { prompt, image } = inputs(c);
       const t0 = Date.now();
+      const at = new Date(t0).toISOString();
       const r = await provider.call(model, prompt, [image], key);
       const ms = Date.now() - t0;
-      const rec: RunRecord = { model: spec, case: c.id, run, ok: false, ms };
+      const rec: RunRecord = { at, model: spec, case: c.id, run, ok: false, ms };
       if (!r.ok) {
         rec.status = r.status;
         rec.error = r.error.replace(/AIza[0-9A-Za-z_-]{20,}/g, "（鍵）").slice(0, 300);
@@ -133,7 +138,7 @@ for (let run = 1; run <= RUNS; run++) {
       }
       records.push(rec);
       const tag = rec.ok ? (rec.pass ? "合" : `否（${rec.reasons!.join("・")}）`) : `失敗 ${rec.status}`;
-      console.log(`${spec} ${c.id} #${run}  ${(ms / 1000).toFixed(1)}秒  ${tag}`);
+      console.log(`${jst(at)} ${spec} ${c.id} #${run}  ${(ms / 1000).toFixed(1)}秒  ${tag}`);
       await sleep(GAP_MS);
     }
   }
@@ -178,14 +183,14 @@ for (const spec of MODELS) lines.push(`- **${spec}: ${verdict.get(spec)}**${stop
 lines.push("", "## 回ごとの中身", "");
 for (const r of records) {
   if (!r.ok) {
-    lines.push(`- ${r.model} ${r.case} #${r.run}: 失敗（${r.status}）${(r.error ?? "").split("\n")[0].slice(0, 120)}`);
+    lines.push(`- ${jst(r.at)}（日本時間）${r.model} ${r.case} #${r.run}: 失敗（${r.status}）${(r.error ?? "").replace(/\s+/g, " ").slice(0, 160)}`);
     continue;
   }
   const s = r.score!;
   const marks = s.marks.map((m) => `${m.id}=${m.outcome}${m.token ? `「${m.token}」` : ""}${m.excerpt ? `（…${m.excerpt}…）` : ""}`).join("、");
   const fab = s.fabrications.map((f) => `${f.kind}「${f.text}」（…${f.excerpt}…）`).join("、");
   lines.push(
-    `- ${r.model} ${r.case} #${r.run}: 印 ${marks || "なし"}${fab ? `／作り話 ${fab}` : ""}${s.facts.missing.length ? `／読めなかった要点 ${s.facts.missing.join("・")}` : ""}${s.facts.misplaced.length ? `／別の項目 ${s.facts.misplaced.join("・")}` : ""}${r.reasons?.length ? `／否の理由 ${r.reasons.join("・")}` : ""}`
+    `- ${jst(r.at)}（日本時間）${r.model} ${r.case} #${r.run}（${(r.ms / 1000).toFixed(1)}秒）: 印 ${marks || "なし"}${fab ? `／作り話 ${fab}` : ""}${s.facts.missing.length ? `／読めなかった要点 ${s.facts.missing.join("・")}` : ""}${s.facts.misplaced.length ? `／別の項目 ${s.facts.misplaced.join("・")}` : ""}${r.reasons?.length ? `／否の理由 ${r.reasons.join("・")}` : ""}`
   );
 }
 const calls = records.length;
