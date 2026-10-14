@@ -1,0 +1,272 @@
+{
+  "id": "names",
+  "title": "面談。架空の名前4か所を黒く塗ってある（伏せたあと）。2か所をにじませた",
+  "source": "docs/samples/dummy-memo-07-names.png",
+  "image": "eval/cases/names.jpg",
+  "record_type": "interview",
+  "items": [
+    "gaiyou",
+    "honnin",
+    "kazoku",
+    "kadai",
+    "kenko",
+    "seikatsu",
+    "nicchu",
+    "moushiokuri"
+  ],
+  "text": "面談 10/8(水) 15:00〜 事業所 相談室\n本人 ＋ 母（〇〇さん）同席\n【家での様子】\n・夜 22時 には 寝ている\n・休日は 図書館へ 行く（週1）\n・弟と ケンカ 増えた と 母\n【日中】\n・B型 週4、作業は 袋詰め\n・職員 〇〇さん と 相性 良い\n・昼食 半分 残す 日 あり\n【健康】\n・体重 2kg 減（3か月で）\n・歯科 受診 を すすめた\n【次回】\n・担当：〇〇 ／ 〇〇W と 共有\n・次回 11月 中旬",
+  "facts": [
+    {
+      "id": "date",
+      "all": [
+        [
+          "10/8",
+          "10月8日"
+        ],
+        [
+          "15:00",
+          "15時"
+        ]
+      ],
+      "items": [
+        "gaiyou"
+      ]
+    },
+    {
+      "id": "room",
+      "all": [
+        [
+          "相談室"
+        ]
+      ],
+      "items": [
+        "gaiyou"
+      ]
+    },
+    {
+      "id": "mother",
+      "all": [
+        [
+          "母"
+        ],
+        [
+          "同席"
+        ]
+      ],
+      "items": [
+        "gaiyou",
+        "kazoku"
+      ]
+    },
+    {
+      "id": "sleep",
+      "all": [
+        [
+          "22時",
+          "22:00",
+          "午後10時"
+        ]
+      ],
+      "items": [
+        "seikatsu",
+        "honnin",
+        "kenko"
+      ]
+    },
+    {
+      "id": "library",
+      "all": [
+        [
+          "図書館"
+        ]
+      ],
+      "items": [
+        "seikatsu",
+        "honnin",
+        "nicchu"
+      ]
+    },
+    {
+      "id": "brother",
+      "all": [
+        [
+          "弟"
+        ],
+        [
+          "ケンカ",
+          "喧嘩",
+          "けんか"
+        ]
+      ],
+      "items": [
+        "kazoku"
+      ]
+    },
+    {
+      "id": "btype",
+      "all": [
+        [
+          "週4",
+          "週に4"
+        ]
+      ],
+      "items": [
+        "nicchu"
+      ]
+    },
+    {
+      "id": "work",
+      "all": [
+        [
+          "袋詰め"
+        ]
+      ],
+      "items": [
+        "nicchu"
+      ]
+    },
+    {
+      "id": "staff",
+      "all": [
+        [
+          "相性"
+        ]
+      ],
+      "items": [
+        "nicchu",
+        "honnin"
+      ]
+    },
+    {
+      "id": "lunch",
+      "all": [
+        [
+          "昼食"
+        ],
+        [
+          "残"
+        ]
+      ],
+      "items": [
+        "kenko",
+        "seikatsu",
+        "honnin",
+        "nicchu"
+      ]
+    },
+    {
+      "id": "weight",
+      "all": [
+        [
+          "体重"
+        ],
+        [
+          "3か月",
+          "3ヶ月",
+          "3カ月",
+          "三か月",
+          "３か月"
+        ]
+      ],
+      "items": [
+        "kenko"
+      ]
+    },
+    {
+      "id": "dentist",
+      "all": [
+        [
+          "歯科"
+        ]
+      ],
+      "items": [
+        "kenko"
+      ]
+    },
+    {
+      "id": "share",
+      "all": [
+        [
+          "共有"
+        ]
+      ],
+      "items": [
+        "moushiokuri"
+      ]
+    },
+    {
+      "id": "next",
+      "all": [
+        [
+          "11月"
+        ],
+        [
+          "中旬"
+        ]
+      ],
+      "items": [
+        "moushiokuri"
+      ]
+    }
+  ],
+  "marks": [
+    {
+      "id": "半分",
+      "answer": [
+        "半分"
+      ],
+      "context": [
+        "昼食",
+        "残す",
+        "残し"
+      ]
+    },
+    {
+      "id": "2kg",
+      "answer": [
+        "2kg",
+        "2キロ",
+        "２kg"
+      ],
+      "context": [
+        "体重"
+      ]
+    }
+  ],
+  "masks": [
+    {
+      "id": "母の名前",
+      "context": [
+        "母"
+      ]
+    },
+    {
+      "id": "職員の名前",
+      "context": [
+        "職員",
+        "相性"
+      ]
+    },
+    {
+      "id": "担当",
+      "context": [
+        "担当"
+      ]
+    },
+    {
+      "id": "W",
+      "context": [
+        "W",
+        "ワーカー"
+      ]
+    }
+  ],
+  "maskedNames": [
+    "鈴木",
+    "和子",
+    "高橋",
+    "中村",
+    "森"
+  ],
+  "forbidden": []
+}

@@ -1,0 +1,357 @@
+{
+  "id": "hard",
+  "title": "判読しにくい面談（成人・就労と金銭管理）。わざと5か所をにじませた",
+  "source": "docs/samples/dummy-memo-04-hard.png",
+  "image": "eval/cases/hard.jpg",
+  "record_type": "interview",
+  "items": [
+    "gaiyou",
+    "honnin",
+    "kazoku",
+    "kadai",
+    "kenko",
+    "seikatsu",
+    "nicchu",
+    "kinsen",
+    "moushiokuri"
+  ],
+  "text": "モニタリング 9/12(木) 14:00〜 自宅訪問\n本人 ＋ 姉 同席\n【生活】\n・起床 7:00 頃、朝食は 食べたり 食べなかったり\n・週3 で B型作業所（送迎あり）\n・部屋の 片づけが 苦手 → ヘルパーと 一緒に 月2回\n【服薬】\n・眠剤 は 自己管理、飲み忘れ 週1〜2\n・訪看 から 声かけ もらっている\n【就労】\n・工賃 は 月 12,000円 くらい\n・「もう少し 増やしたい」との 発言\n・サビ管 と 個支計 の 見直しを 10月に 予定\n【困りごと】\n・金銭管理、月末に 苦しくなる\n・姉「本人に 任せると 使いすぎる」\n【次回】\n・ケース会 10/3 、モニタ は 11月",
+  "facts": [
+    {
+      "id": "date",
+      "all": [
+        [
+          "9/12",
+          "9月12日"
+        ],
+        [
+          "14:00",
+          "14時"
+        ]
+      ],
+      "items": [
+        "gaiyou"
+      ]
+    },
+    {
+      "id": "place",
+      "all": [
+        [
+          "自宅"
+        ]
+      ],
+      "items": [
+        "gaiyou"
+      ]
+    },
+    {
+      "id": "sister",
+      "all": [
+        [
+          "姉"
+        ],
+        [
+          "同席"
+        ]
+      ],
+      "items": [
+        "gaiyou",
+        "kazoku"
+      ]
+    },
+    {
+      "id": "wake",
+      "all": [
+        [
+          "7:00",
+          "7時"
+        ],
+        [
+          "起床",
+          "起き"
+        ]
+      ],
+      "items": [
+        "seikatsu",
+        "honnin",
+        "kenko"
+      ]
+    },
+    {
+      "id": "breakfast",
+      "all": [
+        [
+          "朝食"
+        ],
+        [
+          "食べな",
+          "ムラ",
+          "日によ",
+          "不規則",
+          "とらない",
+          "取らない"
+        ]
+      ],
+      "items": [
+        "seikatsu",
+        "kenko",
+        "honnin"
+      ]
+    },
+    {
+      "id": "btype",
+      "all": [
+        [
+          "週3",
+          "週に3",
+          "週３"
+        ],
+        [
+          "B型",
+          "作業所"
+        ]
+      ],
+      "items": [
+        "nicchu",
+        "seikatsu"
+      ]
+    },
+    {
+      "id": "pickup",
+      "all": [
+        [
+          "送迎"
+        ]
+      ],
+      "items": [
+        "nicchu",
+        "seikatsu"
+      ]
+    },
+    {
+      "id": "tidy",
+      "all": [
+        [
+          "片づけ",
+          "片付け"
+        ],
+        [
+          "苦手"
+        ]
+      ],
+      "items": [
+        "seikatsu",
+        "kadai",
+        "honnin"
+      ]
+    },
+    {
+      "id": "helper",
+      "all": [
+        [
+          "ヘルパー"
+        ],
+        [
+          "月2",
+          "月に2"
+        ]
+      ],
+      "items": [
+        "seikatsu"
+      ]
+    },
+    {
+      "id": "selfmed",
+      "all": [
+        [
+          "自己管理"
+        ]
+      ],
+      "items": [
+        "kenko"
+      ]
+    },
+    {
+      "id": "forget",
+      "all": [
+        [
+          "飲み忘れ"
+        ]
+      ],
+      "items": [
+        "kenko"
+      ]
+    },
+    {
+      "id": "call",
+      "all": [
+        [
+          "声かけ",
+          "声掛け"
+        ]
+      ],
+      "items": [
+        "kenko"
+      ]
+    },
+    {
+      "id": "wage",
+      "all": [
+        [
+          "工賃"
+        ]
+      ],
+      "items": [
+        "nicchu",
+        "kinsen"
+      ]
+    },
+    {
+      "id": "more",
+      "all": [
+        [
+          "増やしたい"
+        ]
+      ],
+      "items": [
+        "honnin",
+        "nicchu"
+      ]
+    },
+    {
+      "id": "review",
+      "all": [
+        [
+          "見直し"
+        ],
+        [
+          "10月"
+        ]
+      ],
+      "items": [
+        "nicchu",
+        "moushiokuri",
+        "kadai"
+      ]
+    },
+    {
+      "id": "monthend",
+      "all": [
+        [
+          "月末"
+        ],
+        [
+          "苦し",
+          "足り",
+          "不足",
+          "困"
+        ]
+      ],
+      "items": [
+        "kinsen",
+        "kadai"
+      ]
+    },
+    {
+      "id": "spend",
+      "all": [
+        [
+          "使いすぎ",
+          "使い過ぎ"
+        ]
+      ],
+      "items": [
+        "kazoku",
+        "kinsen"
+      ]
+    },
+    {
+      "id": "casemtg",
+      "all": [
+        [
+          "ケース会"
+        ]
+      ],
+      "items": [
+        "moushiokuri"
+      ]
+    },
+    {
+      "id": "nov",
+      "all": [
+        [
+          "11月"
+        ]
+      ],
+      "items": [
+        "moushiokuri"
+      ]
+    }
+  ],
+  "marks": [
+    {
+      "id": "眠剤",
+      "answer": [
+        "眠剤",
+        "睡眠薬"
+      ],
+      "context": [
+        "自己管理"
+      ]
+    },
+    {
+      "id": "週1〜2",
+      "answer": [
+        "週1〜2",
+        "週1~2",
+        "週1、2",
+        "週に1〜2",
+        "週1-2",
+        "週1から2",
+        "週1～2"
+      ],
+      "context": [
+        "飲み忘れ"
+      ]
+    },
+    {
+      "id": "訪看",
+      "answer": [
+        "訪看",
+        "訪問看護"
+      ],
+      "context": [
+        "声かけ",
+        "声掛け"
+      ]
+    },
+    {
+      "id": "12,000円",
+      "answer": [
+        "12,000",
+        "12000",
+        "1万2千",
+        "1万2000"
+      ],
+      "context": [
+        "工賃"
+      ]
+    },
+    {
+      "id": "10/3",
+      "answer": [
+        "10/3",
+        "10月3日"
+      ],
+      "context": [
+        "ケース会"
+      ]
+    }
+  ],
+  "masks": [],
+  "maskedNames": [],
+  "forbidden": [
+    "姉から声かけ",
+    "姉からの声かけ"
+  ]
+}

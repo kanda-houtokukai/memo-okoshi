@@ -3,7 +3,7 @@ import { isRecordType, itemsByIds, libraryFor, type RecordType } from "@/lib/ite
 import { buildPrompt } from "@/lib/prompt";
 import { FAIL_TEXT, generateWithFallback, ImagePart } from "@/lib/gemini";
 import { sanitizeForPrompt } from "@/lib/vocab";
-import { enforceNames } from "@/lib/names";
+import { finishConversion } from "@/lib/convert-core";
 
 export const runtime = "nodejs";
 export const maxDuration = 120;
@@ -15,42 +15,7 @@ export const maxDuration = 120;
 //   vocab:  JSON文字列（端末内の組織語彙。プロンプトに差し込むだけで保存しない）
 // 返却: { ok, model, tried, data } または { ok:false, reason, error }
 //   reason: "quota"（本日の上限）/ "busy"（混雑）/ "error"。error はそのまま画面に出す文言。
-
-type Token = { t: "p" | "y" | "b" | "r"; s: string; cands?: string[]; note?: string };
-type Converted = {
-  record_type: string;
-  sections: { id: string; tokens: Token[] }[];
-  spill: { text: string; suggest: string | null }[];
-  insights: { text: string; why: string; refs: string[] }[];
-};
-
-function parseModelJson(text: string): Converted | null {
-  const tryParse = (s: string): Converted | null => {
-    try {
-      const v = JSON.parse(s);
-      if (v && Array.isArray(v.sections)) {
-        v.record_type = typeof v.record_type === "string" ? v.record_type : "interview";
-        v.spill = Array.isArray(v.spill) ? v.spill : [];
-        v.insights = Array.isArray(v.insights) ? v.insights : [];
-        return v as Converted;
-      }
-      return null;
-    } catch {
-      return null;
-    }
-  };
-  // response_mime_type: application/json を指定しているが、保険として
-  // コードフェンス剥がし→最初の { から最後の } までの切り出し、の順で救済する
-  const direct = tryParse(text);
-  if (direct) return direct;
-  const unfenced = text.replace(/^\s*```(?:json)?\s*/i, "").replace(/\s*```\s*$/, "");
-  const fenced = tryParse(unfenced);
-  if (fenced) return fenced;
-  const start = text.indexOf("{");
-  const end = text.lastIndexOf("}");
-  if (start >= 0 && end > start) return tryParse(text.slice(start, end + 1));
-  return null;
-}
+// [DECISION 2026-10-14] 返答の読み取り（JSON の救済）と人名の機械検出は lib/convert-core.ts へ移した（P20・評価キットと同じ経路にするため）。
 
 export async function POST(req: NextRequest) {
   try {
@@ -101,12 +66,8 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    const parsed = parseModelJson(result.text);
-    // 原則3の保険: AIが人名を p/y/b に紛れ込ませても、敬称付き氏名は機械的に r へ切り出す。
-    // [DECISION 2026-09-23・設計側] **面談・会議とも**通す（P15。原則3を「赤＝伏せ忘れの知らせ」に改め、会議も名前を塗って送る）。
-    //   P9 の「会議では人名の検知を働かせず r を p に落とす（withoutRed）」は改めた。
-    const data = parsed ? enforceNames(parsed) : null;
-    if (data) data.record_type = type;
+    // 返答の読み取りと人名の機械検出（原則3の保険・面談・会議とも）は lib/convert-core.ts（評価キットと同じもの・P20）
+    const data = finishConversion(result.text, type);
     if (!data) {
       return NextResponse.json(
         { ok: false, reason: "error", error: FAIL_TEXT.error, model: result.model, raw: result.text },

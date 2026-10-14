@@ -26,7 +26,7 @@ const BASE = "https://generativelanguage.googleapis.com/v1beta";
  *   3.5-flash は 1変換 24〜31秒（3.6-flash は 15〜20秒）だが、60秒の許容内。
  *   経緯と数値は台帳「P7-c の比較」を読むこと。並びを変えるときも同じ観点で測ってから変える。
  */
-const PREFERRED = ["gemini-3.5-flash", "gemini-3.6-flash"];
+export const PREFERRED = ["gemini-3.5-flash", "gemini-3.6-flash"];
 
 type ModelInfo = { name: string; supportedGenerationMethods?: string[] };
 
@@ -128,6 +128,56 @@ export type GeminiResult =
   | { ok: true; model: string; text: string; tried: string[] }
   | { ok: false; reason: FailReason; error: string; tried: string[] };
 
+/** 1つのモデルを1回呼んだ結果。status は HTTP（中身が無い成功は 0） */
+export type CallResult = { ok: true; text: string } | { ok: false; status: number; error: string };
+
+/**
+ * **指定した1つのモデルを1回だけ呼ぶ**（フォールバックしない）。本番の `generateWithFallback` も評価キット（eval/）もこれを使う。
+ * [DECISION 2026-10-14] 評価キット（P20）がモデルを名指しで測れるよう、試す順の外に切り出した（送る中身・生成パラメータは変えていない）。
+ * key を渡さなければ GEMINI_API_KEY（本番と同じ）。有料枠など別の鍵で測るときだけ評価キットが渡す。
+ */
+export async function callModel(model: string, prompt: string, images: ImagePart[], key: string = apiKey()): Promise<CallResult> {
+  const res = await fetch(`${BASE}/models/${model}:generateContent`, {
+    method: "POST",
+    headers: { "Content-Type": "application/json", "x-goog-api-key": key },
+    body: JSON.stringify({
+      contents: [
+        {
+          role: "user",
+          parts: [
+            { text: prompt },
+            ...images.map((im) => ({
+              inline_data: { mime_type: im.mimeType, data: im.base64 },
+            })),
+          ],
+        },
+      ],
+      generationConfig: {
+        // 構造化タスクなので決め打ちの復号にする（同じメモは同じ振り分けになってほしい）
+        temperature: 0,
+        response_mime_type: "application/json",
+        maxOutputTokens: 16384,
+      },
+    }),
+  });
+
+  if (!res.ok) {
+    return { ok: false, status: res.status, error: `HTTP ${res.status} (${model}): ${(await res.text()).slice(0, 500)}` };
+  }
+
+  const json = (await res.json()) as {
+    candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
+  };
+  const text = (json.candidates?.[0]?.content?.parts ?? [])
+    .map((p) => p.text ?? "")
+    .join("");
+  if (!text) {
+    // HTTPは成功だが中身が無い＝一時的な失敗として扱う
+    return { ok: false, status: 0, error: `${model}: 応答にテキストがありません (finishReason=${json.candidates?.[0]?.finishReason})` };
+  }
+  return { ok: true, text };
+}
+
 let workingModel: string | null = null; // 最初に成功したモデルを使い続ける
 let workingList: string[] | null = null; // 一覧はプロセス内でキャッシュする（毎回引かない）
 
@@ -149,51 +199,16 @@ export async function generateWithFallback(
 
   for (const model of candidates) {
     tried.push(model);
-    const res = await fetch(`${BASE}/models/${model}:generateContent`, {
-      method: "POST",
-      headers: { "Content-Type": "application/json", "x-goog-api-key": apiKey() },
-      body: JSON.stringify({
-        contents: [
-          {
-            role: "user",
-            parts: [
-              { text: prompt },
-              ...images.map((im) => ({
-                inline_data: { mime_type: im.mimeType, data: im.base64 },
-              })),
-            ],
-          },
-        ],
-        generationConfig: {
-          // 構造化タスクなので決め打ちの復号にする（同じメモは同じ振り分けになってほしい）
-          temperature: 0,
-          response_mime_type: "application/json",
-          maxOutputTokens: 16384,
-        },
-      }),
-    });
-
-    if (!res.ok) {
-      statuses.push(res.status);
-      lastError = `HTTP ${res.status} (${model}): ${(await res.text()).slice(0, 500)}`;
+    const r = await callModel(model, prompt, images);
+    if (!r.ok) {
+      statuses.push(r.status);
+      lastError = r.error;
       // 優先リストの次へ進む（リストの外へは出ない）。キャッシュは無効化
       if (workingModel === model) workingModel = null;
       continue;
     }
-
-    const json = (await res.json()) as {
-      candidates?: { content?: { parts?: { text?: string }[] }; finishReason?: string }[];
-    };
-    const text = (json.candidates?.[0]?.content?.parts ?? [])
-      .map((p) => p.text ?? "")
-      .join("");
-    if (!text) {
-      statuses.push(0); // HTTPは成功だが中身が無い＝一時的な失敗として扱う
-      lastError = `${model}: 応答にテキストがありません (finishReason=${json.candidates?.[0]?.finishReason})`;
-      continue;
-    }
     workingModel = model;
-    return { ok: true, model, text, tried };
+    return { ok: true, model, text: r.text, tried };
   }
 
   // 全滅したら一覧のキャッシュも捨てる（優先モデルが増減していたら次回に拾えるように）

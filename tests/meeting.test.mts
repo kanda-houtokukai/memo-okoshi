@@ -260,8 +260,11 @@ test("変換API: 種類を受け取り、面談・会議とも人名の機械検
   assert.ok(api.includes('form.get("record_type")') && api.includes("isRecordType(rt) ? rt : \"interview\""), "知らない値は面談");
   assert.ok(api.includes("itemsByIds(ids, libraryFor(type))"), "種類のライブラリで項目を引く");
   assert.ok(api.includes("buildPrompt(items, vocab, type)"));
+  // 返答の読み取りと人名の機械検出は lib/convert-core.ts（P20 で route.ts から移した・評価キットと同じ経路）
   const apiCode = api.replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-  assert.ok(apiCode.includes("const data = parsed ? enforceNames(parsed) : null;") && !apiCode.includes("withoutRed"), "面談・会議とも lib/names.ts を通す（P15）");
+  assert.ok(apiCode.includes("const data = finishConversion(result.text, type);"), "変換APIは共通の後処理を通す");
+  const core = readFileSync("lib/convert-core.ts", "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
+  assert.ok(core.includes("const data = parsed ? enforceNames(parsed) : null;") && !core.includes("withoutRed") && !apiCode.includes("withoutRed"), "面談・会議とも lib/names.ts を通す（P15）");
   const page = readFileSync("app/page.tsx", "utf8");
   assert.ok(page.includes('fd.append("record_type", type)'), "画面が種類を送る");
   assert.ok(page.includes("useState<RecordType>(\"interview\")"), "既定は面談");
