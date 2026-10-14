@@ -20,6 +20,8 @@
   （送信前の確認を通る）を出す（`tests/p6.test.mts`）。**生のモデル出力は画面に出さない。**
 - **「使えない」（試験済みも緊急用も、無くなった・課金が要る・一覧から消えた）は専用の文言 `FAIL_TEXT.unavailable`**（設計側の文面・
   使い方「困ったとき」と対・`tests/p6.test.mts`）[DECISION 2026-10-14・設計側 P24]。
+- **プロンプトの案は評価キットの中だけで試す**（`eval/prompt-variants.ts`・`--variant`。本番の `lib/prompt.ts` は変えない・案は2つまで・
+  `tests/eval.test.mts`）。本番に入れるのは設計側が決めてから [DECISION 2026-10-14・設計側 P25]。
 - **生成パラメータを明示する**: `temperature: 0`／`response_mime_type: "application/json"`／`maxOutputTokens: 16384`。
   既定値まかせにしない。
 - **どの項目に入れるかは「何について書かれているか」で決める。「誰が話したか」では決めない**（プロンプト規則9）。

@@ -1,0 +1,42 @@
+{
+ "started": "2026-10-14T11:59:05.673Z",
+ "commit": "b1cc91d",
+ "models": [
+  "gemini:gemini-3.5-flash"
+ ],
+ "runs": 1,
+ "variant": null,
+ "criteria": {
+  "maxFabrications": 0,
+  "maxUndeclared": 0,
+  "minYellowOnMarksRatio": 0.5,
+  "minRecall": 0.85,
+  "allMasksOO": true
+ },
+ "prompts": {
+  "hard": "5539e4127ade",
+  "symbols": "d7a326f2c117"
+ },
+ "records": [
+  {
+   "at": "2026-10-14T11:59:05.674Z",
+   "model": "gemini:gemini-3.5-flash",
+   "case": "hard",
+   "run": 1,
+   "ok": false,
+   "ms": 5624,
+   "status": 503,
+   "error": "HTTP 503 (gemini-3.5-flash): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+  },
+  {
+   "at": "2026-10-14T11:59:15.301Z",
+   "model": "gemini:gemini-3.5-flash",
+   "case": "symbols",
+   "run": 1,
+   "ok": false,
+   "ms": 6436,
+   "status": 503,
+   "error": "HTTP 503 (gemini-3.5-flash): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+  }
+ ]
+}
