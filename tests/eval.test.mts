@@ -97,6 +97,42 @@ test("採点: 印の箇所は 黄／青／正読（申告なし）／申告な�
   assert.equal(r4.yellowOnMarks, 0);
 });
 
+test("採点（P25）: 読みにくくした箇所を「〇〇」と書いたら内訳を〇〇に（申告なしに数える）。名前を伏せた〇〇さんは数えない", () => {
+  const c = byId("names"); // 印: 半分（昼食・残す）・2kg（体重）
+  const base = (s: string): Converted => ({ record_type: "interview", sections: [{ id: "kenko", tokens: [{ t: "p", s }] }], spill: [], insights: [] });
+  const r1 = scoreRun(c, base("昼食を〇〇残す日あり\n体重が減った"));
+  assert.equal(r1.marks[0].outcome, "〇〇");
+  assert.equal(r1.undeclared, 2, "〇〇も申告なしに数える（黄にならず要確認の数に出ないため）");
+  assert.ok(judgeRun(c, r1).reasons.some((r) => r.includes("うち〇〇にした 1件")));
+  // 別の行の「職員〇〇さん」は名前を伏せた箇所なので、印の〇〇に数えない
+  const r2 = scoreRun(c, base("・職員〇〇さんと相性が良い\n・昼食を残す日がある"));
+  assert.equal(r2.marks[0].outcome, "申告なし");
+  const h = byId("symbols"); // 印: 10分（出発・早め）・10/10（連絡・サビ管）
+  const r3 = scoreRun(h, { record_type: "meeting", sections: [{ id: "shukudai", tokens: [{ t: "p", s: "・家族へ連絡：担当 サビ管／期限 〇〇/〇〇まで" }] }], spill: [], insights: [] });
+  assert.equal(r3.marks.find((m) => m.id === "10/10")!.outcome, "〇〇");
+});
+
+test("合否（P25）: 黄の割合の分母は「正しく読めなかった印」（正読は除く）", () => {
+  const c = byId("hard"); // 印5つ
+  // 読める3か所を正しく読み、読めない2か所を黄にした → 黄 2/2 で合格（P24 までの分母 5 では 2/5 で落ちていた）
+  const ok: Converted = {
+    record_type: "interview",
+    sections: [
+      { id: "kenko", tokens: [{ t: "y", s: "眠剤" }, { t: "p", s: "は自己管理、飲み忘れ週1〜2。" }, { t: "y", s: "訪看" }, { t: "p", s: "から声かけ。" }] },
+      { id: "kinsen", tokens: [{ t: "p", s: "工賃は月12,000円くらい。ケース会10/3。" }] },
+    ],
+    spill: [],
+    insights: [],
+  };
+  const s = scoreRun(c, ok);
+  assert.deepEqual(s.marks.map((m) => m.outcome), ["黄", "正読", "黄", "正読", "正読"]);
+  assert.ok(!judgeRun(c, s).reasons.some((r) => r.includes("黄が")), judgeRun(c, s).reasons.join("・"));
+  // 読めない2か所のうち黄が0なら落ちる（青だけで申告した回）
+  const blue = structuredClone(ok);
+  for (const t of blue.sections[0].tokens) if (t.t === "y") t.t = "b";
+  assert.ok(judgeRun(c, scoreRun(c, blue)).reasons.some((r) => r.includes("黄が、読めなかった印と重なったのは 0/2")));
+});
+
 test("採点: 塗った箇所の「〇〇」を数え、名前の前後に無ければ落とす", () => {
   const c = byId("names");
   const out = idealOutput(c);
@@ -123,7 +159,9 @@ test("本番と同じプロンプトと読み取りの経路を使う（評価�
   // メモの組み立ては評価キットと見張りで共通（eval/cases.ts・P23）
   const cases = readFileSync("eval/cases.ts", "utf8");
   assert.ok(cases.includes('import { buildPrompt } from "../lib/prompt.ts"') && cases.includes("buildPrompt(items, [], c.record_type)"));
-  assert.ok(run.includes('import { inputs, loadCases } from "./cases.ts"'));
+  assert.ok(run.includes('import { inputs as baseInputs, loadCases } from "./cases.ts"'));
+  // プロンプトの案（P25）は、本番の buildPrompt の出力に足すだけ（--variant を付けたときだけ。本番の lib/prompt.ts は変えない）
+  assert.ok(run.includes("VARIANT ? { ...x, prompt: applyVariant(x.prompt, VARIANT) } : x"));
   assert.ok(run.includes('import { finishConversion } from "../lib/convert-core.ts"') && run.includes("finishConversion(r.text, c.record_type)"));
   const watch = readFileSync("eval/watch.mts", "utf8");
   assert.ok(watch.includes('import { inputs, loadCases } from "./cases.ts"') && watch.includes("finishConversion(r.text, c.record_type)"), "見張りも同じ経路");
@@ -141,6 +179,22 @@ test("本番と同じプロンプトと読み取りの経路を使う（評価�
   // 後処理は本番の読み取りそのもの（壊れた JSON の救済と人名の機械検出）
   const d = finishConversion('```json\n{"sections":[{"id":"gaiyou","tokens":[{"t":"p","s":"同席：山田花子さん"}]}]}\n```', "interview");
   assert.ok(d && d.sections[0].tokens.some((t) => t.t === "r"));
+});
+
+test("プロンプトの案（P25）: 本番のプロンプトの1か所に足すだけ・案は2つまで・目印が無ければ止まる", async () => {
+  const { ANCHOR, VARIANTS, applyVariant } = await import("../eval/prompt-variants.ts");
+  const { buildPrompt } = await import("../lib/prompt.ts");
+  assert.ok(Object.keys(VARIANTS).length <= 2);
+  for (const type of ["interview", "meeting", "visit"] as const) {
+    const base = buildPrompt(libraryFor(type).slice(0, 3), [], type);
+    for (const k of Object.keys(VARIANTS)) {
+      const v = applyVariant(base, k);
+      assert.equal(v.replace(VARIANTS[k].text, ""), base, `${type}・案${k}: 足した文を除けば本番と同じ`);
+    }
+  }
+  assert.throws(() => applyVariant("目印の無い文", "A"), /目印/);
+  assert.ok(!readFileSync("lib/prompt.ts", "utf8").includes("黙って省かない"), "本番のプロンプトに案を入れていない");
+  assert.ok(ANCHOR.endsWith("0個は疑わしい。"));
 });
 
 test("提供元は「提供元:モデル名」で選ぶ。今回は Gemini（評価用の鍵・P23）だけ", () => {

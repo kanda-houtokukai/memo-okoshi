@@ -8,6 +8,9 @@
 //   - 要点の一致率 0.85 以上: 読みにくくした箇所を除いた、普通に読める字の要点。言い換えの候補は正解側に持たせてあるので、
 //     ここを割るのは読み落としか振り分けの崩れ。満点を求めないのは、要点の語の候補が言い換えを拾い切れないことがあるため。
 //   - 塗った箇所はすべて「〇〇」: 塗った名前を推して埋めない（原則3・P15）。
+//   [DECISION 2026-10-14 P25] **黄の割合の分母は「正しく読めなかった印」**（正読を除く）。P20〜P24 は印すべてを分母にしていたが、
+//     画像を拡大して確かめると、印のうち「週1〜2」（にじんでいるのは前の「飲み忘れ 週」）・「12,000円」・「10/3」・「2kg」・「10/10」は形がたどれて読める。
+//     読める箇所を正しく読んだモデルが、読めない箇所を全部黄にしても落ちる（hard は 2/5）ので、上の「正しく読めたものは申告なしでもよい」と食い違っていた。
 //   - 混雑（503）・枠切れ（429）の失敗は合否に数えない（モデルの読み取りの良し悪しではないため）。各メモで1回以上成功していることが条件。
 //   - 振り分けの一致率は合否に入れず、表に出すだけ（項目の境目は人によっても揺れるため。崩れが大きければ表で気づける）。
 
@@ -25,9 +28,11 @@ export const CRITERIA = {
 export function judgeRun(c: EvalCase, s: RunScore): { pass: boolean; reasons: string[] } {
   const reasons: string[] = [];
   if (s.fabrications.length > CRITERIA.maxFabrications) reasons.push(`作り話 ${s.fabrications.length}件`);
-  if (s.undeclared > CRITERIA.maxUndeclared) reasons.push(`印の箇所を申告なし ${s.undeclared}件`);
-  if (c.marks.length && s.yellowOnMarks < Math.ceil(c.marks.length * CRITERIA.minYellowOnMarksRatio))
-    reasons.push(`黄が印と重なったのは ${s.yellowOnMarks}/${c.marks.length}（半分未満）`);
+  const oo = s.marks.filter((m) => m.outcome === "〇〇").length;
+  if (s.undeclared > CRITERIA.maxUndeclared) reasons.push(`印の箇所を申告なし ${s.undeclared}件${oo ? `（うち〇〇にした ${oo}件）` : ""}`);
+  const unread = s.marks.filter((m) => m.outcome !== "正読").length; // 正しく読めなかった印
+  if (unread && s.yellowOnMarks < Math.ceil(unread * CRITERIA.minYellowOnMarksRatio))
+    reasons.push(`黄が、読めなかった印と重なったのは ${s.yellowOnMarks}/${unread}（半分未満）`);
   if (s.recall < CRITERIA.minRecall) reasons.push(`要点の一致率 ${(s.recall * 100).toFixed(0)}%`);
   if (CRITERIA.allMasksOO && s.masks.ok < s.masks.total) reasons.push(`塗った箇所の「〇〇」${s.masks.ok}/${s.masks.total}`);
   return { pass: reasons.length === 0, reasons };

@@ -23,7 +23,8 @@ import { join } from "node:path";
 import { ALL_TIER_MODELS } from "../lib/gemini.ts";
 import { finishConversion } from "../lib/convert-core.ts";
 import { keyFor, loadEnvLocal, parseModelSpec } from "./providers.ts";
-import { inputs, loadCases } from "./cases.ts";
+import { inputs as baseInputs, loadCases } from "./cases.ts";
+import { applyVariant, VARIANTS } from "./prompt-variants.ts";
 import { scoreRun, type RunScore } from "./score.ts";
 import { CRITERIA, judgeRun } from "./criteria.ts";
 
@@ -39,12 +40,19 @@ const CASES = opt("--cases", "").split(",").filter(Boolean);
 const OUT = opt("--out", "docs/eval");
 const GAP_MS = Number(opt("--gap", "4000"));
 const DRY = args.includes("--dry");
+/** プロンプトの案（eval/prompt-variants.ts・P25）。付けなければ本番のプロンプトのまま */
+const VARIANT = opt("--variant", "");
 
 /* ---------- 鍵（.env.local。値は表示しない・結果にも書かない） ---------- */
 loadEnvLocal();
 
 /* ---------- 正解 ---------- */
 const cases = loadCases(CASES);
+/** 送る中身（案があれば本番のプロンプトに足す。本番の lib/prompt.ts は変えない） */
+const inputs = (c: Parameters<typeof baseInputs>[0]) => {
+  const x = baseInputs(c);
+  return VARIANT ? { ...x, prompt: applyVariant(x.prompt, VARIANT) } : x;
+};
 
 /** 日本時間の時:分:秒（記録と表示用） */
 const jst = (iso: string) => new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(11, 19);
@@ -148,9 +156,9 @@ try {
   commit = execSync("git rev-parse --short HEAD").toString().trim();
 } catch {}
 lines.push(`# 評価キットの結果 ${stamp.slice(0, 10)}`, "");
-lines.push(`- 実行: ${stamp}（commit ${commit}）・各メモ ${RUNS}回・モデル: ${MODELS.join("、")}`);
+lines.push(`- 実行: ${stamp}（commit ${commit}）・各メモ ${RUNS}回・モデル: ${MODELS.join("、")}${VARIANT ? `・**プロンプトの案 ${VARIANT}（${VARIANTS[VARIANT].label}）**` : ""}`);
 lines.push(`- 合否の目安（eval/criteria.ts）: 作り話 ${CRITERIA.maxFabrications}・印の箇所を申告なし ${CRITERIA.maxUndeclared}・黄が印の ${CRITERIA.minYellowOnMarksRatio * 100}%以上と重なる・要点の一致率 ${CRITERIA.minRecall * 100}%以上・塗った箇所はすべて「〇〇」`);
-lines.push(`- プロンプト: ${cases.map((c) => `${c.id}=${sha(inputs(c).prompt)}`).join("・")}（lib/prompt.ts の buildPrompt・辞書なし）`, "");
+lines.push(`- プロンプト: ${cases.map((c) => `${c.id}=${sha(inputs(c).prompt)}`).join("・")}（lib/prompt.ts の buildPrompt・辞書なし${VARIANT ? `＋案 ${VARIANT}（eval/prompt-variants.ts）` : ""}）`, "");
 lines.push("| モデル | メモ | 成功/試行 | 要点の一致率 | 振り分け | 黄（件） | 黄∩印 | 申告なし | 作り話 | 〇〇 | 時間（秒） | 失敗 | 合否 |");
 lines.push("|---|---|---|---|---|---|---|---|---|---|---|---|---|");
 /** 合格／不合格／判定できない（成功していないメモがある＝混雑・枠切れで測れなかった） */
@@ -191,11 +199,12 @@ const calls = records.length;
 lines.push("", `- API の呼び出し: ${calls}回（${MODELS.map((m) => `${m} ${records.filter((r) => r.model === m).length}回`).join("・")}）`);
 
 mkdirSync(OUT, { recursive: true });
-const name = `${stamp.slice(0, 10)}-${stamp.slice(11, 16).replace(":", "")}`;
+// ファイル名は開始の時刻（UTC）の秒まで。分までだった P20〜P24 は、同じ分に始めた2回目が1回目の結果を上書きした（P25 で直した）
+const name = `${stamp.slice(0, 10)}-${stamp.slice(11, 19).replace(/:/g, "")}`;
 writeFileSync(join(OUT, `${name}.md`), lines.join("\n") + "\n");
 writeFileSync(
   join(OUT, `${name}.json`),
-  JSON.stringify({ started: stamp, commit, models: MODELS, runs: RUNS, criteria: CRITERIA, prompts: Object.fromEntries(cases.map((c) => [c.id, sha(inputs(c).prompt)])), records }, null, 1) + "\n"
+  JSON.stringify({ started: stamp, commit, models: MODELS, runs: RUNS, variant: VARIANT || null, criteria: CRITERIA, prompts: Object.fromEntries(cases.map((c) => [c.id, sha(inputs(c).prompt)])), records }, null, 1) + "\n"
 );
 console.log(`\n${join(OUT, name)}.md / .json に残した（API ${calls}回）`);
 for (const spec of MODELS) console.log(`${spec}: ${verdict.get(spec)}`);

@@ -1,0 +1,457 @@
+{
+ "started": "2026-10-14T11:32:55.891Z",
+ "commit": "1ca1afb",
+ "models": [
+  "gemini:gemini-3.5-flash-lite"
+ ],
+ "runs": 1,
+ "variant": "A",
+ "criteria": {
+  "maxFabrications": 0,
+  "maxUndeclared": 0,
+  "minYellowOnMarksRatio": 0.5,
+  "minRecall": 0.85,
+  "allMasksOO": true
+ },
+ "prompts": {
+  "hard": "687bdd95705b",
+  "names": "d0a6b2bcc2bd",
+  "symbols": "5e88429591e7"
+ },
+ "records": [
+  {
+   "at": "2026-10-14T11:32:55.891Z",
+   "model": "gemini:gemini-3.5-flash-lite",
+   "case": "hard",
+   "run": 1,
+   "ok": true,
+   "ms": 3318,
+   "score": {
+    "facts": {
+     "total": 19,
+     "found": 19,
+     "placed": 18,
+     "missing": [],
+     "misplaced": [
+      "helper→honnin"
+     ]
+    },
+    "recall": 1,
+    "placement": 0.9473684210526315,
+    "yellow": 0,
+    "blue": 1,
+    "red": 0,
+    "marks": [
+     {
+      "id": "眠剤",
+      "outcome": "〇〇",
+      "excerpt": "・〇〇は自己管理、飲み忘れ週1〜2・訪問〇〇から声かけをもらっている"
+     },
+     {
+      "id": "週1〜2",
+      "outcome": "正読"
+     },
+     {
+      "id": "訪看",
+      "outcome": "〇〇",
+      "excerpt": "・〇〇は自己管理、飲み忘れ週1〜2・訪問〇〇から声かけをもらっている"
+     },
+     {
+      "id": "12,000円",
+      "outcome": "正読"
+     },
+     {
+      "id": "10/3",
+      "outcome": "正読"
+     }
+    ],
+    "yellowOnMarks": 0,
+    "undeclared": 2,
+    "fabrications": [],
+    "masks": {
+     "total": 0,
+     "ok": 0,
+     "oo": 4
+    }
+   },
+   "pass": false,
+   "reasons": [
+    "印の箇所を申告なし 2件（うち〇〇にした 2件）",
+    "黄が、読めなかった印と重なったのは 0/2（半分未満）"
+   ],
+   "output": {
+    "record_type": "interview",
+    "sections": [
+     {
+      "id": "gaiyou",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "モニタリング 9/12(木) 14:00～ 自宅訪問\n本人＋姉同席"
+       }
+      ]
+     },
+     {
+      "id": "honnin",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "・起床7:00頃、朝食は食べたり食べなかったり\n・部屋の片づけが苦手→ヘルパーと一緒に月2回\n"
+       },
+       {
+        "t": "b",
+        "s": "「もう少し増やしたい」との発言",
+        "note": "就労に関する本人の発言"
+       }
+      ]
+     },
+     {
+      "id": "kazoku",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "・姉「本人に任せると使いすぎる」"
+       }
+      ]
+     },
+     {
+      "id": "kadai",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "・金銭管理、月末に苦しくなる"
+       }
+      ]
+     },
+     {
+      "id": "kenko",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "・〇〇は自己管理、飲み忘れ週1～2\n・訪問〇〇から声かけをもらっている"
+       }
+      ]
+     },
+     {
+      "id": "seikatsu",
+      "tokens": []
+     },
+     {
+      "id": "nicchu",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "・週3でB型作業所 送迎あり）\n・工賃は〇〇12,000円くらい\n・サビ管と〇〇計の見直しを10月に予定"
+       }
+      ]
+     },
+     {
+      "id": "kinsen",
+      "tokens": []
+     },
+     {
+      "id": "moushiokuri",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "・ケース会10/3、モニタは11月"
+       }
+      ]
+     }
+    ],
+    "spill": [],
+    "insights": [
+     {
+      "text": "金銭管理の課題に対して、工賃の使い道や予算管理の方法を本人と家族を交えて整理するという観点もある。",
+      "why": "月末に金銭面が苦しくなる傾向や、姉からの懸念が示されているため。",
+      "refs": [
+       "kadai",
+       "kazoku"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "at": "2026-10-14T11:33:03.215Z",
+   "model": "gemini:gemini-3.5-flash-lite",
+   "case": "names",
+   "run": 1,
+   "ok": true,
+   "ms": 3426,
+   "score": {
+    "facts": {
+     "total": 14,
+     "found": 14,
+     "placed": 13,
+     "missing": [],
+     "misplaced": [
+      "brother→honnin"
+     ]
+    },
+    "recall": 1,
+    "placement": 0.9285714285714286,
+    "yellow": 2,
+    "blue": 1,
+    "red": 4,
+    "marks": [
+     {
+      "id": "半分",
+      "outcome": "黄",
+      "token": "半分"
+     },
+     {
+      "id": "2kg",
+      "outcome": "黄",
+      "token": "2kg"
+     }
+    ],
+    "yellowOnMarks": 2,
+    "undeclared": 0,
+    "fabrications": [],
+    "masks": {
+     "total": 4,
+     "ok": 4,
+     "oo": 4
+    }
+   },
+   "pass": true,
+   "reasons": [],
+   "output": {
+    "record_type": "interview",
+    "sections": [
+     {
+      "id": "gaiyou",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "面談 10／8（水） 15：00～ 事業所 相談室\n本人＋母（"
+       },
+       {
+        "t": "r",
+        "s": "〇〇さん"
+       },
+       {
+        "t": "p",
+        "s": "）同席"
+       }
+      ]
+     },
+     {
+      "id": "honnin",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【家での様子】\n・夜22時には寝ている\n・休日は図書館へ行く（週1）\n・弟とケンカ増えたと"
+       },
+       {
+        "t": "b",
+        "s": "母",
+        "note": "母親からの発言であるため"
+       },
+       {
+        "t": "p",
+        "s": "が語る"
+       }
+      ]
+     },
+     {
+      "id": "kazoku",
+      "tokens": []
+     },
+     {
+      "id": "kadai",
+      "tokens": []
+     },
+     {
+      "id": "kenko",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【健康】\n・体重"
+       },
+       {
+        "t": "y",
+        "s": "2kg",
+        "cands": [
+         "2㎏",
+         "2 kg"
+        ]
+       },
+       {
+        "t": "p",
+        "s": "減（3か月で）\n・歯科受診をすすめた"
+       }
+      ]
+     },
+     {
+      "id": "seikatsu",
+      "tokens": []
+     },
+     {
+      "id": "nicchu",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【日中】\n・B型週4、作業は袋詰め\n・職員"
+       },
+       {
+        "t": "r",
+        "s": "〇〇さん"
+       },
+       {
+        "t": "p",
+        "s": "と相性良い\n・昼食"
+       },
+       {
+        "t": "y",
+        "s": "半分",
+        "cands": [
+         "半分",
+         "一部"
+        ]
+       },
+       {
+        "t": "p",
+        "s": "残す日あり"
+       }
+      ]
+     },
+     {
+      "id": "moushiokuri",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【次回】\n・担当："
+       },
+       {
+        "t": "r",
+        "s": "〇〇"
+       },
+       {
+        "t": "p",
+        "s": "／"
+       },
+       {
+        "t": "r",
+        "s": "〇〇W"
+       },
+       {
+        "t": "p",
+        "s": "と共有\n・次回11月中旬"
+       }
+      ]
+     }
+    ],
+    "spill": [],
+    "insights": [
+     {
+      "text": "3か月での体重減少と昼食の残し傾向が重なっており、食事摂取量や栄養状態の推移を注視する観点もある。",
+      "why": "健康面の変化と日中の生活面の変化が同時に見られているため。",
+      "refs": [
+       "kenko",
+       "nicchu"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "at": "2026-10-14T11:33:10.642Z",
+   "model": "gemini:gemini-3.5-flash-lite",
+   "case": "symbols",
+   "run": 1,
+   "ok": true,
+   "ms": 2288,
+   "score": {
+    "facts": {
+     "total": 13,
+     "found": 13,
+     "placed": 13,
+     "missing": [],
+     "misplaced": []
+    },
+    "recall": 1,
+    "placement": 1,
+    "yellow": 0,
+    "blue": 0,
+    "red": 0,
+    "marks": [
+     {
+      "id": "10分",
+      "outcome": "〇〇",
+      "excerpt": "・送迎:出発を〇〇分早める"
+     },
+     {
+      "id": "10/10",
+      "outcome": "正読"
+     }
+    ],
+    "yellowOnMarks": 0,
+    "undeclared": 1,
+    "fabrications": [],
+    "masks": {
+     "total": 0,
+     "ok": 0,
+     "oo": 1
+    }
+   },
+   "pass": false,
+   "reasons": [
+    "印の箇所を申告なし 1件（うち〇〇にした 1件）",
+    "黄が、読めなかった印と重なったのは 0/1（半分未満）"
+   ],
+   "output": {
+    "record_type": "meeting",
+    "sections": [
+     {
+      "id": "kaigi",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "会議名：ケース会議\n日時：10/6(月) 10:00〜11:00\n場所：会議室\n出席者：管理者・サビ管・支援員 3名"
+       }
+      ]
+     },
+     {
+      "id": "naiyou",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【様子】\n・通所日数増（週3→週4）\n・食事量減、体重も減少傾向\n・夜眠れていない可能性あり\n【送迎】\n・雨の日遅れが多い\n【今後】\n・次回 11/4"
+       }
+      ]
+     },
+     {
+      "id": "kettei",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "・送迎：出発を〇〇分早める"
+       }
+      ]
+     },
+     {
+      "id": "shukudai",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "・担当：サビ管／期限：10/10まで／内容：家族へ連絡（夜の睡眠について確認）\n・担当：担当未定／期限：期限未定／内容：通院同行の調整"
+       }
+      ]
+     }
+    ],
+    "spill": [],
+    "insights": [
+     {
+      "text": "今後の対応の「通院同行の調整」に担当者と期限が入っていない。",
+      "why": "メモに担当者名や期日が記載されていないため。",
+      "refs": [
+       "shukudai"
+      ]
+     }
+    ]
+   }
+  }
+ ]
+}

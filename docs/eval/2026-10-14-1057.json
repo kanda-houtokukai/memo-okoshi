@@ -1,0 +1,198 @@
+{
+ "started": "2026-10-14T10:57:36.542Z",
+ "commit": "1ca1afb",
+ "models": [
+  "gemini:gemini-3.5-flash"
+ ],
+ "runs": 3,
+ "criteria": {
+  "maxFabrications": 0,
+  "maxUndeclared": 0,
+  "minYellowOnMarksRatio": 0.5,
+  "minRecall": 0.85,
+  "allMasksOO": true
+ },
+ "prompts": {
+  "hard": "5539e4127ade",
+  "names": "c3c18ef49fde",
+  "symbols": "d7a326f2c117"
+ },
+ "records": [
+  {
+   "at": "2026-10-14T10:57:36.542Z",
+   "model": "gemini:gemini-3.5-flash",
+   "case": "hard",
+   "run": 1,
+   "ok": false,
+   "ms": 4197,
+   "status": 503,
+   "error": "HTTP 503 (gemini-3.5-flash): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+  },
+  {
+   "at": "2026-10-14T10:57:44.744Z",
+   "model": "gemini:gemini-3.5-flash",
+   "case": "names",
+   "run": 1,
+   "ok": true,
+   "ms": 32674,
+   "score": {
+    "facts": {
+     "total": 14,
+     "found": 14,
+     "placed": 13,
+     "missing": [],
+     "misplaced": [
+      "brother→kadai"
+     ]
+    },
+    "recall": 1,
+    "placement": 0.9285714285714286,
+    "yellow": 1,
+    "blue": 1,
+    "red": 0,
+    "marks": [
+     {
+      "id": "半分",
+      "outcome": "申告なし",
+      "excerpt": "活動】・B型週4日、作業は袋詰め・職員〇〇さんと相性が良い・昼食を残す日がある"
+     },
+     {
+      "id": "2kg",
+      "outcome": "黄",
+      "token": "2kg"
+     }
+    ],
+    "yellowOnMarks": 1,
+    "undeclared": 1,
+    "fabrications": [],
+    "masks": {
+     "total": 4,
+     "ok": 4,
+     "oo": 4
+    }
+   },
+   "pass": false,
+   "reasons": [
+    "印の箇所を申告なし 1件"
+   ],
+   "output": {
+    "record_type": "interview",
+    "sections": [
+     {
+      "id": "gaiyou",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【面談概要】\n・日時：10月8日（水）15:00〜\n・場所：事業所 相談室\n・出席者：本人、母（〇〇さん）同席"
+       }
+      ]
+     },
+     {
+      "id": "honnin",
+      "tokens": []
+     },
+     {
+      "id": "kazoku",
+      "tokens": []
+     },
+     {
+      "id": "kadai",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【課題・変化】\n・弟とケンカが増えた（"
+       },
+       {
+        "t": "b",
+        "s": "母より報告",
+        "note": "メモ「と母」の記述から推定"
+       },
+       {
+        "t": "p",
+        "s": "）"
+       }
+      ]
+     },
+     {
+      "id": "kenko",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【健康状態】\n・体重"
+       },
+       {
+        "t": "y",
+        "s": "2kg",
+        "cands": [
+         "3kg"
+        ]
+       },
+       {
+        "t": "p",
+        "s": "減少（3か月で）\n・歯科受診を勧めた"
+       }
+      ]
+     },
+     {
+      "id": "seikatsu",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【家での様子】\n・夜22時には寝ている\n・休日は図書館へ行く（週1回）"
+       }
+      ]
+     },
+     {
+      "id": "nicchu",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【日中活動】\n・B型週4日、作業は袋詰め\n・職員 〇〇さんと相性が良い\n・昼食を残す日がある"
+       }
+      ]
+     },
+     {
+      "id": "moushiokuri",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【次回予定・申し送り】\n・担当：〇〇 / 〇〇Wと共有\n・次回11月中旬"
+       }
+      ]
+     }
+    ],
+    "spill": [],
+    "insights": [
+     {
+      "text": "体重減少や昼食を残す傾向があるため、口腔内のトラブル等も含めた原因の確認という観点もある。",
+      "why": "3か月での体重減少、昼食の残食、歯科受診の勧めが同時に記録されているため。",
+      "refs": [
+       "kenko",
+       "nicchu"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "at": "2026-10-14T10:58:21.425Z",
+   "model": "gemini:gemini-3.5-flash",
+   "case": "symbols",
+   "run": 1,
+   "ok": false,
+   "ms": 2419,
+   "status": 503,
+   "error": "HTTP 503 (gemini-3.5-flash): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+  },
+  {
+   "at": "2026-10-14T10:58:27.847Z",
+   "model": "gemini:gemini-3.5-flash",
+   "case": "hard",
+   "run": 2,
+   "ok": false,
+   "ms": 8335,
+   "status": 503,
+   "error": "HTTP 503 (gemini-3.5-flash): {\n  \"error\": {\n    \"code\": 503,\n    \"message\": \"This model is currently experiencing high demand. Spikes in demand are usually temporary. Please try again later.\",\n    \"status\": \"UNAVAILABLE\"\n  }\n}\n"
+  }
+ ]
+}
