@@ -63,10 +63,10 @@ async function reviewWithRed(p) {
  *   建てた撮影用のビルドを使う（CSS と画面は本番と同じ。違うのは ?fixture=1 の入口と開発データが入っていることだけ）。
  */
 const SHOTS = {
-  /** ホーム: 4枚のカードと題の下の一文 */
+  /** ホーム: 5枚のカード（「おこす」3枚と、用紙・使い方の2枚・P21）と題の下の一文 */
   "01-home.png": async (p) => {
     await p.open("/");
-    await p.waitFor(`document.querySelectorAll('.hcard').length === 4 && !!document.querySelector('.hero-sub')`);
+    await p.waitFor(`document.querySelectorAll('.hcard').length === 5 && !!document.querySelector('.hero-sub')`);
   },
   /** 用紙を作る画面: ホームの「用紙を印刷」から。面談を選んだ既定の状態（切り替え・項目のスイッチとつまみ・見本） */
   "02-sheet-maker.png": async (p) => {

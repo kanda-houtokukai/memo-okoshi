@@ -22,7 +22,8 @@ type Props = {
   onSaveEdit: (text: string) => void;
   onCancelEdit: () => void;
   onCopy: () => void;
-  onMove: (dir: -1 | 1) => void;
+  /** 並べ替え（↑↓）。項目が決まっている種類（見学・P21）では渡さない＝矢印を出さない */
+  onMove?: (dir: -1 | 1) => void;
   onTokenClick: (ti: number, el: HTMLElement) => void;
 };
 
@@ -76,12 +77,16 @@ export default function SectionCard({
           <span className="okmark">✓</span>
         </h3>
         <div className="sec-actions">
-          <button className="mini ic arrow" data-tip="上へ" aria-label="上へ" onClick={() => onMove(-1)}>
-            ↑
-          </button>
-          <button className="mini ic arrow" data-tip="下へ" aria-label="下へ" onClick={() => onMove(1)}>
-            ↓
-          </button>
+          {onMove && (
+            <>
+              <button className="mini ic arrow" data-tip="上へ" aria-label="上へ" onClick={() => onMove(-1)}>
+                ↑
+              </button>
+              <button className="mini ic arrow" data-tip="下へ" aria-label="下へ" onClick={() => onMove(1)}>
+                ↓
+              </button>
+            </>
+          )}
           <button
             className={"mini ic copy" + (copied ? " copied" : "")}
             data-tip="この項目をコピー"

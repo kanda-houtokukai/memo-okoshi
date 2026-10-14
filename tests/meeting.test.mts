@@ -105,10 +105,10 @@ test("会議の項目は4つだけ（会議概要・内容・決定事項・今�
   assert.deepEqual(MEETING_LIBRARY.map((l) => l.id), MEETING_IDS);
   assert.deepEqual(MEETING_LIBRARY.map((l) => l.label), ["会議概要", "内容", "決定事項", "今後の対応"]);
   assert.ok(MEETING_LIBRARY.every((l) => l.group === "基本" && l.defaultOn && !l.closing));
-  assert.deepEqual(RECORD_TYPES, ["interview", "meeting"]);
+  assert.deepEqual(RECORD_TYPES, ["interview", "meeting", "visit"], "P21 で見学を足した");
   assert.equal(libraryFor("meeting"), MEETING_LIBRARY);
   assert.equal(libraryFor("interview"), ITEM_LIBRARY);
-  assert.ok(isRecordType("meeting") && isRecordType("interview") && !isRecordType("kaigi") && !isRecordType(undefined));
+  assert.ok(isRecordType("meeting") && isRecordType("interview") && isRecordType("visit") && !isRecordType("kaigi") && !isRecordType(undefined));
   // id は面談と重ならない（保存値・API契約が混ざらない）
   const iv = new Set(ITEM_LIBRARY.map((l) => l.id));
   assert.ok(MEETING_IDS.every((id) => !iv.has(id)));
@@ -158,7 +158,10 @@ test("項目の選択・並び・自由形式は面談と会議で別に保存�
   assert.equal(loadSettings(ITEM_LIBRARY).enabled.gaiyou, false);
   // 鍵の定義は settings.ts だけ（会議の鍵は面談の鍵から作る＝文字列を増やさない）
   const src = readFileSync("lib/settings.ts", "utf8").replace(/\/\*[\s\S]*?\*\//g, "").replace(/^\s*\/\/.*$/gm, "");
-  assert.equal((src.match(/:meeting/g) ?? []).length, 1, "会議の接尾辞は keyFor の1か所だけ");
+  // P21: 接尾辞は種類の名前から作る（面談はそのまま・会議は :meeting・見学は :visit）。文字列を種類ごとに増やさない
+  assert.equal((src.match(/:meeting/g) ?? []).length, 0, "種類ごとの接尾辞を書き並べない");
+  assert.ok(src.includes('return type === "interview" ? base : `${base}:${type}`;'));
+  assert.equal(keyFor(SETTINGS_KEY, "visit"), "memo-okoshi:items:visit");
 });
 
 /* ---------- プロンプト ---------- */
@@ -293,16 +296,18 @@ test("ホーム: 面談と会議の入口が分かれ、用紙のカードは1�
   assert.equal((home.match(/onClick=\{onSheet\}/g) ?? []).length, 1, "用紙のカードは1枚");
   const sm = readFileSync("app/components/SheetMaker.tsx", "utf8");
   const seg = sm.slice(sm.indexOf('className="seg"'), sm.indexOf("<h2>用紙に入れる項目</h2>"));
-  assert.ok(seg.includes('switchType("interview")') && seg.includes('switchType("meeting")'));
-  assert.ok(seg.includes(">\n              面談\n") && seg.includes(">\n              会議\n"));
+  assert.ok(seg.includes('switchType("interview")') && seg.includes('switchType("meeting")') && seg.includes('switchType("visit")'));
+  assert.ok(seg.includes(">\n              面談\n") && seg.includes(">\n              会議\n") && seg.includes(">\n              見学\n"));
   // 切り替えは用紙の画面の中で、記録側（page.tsx）の種類には触れない
   assert.ok(sm.includes('useState<RecordType>("interview")'));
   assert.ok(sm.includes("saveSettings(next, type)") && sm.includes("loadSettings(lib, type)") && sm.includes("loadSheetOrder(sheetLib, type)"));
   assert.ok(sm.includes("saveSheetFree(!f, type)") && sm.includes("saveSheetOrder(next, type)"));
   assert.ok(sm.includes("sheetFileName(new Date(), type)"));
   const css = readFileSync("app/globals.css", "utf8");
-  assert.ok(css.includes(".cards{display:grid;grid-template-columns:repeat(4,1fr)"), "カードは4列");
-  assert.ok(css.includes("@media (max-width:760px){\n  .cards{grid-template-columns:1fr 1fr}"), "760px 以下は2列");
+  // P21: 5枚を「おこす」3枚のまとまりと、用紙・使い方のまとまりに分ける
+  assert.ok(css.includes(".cards{grid-template-columns:3fr 1fr}") && css.includes(".cards-main{display:grid;grid-template-columns:repeat(3,1fr)"), "広い画面は「おこす」3枚＋右の列");
+  assert.ok(css.includes("@media (max-width:760px){\n  .cards{grid-template-columns:1fr;gap:16px}\n  .cards-sub{grid-template-rows:none;grid-template-columns:1fr 1fr}"), "760px 以下は「おこす」の下に用紙と使い方");
+  assert.equal((home.match(/onMemo\("visit"\)/g) ?? []).length, 1, "見学の入口（P21）");
 });
 
 /* ---------- 用紙 ---------- */

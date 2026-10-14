@@ -357,12 +357,27 @@ export function sectionHasWarn(tokens: Token[]): boolean {
 
 /** 出力の題（転記用テキスト・Word・PDF で共通。種類ごと） */
 export function outputTitle(type: RecordType = "interview"): string {
-  return type === "meeting" ? "会議記録" : "面談・モニタリング記録";
+  return type === "meeting" ? "会議記録" : type === "visit" ? "見学記録" : "面談・モニタリング記録";
 }
 
+/**
+ * 転記用テキスト（コピー）。面談・会議は「■ 項目名」の行の下に中身。
+ * [DECISION 2026-10-14・設計側] **見学は項目名と中身を1行ずつ並べる**（P21）。1〜6 の1行の欄（`oneLine`）は「名前　〇〇」の1行
+ *   （区切りは全角の空白。項目名にコロンを付けない決定に合わせる）、7「内容」は面談と同じく見出しの行の下に本文。
+ *   押印欄のラベルは入れない（記録ではない）。
+ */
 export function buildOutputText(state: RecordState, lib: ItemDef[]): string {
   let out = `【${outputTitle(state.type)}】（メモおこし下書き）\n`;
-  recordEntries(state, lib).forEach((e) => {
+  const entries = recordEntries(state, lib);
+  if (state.type === "visit") {
+    out += "\n";
+    entries.forEach((e) => {
+      const def = lib.find((l) => l.id === e.id);
+      out += def?.oneLine ? `${e.label}　${e.text.replace(/\n+/g, " ")}\n` : `\n■ ${e.label}\n${e.text}\n`;
+    });
+    return out;
+  }
+  entries.forEach((e) => {
     out += "\n■ " + e.label + "\n" + e.text + "\n";
   });
   return out;

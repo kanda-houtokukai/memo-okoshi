@@ -4,7 +4,7 @@
 // DOM構造・クラス名・文言・アニメーションは正本どおり。状態管理のみReact化。
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { itemById as itemByIdIn, libraryFor } from "@/lib/items";
+import { isFixedType, itemById as itemByIdIn, libraryFor } from "@/lib/items";
 import {
   acceptSpill,
   activeIds,
@@ -71,6 +71,8 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
   /** 記録の種類（P9）。項目ライブラリ・保存の鍵・出力の題がこれで決まる。赤（伏せ忘れの知らせ）は面談・会議とも働く（P15） */
   const type = rec.type ?? "interview";
   const lib = libraryFor(type);
+  /** 見学は項目が決まっている（P21）: 項目のドロワーと並べ替えの矢印を出さない。こぼれ枠・赤・黄・青・気づきは同じに働く */
+  const fixed = isFixedType(type);
   const itemById = (id: string) => itemByIdIn(id, lib);
   const [editing, setEditing] = useState<string | null>(null);
   const [pop, setPop] = useState<{ sid: string; ti: number; left: number; top: number } | null>(null);
@@ -376,9 +378,11 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
                   {!reconverting && <span className="ins-count">{pending.length}</span>}
                 </button>
               )}
-              <button className="tool-btn" onClick={() => setDrawerOpen(true)}>
-                ☰ 項目
-              </button>
+              {!fixed && (
+                <button className="tool-btn" onClick={() => setDrawerOpen(true)}>
+                  ☰ 項目
+                </button>
+              )}
             </div>
           </div>
 
@@ -405,7 +409,7 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
                   }}
                   onCancelEdit={() => setEditing(null)}
                   onCopy={() => onCopySection(id)}
-                  onMove={(dir) => setRec((s) => moveSection(s, id, dir))}
+                  onMove={fixed ? undefined : (dir) => setRec((s) => moveSection(s, id, dir))}
                   onTokenClick={(ti, el) => onTokenClick(id, ti, el)}
                 />
               );

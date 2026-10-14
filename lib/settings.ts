@@ -22,7 +22,8 @@ export const SETTINGS_KEY = "memo-okoshi:items";
  *   鍵の定義はこのファイルにだけ置く（散らかさない）。
  */
 export function keyFor(base: string, type: RecordType = "interview"): string {
-  return type === "meeting" ? `${base}:meeting` : base;
+  // 面談の鍵はそのまま（保存済みの値に触れない）。会議は :meeting、見学は :visit（P21。見学は項目が決まっていて保存する設定は無い）
+  return type === "interview" ? base : `${base}:${type}`;
 }
 
 /**

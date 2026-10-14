@@ -41,9 +41,12 @@
 //   トグルにも並べ替えにも見本にも出さない（一覧で動かせるのに用紙では動かない、という嘘の操作を作らない）。
 //   ⚠️ **オン・オフの保存は種類のライブラリ全体で読み書きする**（用紙の一覧だけで保存すると、記録の会議概要がオフになる）。
 //   会議名は頭の題の右（`SHEET_HEAD.meeting.name`）。下部は面談と同じ「その他」だけ。
+// [DECISION 2026-10-14・設計側] **切り替えを「面談／会議／見学」の3つにする**（P21）。見学は項目が決まっていて1枚なので、
+//   **項目の一覧を出さず、見本と「印刷」だけ**にする（`isFixedType`）。見学の用紙は `VisitPaper`（題＋2列の表・寸法は `lib/sheet.ts` の `VISIT_SHEET`）。
+//   狭い画面では「項目／見本」のタブも出さず、切り替えの下に見本を出す（一覧が無いので切り替える先が無い）。
 
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from "react";
-import { libraryFor, sheetLibrary, type ItemDef, type RecordType } from "@/lib/items";
+import { isFixedType, libraryFor, sheetLibrary, type ItemDef, type RecordType } from "@/lib/items";
 import {
   groupIds,
   loadSettings,
@@ -71,6 +74,7 @@ import {
   sheetRows,
   SHEET,
   SHEET_HEAD,
+  visitBodyLines,
 } from "@/lib/sheet";
 import StepHeader from "./StepHeader";
 import VocabButton from "./VocabButton";
@@ -218,6 +222,28 @@ function Paper({
   );
 }
 
+/**
+ * 見学の用紙（P21）。A4縦1枚。題の下に、左に項目名・右に書く欄の2列の表（**項目名と書く欄は別のセル**）。
+ * 1〜6 は1行ぶんの高さ、7「内容」の行は紙の下端（下の余白の手前）まで伸び、中に罫線（6mm 固定・入るだけ）。
+ * 押印欄・ページ番号・下の行（メモおこし）・「その他」は無い。
+ */
+function VisitPaper({ items }: { items: ItemDef[] }) {
+  const lines = Array.from({ length: visitBodyLines() }, (_, i) => <div key={i} />);
+  return (
+    <div className="paper v-paper">
+      <div className="v-title">{SHEET_HEAD.visit.title}</div>
+      <div className="v-table">
+        {items.map((it) => (
+          <div className={"v-row" + (it.oneLine ? "" : " body")} key={it.id} data-id={it.id}>
+            <div className="v-lb">{it.label}</div>
+            <div className="v-wr">{!it.oneLine && <div className="v-lines">{lines}</div>}</div>
+          </div>
+        ))}
+      </div>
+    </div>
+  );
+}
+
 export default function SheetMaker({ onHome, toast }: Props) {
   /** 記録の種類（P9）。面談と会議で項目・割り付け・保存の鍵が変わる */
   const [type, setType] = useState<RecordType>("interview");
@@ -244,8 +270,10 @@ export default function SheetMaker({ onHome, toast }: Props) {
     () => ids.map((id) => sheetLib.find((l) => l.id === id)!).filter(Boolean),
     [ids.join(","), sheetLib], // eslint-disable-line react-hooks/exhaustive-deps
   );
-  const layout = sheetLayout(items.length);
-  const pages = free ? [[]] : paginate(items, layout.perPage);
+  /** 見学は項目が決まっていて1枚（一覧も自由形式も無い・P21） */
+  const fixed = isFixedType(type);
+  const layout = fixed ? { pages: 1, perPage: [sheetLib.length], linesPerPage: [], pitch: SHEET.line } : sheetLayout(items.length);
+  const pages = fixed ? [sheetLib] : free ? [[]] : paginate(items, layout.perPage);
   const freeLines = freeSheetLines();
 
   // 見本は表示領域に収まる最大の大きさにする（倍率の決め方は `previewFit`）。
@@ -488,7 +516,7 @@ export default function SheetMaker({ onHome, toast }: Props) {
 
   /** 見本をそのまま印刷に回す（印刷用のCSSがA4の実寸で描き直す） */
   const print = () => {
-    if (items.length === 0) {
+    if (!fixed && items.length === 0) {
       toast("項目を1つ以上選んでください");
       return;
     }
@@ -516,7 +544,7 @@ export default function SheetMaker({ onHome, toast }: Props) {
     <div className="sheet-root">
       <StepHeader right={<VocabButton toast={toast} />} onHome={onHome} />
 
-      <div className="sheet-cfg">
+      <div className={"sheet-cfg" + (fixed ? " fixed" : "")}>
         {/* 狭い画面だけ出る切り替え（確認画面と同じ .mobile-tabs） */}
         <div className="mobile-tabs">
           <button
@@ -545,9 +573,12 @@ export default function SheetMaker({ onHome, toast }: Props) {
             <button role="tab" aria-selected={type === "meeting"} className={type === "meeting" ? "on" : ""} onClick={() => switchType("meeting")}>
               会議
             </button>
+            <button role="tab" aria-selected={type === "visit"} className={type === "visit" ? "on" : ""} onClick={() => switchType("visit")}>
+              見学
+            </button>
           </div>
-          <h2>用紙に入れる項目</h2>
-          {sheetGroups(sheetLib).map((g) => {
+          {!fixed && <h2>用紙に入れる項目</h2>}
+          {!fixed && sheetGroups(sheetLib).map((g) => {
             // 群ごとに、用紙での並びで出す（オフの項目も並べ替えられる）
             const gids = groupIds(order, sheetLib, g);
             // 掴んでいるあいだ、落ちる位置にあたる行をよけさせる（空いた所に落ちる）
@@ -611,19 +642,23 @@ export default function SheetMaker({ onHome, toast }: Props) {
             );
           })}
 
-          {/* 第3の群。選ぶと上のトグルが押せなくなる（用紙に出ないため） */}
-          <div className="grp-t free">{OTHER_BOX.freeLabel}</div>
-          <button
-            className={"row" + (free ? " on" : "")}
-            style={{ ["--c" as string]: "var(--sub)" }}
-            role="switch"
-            aria-checked={free}
-            onClick={toggleFree}
-          >
-            <span className="sw" aria-hidden />
-            <span className="tg" aria-hidden />
-            <span className="nm">{OTHER_BOX.freeLabel}</span>
-          </button>
+          {/* 第3の群。選ぶと上のトグルが押せなくなる（用紙に出ないため）。見学には無い */}
+          {!fixed && (
+            <>
+              <div className="grp-t free">{OTHER_BOX.freeLabel}</div>
+              <button
+                className={"row" + (free ? " on" : "")}
+                style={{ ["--c" as string]: "var(--sub)" }}
+                role="switch"
+                aria-checked={free}
+                onClick={toggleFree}
+              >
+                <span className="sw" aria-hidden />
+                <span className="tg" aria-hidden />
+                <span className="nm">{OTHER_BOX.freeLabel}</span>
+              </button>
+            </>
+          )}
         </div>
 
         <div
@@ -632,7 +667,9 @@ export default function SheetMaker({ onHome, toast }: Props) {
           style={{ ["--k" as string]: fit.k }}
         >
           <div className="pv-inner">
-            {pages.map((p, i) => (
+            {fixed ? (
+              <VisitPaper items={sheetLib} />
+            ) : pages.map((p, i) => (
               <Paper
                 key={i}
                 type={type}
@@ -651,14 +688,16 @@ export default function SheetMaker({ onHome, toast }: Props) {
         {/* 「印刷」はタブの外側。どちらを表示していても、画面が低くても押せる */}
         <div className="cfg-foot">
           <span className="cnt">
-            {free
+            {fixed
+              ? `${sheetLib.length}項目・1枚`
+              : free
               ? `${OTHER_BOX.freeLabel}・1枚`
               : `${items.length}項目・${layout.pages}枚`}
           </span>
           <button
             className="dl"
             onClick={print}
-            disabled={!free && items.length === 0}
+            disabled={!fixed && !free && items.length === 0}
           >
             印刷
           </button>

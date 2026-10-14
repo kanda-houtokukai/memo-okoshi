@@ -118,7 +118,42 @@ export const SHEET_HEAD: Record<RecordType, { title: string; people: string; nam
   interview: { title: "面談記録メモ", people: "参加者" },
   /** name: 題の右に置く欄の見出し（会議だけ。P9-c） */
   meeting: { title: "会議記録メモ", people: "出席者", name: "会議名" },
+  /** 見学の用紙は記入欄の頭を持たない（題「見学記録」の下に2列の表・`VISIT_SHEET`）。people は使わない */
+  visit: { title: "見学記録", people: "" },
 };
+
+/**
+ * 見学の用紙（P21・設計側の決定）。**A4縦1枚**。上に題「見学記録」、その下に**左に項目名・右に書く欄の2列の表**（項目名と書く欄は別のセル）。
+ * 1〜6（名前・日時・来所者・通園、通所先・住所・事前情報）は1行ぶんの高さにそろえ、7「内容」の行は残りを**紙の下端（下の余白の手前）まで**伸ばす。
+ * 押印欄・ページ番号・2枚目・「その他」・下の行（メモおこし）は無い。
+ * [DECISION 2026-10-14] **1行の高さは 10mm**（判断は委ねられた）: 既存の用紙の記入欄は、字を書く下線の高さ 8mm＋行どうしの隙間 2.6mm で
+ *   1行が約 10.6mm。表のセルは上下を罫線で挟むので、同じ程度に書ける 10mm にした。
+ * [DECISION 2026-10-14] 内容の欄の罫線は、既存の用紙の枠と同じ作法（**6mm 固定・0.2mm の点線 #bdbdbd・入るだけ・最後の線は下の余白に入れない**）。
+ * [DECISION 2026-10-14] 項目名の列は既存の完成形の表と同じ見た目（**幅 20%・背景 #f3f1eb・線 0.5pt #8a8a8a**＝印刷の .print-doc）。
+ * ⚠️ 寸法（`titleMm`）は印刷を実測した値。題や表の CSS を変えたら測り直す（`tests/visit.test.mts`）。
+ */
+export const VISIT_SHEET = {
+  /** 1〜6 の行の高さ（mm） */
+  rowMm: 10,
+  /** 項目名の列の幅（%） */
+  labelPct: 20,
+  /** 題の行（下の余白を含む・mm）。印刷の実測 */
+  titleMm: 9.5,
+  /** 表の線（mm）＝ 0.5pt */
+  borderMm: 0.18,
+  /** 内容の欄の罫線の上・下の余白（mm）。既存の枠の .p-lines と同じ */
+  padTop: 1,
+  padBottom: 1.2,
+} as const;
+
+/** 見学の用紙の内容の欄に引く罫線の本数（6mm 固定・内容の行の高さに入るだけ） */
+export function visitBodyLines(): number {
+  const v = VISIT_SHEET;
+  const tableH = SHEET.pageH - SHEET.margin * 2 - v.titleMm;
+  // 表の外枠（上下）と、1〜6 の行の高さ（各行の下の線を含む）を引いた残りが内容の行
+  const bodyH = tableH - v.borderMm * 2 - 6 * v.rowMm;
+  return Math.floor((bodyH - v.padTop - v.padBottom) / SHEET.line);
+}
 
 /** 用紙にいつも入る「その他」の枠。**記録の項目ライブラリには入れない**（用紙だけの欄） */
 export const OTHER_BOX = { id: "__other", label: "その他", freeLabel: "自由形式" } as const;
@@ -245,7 +280,8 @@ export function paginate<T>(items: T[], perPage: number[]): T[][] {
 /** 保存するPDFの名前（日付ベース・種類ごと） */
 export function sheetFileName(d = new Date(), type: RecordType = "interview"): string {
   const p = (n: number) => String(n).padStart(2, "0");
-  return `${type === "meeting" ? "会議用紙" : "面談用紙"}_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
+  const name = type === "meeting" ? "会議用紙" : type === "visit" ? "見学用紙" : "面談用紙";
+  return `${name}_${d.getFullYear()}${p(d.getMonth() + 1)}${p(d.getDate())}`;
 }
 
 /* ---------- 行の割り付け（P9・面談と会議で共通） ---------- */

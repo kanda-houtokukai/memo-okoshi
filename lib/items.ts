@@ -24,14 +24,23 @@
 //   面談の項目・id・分類・既定値は**1つも変えない**（面談側の動作を変えないため）。
 //   会議は4項目だけ（会議概要・内容・決定事項・今後の対応）で追加項目は設けない。id は面談と重ならない。
 //   どちらを使うかは `libraryFor(type)` で引く。`record_type` の予約枠（P1〜）をここで初めて使う。
+// [DECISION 2026-10-14・設計側] **3つ目の種類「見学」（visit）を足す**（P21）。事業所の見学対応の記録を、面談・会議と同じ流れで作る。
+//   項目は設計側が決めた7つ（名前・日時・来所者・通園、通所先・住所・事前情報・内容）で、この順・この名前。
+//   **項目を選ぶ・並べ替える操作は無い**（`isFixedType`）。用紙は1枚・「その他」の欄も無い（「内容」が受け皿）。
+//   1〜6 は1行の欄（`oneLine`）、7「内容」が本文。id は面談・会議と重ねない（`v_` で始める）。
 
 /** 記録の種類。スキーマ・API・状態に予約してあった `record_type` の値 */
-export type RecordType = "interview" | "meeting";
+export type RecordType = "interview" | "meeting" | "visit";
 
-export const RECORD_TYPES: readonly RecordType[] = ["interview", "meeting"] as const;
+export const RECORD_TYPES: readonly RecordType[] = ["interview", "meeting", "visit"] as const;
 
 export function isRecordType(v: unknown): v is RecordType {
-  return v === "interview" || v === "meeting";
+  return v === "interview" || v === "meeting" || v === "visit";
+}
+
+/** 項目が決まっている種類（項目のオン・オフ・並べ替えの操作を出さない）。いまは見学だけ（P21） */
+export function isFixedType(type: RecordType | undefined): boolean {
+  return type === "visit";
 }
 
 export type ItemDef = {
@@ -52,6 +61,8 @@ export type ItemDef = {
    *            一覧では動かせるのに用紙では下に固定される＝操作が嘘になっていたのでやめた（P9-c・設計側の指示）
    */
   sheet?: "wide" | "none";
+  /** 1行の欄（見学の1〜6・P21）。用紙では1行ぶんの高さ、転記用テキストでは「項目名　中身」の1行にする */
+  oneLine?: boolean;
 };
 
 export const ITEM_LIBRARY: ItemDef[] = [
@@ -105,6 +116,27 @@ export const MEETING_LIBRARY: ItemDef[] = [
     hint: "誰かが持ち帰る作業・次回までにやること（誰が・いつまでに・何を）" },
 ];
 
+/**
+ * 見学の項目（P21・設計側の決定）。**7項目・この順・この名前**（項目名にコロンを付けない）。すべて既定オン・追加項目なし。
+ * 1〜6 は1行の欄（`oneLine`）、7「内容」が本文。名前・来所者・住所は個人情報で、撮ったあと「伏せる」で塗る前提。
+ */
+export const VISIT_LIBRARY: ItemDef[] = [
+  { id: "v_name", label: "名前", tab: "名前", group: "基本", color: "var(--t1)", defaultOn: true, oneLine: true,
+    hint: "見学に来た本人（利用を考えている人）の名前。用紙の「名前」の欄" },
+  { id: "v_date", label: "日時", tab: "日時", group: "基本", color: "var(--t2)", defaultOn: true, oneLine: true,
+    hint: "見学の日時。用紙の「日時」の欄に書かれたとおり" },
+  { id: "v_visitor", label: "来所者", tab: "来所", group: "基本", color: "var(--t3)", defaultOn: true, oneLine: true,
+    hint: "一緒に来所した人（保護者・家族・関係機関の職員など）。用紙の「来所者」の欄" },
+  { id: "v_school", label: "通園、通所先", tab: "通園", group: "基本", color: "var(--t5)", defaultOn: true, oneLine: true,
+    hint: "いま通っている園・学校・事業所など。用紙の「通園、通所先」の欄" },
+  { id: "v_address", label: "住所", tab: "住所", group: "基本", color: "var(--t8)", defaultOn: true, oneLine: true,
+    hint: "住所。用紙の「住所」の欄" },
+  { id: "v_prior", label: "事前情報", tab: "事前", group: "基本", color: "var(--t7)", defaultOn: true, oneLine: true,
+    hint: "見学の前に分かっていたこと（紹介元・相談の経緯・状況など）。用紙の「事前情報」の欄" },
+  { id: "v_body", label: "内容", tab: "内容", group: "基本", color: "var(--t6)", defaultOn: true,
+    hint: "見学の中で話したこと・見たこと・質問と答え・本人の様子・今後の予定など。1〜6 の欄に入らない話もここに入れる" },
+];
+
 /** 用紙に載せる項目（`sheet:"none"` を除く）。用紙の画面のトグル・並べ替え・見本はこれを使う（P9-c） */
 export function sheetLibrary(lib: ItemDef[]): ItemDef[] {
   return lib.filter((l) => l.sheet !== "none");
@@ -112,7 +144,7 @@ export function sheetLibrary(lib: ItemDef[]): ItemDef[] {
 
 /** 種類に応じた項目ライブラリ */
 export function libraryFor(type: RecordType): ItemDef[] {
-  return type === "meeting" ? MEETING_LIBRARY : ITEM_LIBRARY;
+  return type === "meeting" ? MEETING_LIBRARY : type === "visit" ? VISIT_LIBRARY : ITEM_LIBRARY;
 }
 
 export function itemsByIds(ids: string[], lib: ItemDef[] = ITEM_LIBRARY): ItemDef[] {

@@ -28,6 +28,11 @@
 //   読まなくても使える位置づけにする。棚に並べる一覧は lib/yomimono-copy.ts の READINGS だけが持つ（今回は「メモの取り方」1枚）。
 //   カードの表紙は罫線の紙に手書き風の3行。手書き風の字（Klee One）はこの棚があるときだけ読む（lib/hand-font.ts）。
 //   押すと同じタブで読みもののページへ移る（ホームには失う作業が無い。読みものの上と最後に「ホーム」へ戻る道がある）。
+// [DECISION 2026-10-14・設計側] **「見学メモをおこす」のカードを足す**（P21）。色はまだ使っていないインデックスの色（--t6）。
+// [DECISION 2026-10-14] カードが5枚になるので、**3つの「おこす」を1つのまとまり（縦長の大きなカード）、用紙・使い方をもう1つのまとまり
+//   （横長の小さなカード）**に分ける（並べ方は判断に委ねられた）。広い画面は左に「おこす」3枚・右の列に用紙と使い方を縦に2枚、
+//   760px 以下は「おこす」3枚の下に用紙と使い方を横に2枚、620px 以下は全部を横長の一列にしてまとまりのあいだを広く空ける。
+//   5枚を同じ大きさで並べると、何をする入口（おこす）と道具（用紙・使い方）かの区別が形で見えなくなるため。カードに説明文は足さない。
 
 import { useCallback, useRef, useState } from "react";
 import type { RecordType } from "@/lib/items";
@@ -62,6 +67,7 @@ export default function Home({ onMemo, onSheet, toast }: Props) {
           <div className="hero">メモおこし</div>
           <p className="hero-sub">面談記録と会議録のための文字おこしツール</p>
           <div className="cards">
+            <div className="cards-main">
             <button className="hcard" style={{ ["--c" as string]: "var(--t1)" }} onClick={() => onMemo("interview")}>
               <div className="art" aria-hidden>
                 {/* 走り書きの紙 → 整った紙 */}
@@ -106,7 +112,29 @@ export default function Home({ onMemo, onSheet, toast }: Props) {
               </div>
             </button>
 
-            <button className="hcard" style={{ ["--c" as string]: "var(--t3)" }} onClick={onSheet}>
+            <button className="hcard" style={{ ["--c" as string]: "var(--t6)" }} onClick={() => onMemo("visit")}>
+              <div className="art" aria-hidden>
+                {/* 事業所の建物と、見学に来た人 */}
+                <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
+                  <path d="M12 34 L36 16 L60 34" stroke="#33566B" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />
+                  <rect x="17" y="32" width="38" height="34" rx="2" fill="#FDFCF9" stroke="#33566B" strokeWidth="1.8" />
+                  <rect x="31" y="46" width="10" height="20" rx="1.5" fill="#9DB3AE" />
+                  <rect x="22" y="39" width="7" height="7" rx="1" stroke="#9A948A" strokeWidth="1.3" />
+                  <rect x="43" y="39" width="7" height="7" rx="1" stroke="#9A948A" strokeWidth="1.3" />
+                  <circle cx="64" cy="48" r="4.5" fill="#CBB478" />
+                  <path d="M57 66 C57 58, 71 58, 71 66" fill="#CBB478" />
+                </svg>
+              </div>
+              <div className="ttl">
+                見学メモを
+                <br />
+                おこす
+              </div>
+            </button>
+            </div>
+            <div className="cards-sub">
+
+            <button className="hcard sub" style={{ ["--c" as string]: "var(--t3)" }} onClick={onSheet}>
               <div className="art" aria-hidden>
                 {/* 枠のある用紙＋印刷して出てくる矢印 */}
                 <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -128,7 +156,7 @@ export default function Home({ onMemo, onSheet, toast }: Props) {
               <div className="ttl">用紙を印刷</div>
             </button>
 
-            <a className="hcard" style={{ ["--c" as string]: "var(--t5)" }} href="/about" target="_blank" rel="noopener">
+            <a className="hcard sub" style={{ ["--c" as string]: "var(--t5)" }} href="/about" target="_blank" rel="noopener">
               <div className="art" aria-hidden>
                 {/* インデックスタブ付きの冊子 */}
                 <svg viewBox="0 0 80 80" fill="none" xmlns="http://www.w3.org/2000/svg">
@@ -155,6 +183,7 @@ export default function Home({ onMemo, onSheet, toast }: Props) {
               </div>
               <div className="ttl">使い方</div>
             </a>
+            </div>
           </div>
           {READINGS.length > 0 && (
             <section className="hs-shelf" aria-labelledby="hs-h">

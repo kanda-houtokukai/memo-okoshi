@@ -322,17 +322,19 @@ test("用紙に氏名の注記を入れない／説明文を置かない（P7-e�
   }
 });
 
-test("ホームが起点で、カードは4枚（面談／会議／用紙／使い方）・説明文なし（P7-e・P9）", () => {
+test("ホームが起点で、カードは5枚（面談／会議／見学／用紙／使い方）・説明文なし（P7-e・P9・P21）", () => {
   const page = readFileSync("app/page.tsx", "utf8");
   assert.ok(page.includes('useState<Mode>("home")'), "アプリの起点はホーム");
   assert.ok(page.includes('setMode("sheet")') && page.includes('setMode("intake")'), "ホームから両方へ行ける");
 
   const home = readFileSync("app/components/Home.tsx", "utf8");
-  assert.equal((home.match(/className="hcard"/g) ?? []).length, 4, "カードは4枚（P9: 面談と会議の入口を分けた）");
-  for (const t of ["面談メモを", "会議メモを", "用紙を印刷", "使い方"]) assert.ok(home.includes(t), `${t} のカードがある`);
+  // P21: 「おこす」3枚（.hcard）と、用紙・使い方（.hcard.sub）
+  assert.equal((home.match(/className="hcard"/g) ?? []).length, 3, "「おこす」は3枚（面談・会議・見学）");
+  assert.equal((home.match(/className="hcard sub"/g) ?? []).length, 2, "用紙と使い方は別のまとまり");
+  for (const t of ["面談メモを", "会議メモを", "見学メモを", "用紙を印刷", "使い方"]) assert.ok(home.includes(t), `${t} のカードがある`);
   // 4枚のカードの範囲（下の「ひと息」の棚・P17 の矢印は数えない）
   const cardsBlock = home.slice(home.indexOf('className="cards"'), home.indexOf('className="hs-shelf"'));
-  assert.equal((cardsBlock.match(/<svg /g) ?? []).length, 4, "4枚ともSVGの絵を持つ");
+  assert.equal((cardsBlock.match(/<svg /g) ?? []).length, 5, "5枚ともSVGの絵を持つ");
   assert.ok(home.includes('onMemo("interview")') && home.includes('onMemo("meeting")'), "入口で記録の種類が決まる");
   assert.ok(home.includes("about={false}"), "使い方はカードにあるので、ヘッダーには二重に出さない");
   // タイトル以外の文字を置かない
@@ -342,7 +344,7 @@ test("ホームが起点で、カードは4枚（面談／会議／用紙／使�
   // （「面談メモを／おこす」は <br> で2行に割った1つの題）
   assert.deepEqual(
     words,
-    ["メモおこし", "面談記録と会議録のための文字おこしツール", "面談メモを", "おこす", "会議メモを", "おこす", "用紙を印刷", "使い方"],
+    ["メモおこし", "面談記録と会議録のための文字おこしツール", "面談メモを", "おこす", "会議メモを", "おこす", "見学メモを", "おこす", "用紙を印刷", "使い方"],
     `説明文がある → ${words.join(" / ")}`
   );
   const cards = home.slice(home.indexOf('className="cards"'));
@@ -351,7 +353,7 @@ test("ホームが起点で、カードは4枚（面談／会議／用紙／使�
   // 狭い画面では横長の一列にする
   const css = readFileSync("app/globals.css", "utf8");
   const narrow = css.slice(css.indexOf("@media (max-width:620px)"));
-  assert.ok(narrow.includes(".cards{grid-template-columns:1fr}"), "狭い画面では一列");
+  assert.ok(narrow.includes(".cards{grid-template-columns:1fr;gap:22px}") && narrow.includes(".cards-main,.cards-sub{grid-template-columns:1fr"), "狭い画面では一列（まとまりのあいだは広め・P21）");
   assert.ok(narrow.includes("flex-direction:row"), "狭い画面では横長のカード");
 });
 

@@ -3,6 +3,7 @@
 // [DECISION 2026-09-23] **押印欄は用紙から外し、完成形（Word・PDF）に移す**（P12・設計側の指示）。
 //   押印は完成した記録を承認するために押すもので、白紙の用紙を書く段階では要らない（P9 で用紙に付けたのは設計側の誤解）。
 //   ラベルと寸法は用紙のときと同じ: 面談は「記録者」の1枠、会議は「作成者」「署名」の2枠。
+//   見学は「記録者」の1枠（面談と同じ・P21・設計側）。
 //   押印の枠は **15mm 角**（認印の直径 10.5〜12mm＋周りに 1.5mm ずつの余白。枠線に印影が触れると読めない）。
 //   枠線 0.25mm #444、ラベルは 7pt・背景 #efece6、ラベルの行の高さは文字に合わせる（固定しない）。
 // [DECISION 2026-09-23] **Word と PDF は同じ定義から作る**: PDF は `stampCss()` の CSS を印刷のあいだだけ差し込み
@@ -13,7 +14,7 @@ import type { RecordType } from "./items.ts";
 
 export const STAMP = {
   /** 種類ごとのラベル（左から。枠の数＝ラベルの数） */
-  labels: { interview: ["記録者"], meeting: ["作成者", "署名"] } as Record<RecordType, readonly string[]>,
+  labels: { interview: ["記録者"], meeting: ["作成者", "署名"], visit: ["記録者"] } as Record<RecordType, readonly string[]>,
   /** 押印の枠（正方形の一辺・mm） */
   cellMm: 15,
   /** 枠線（mm） */
@@ -28,7 +29,7 @@ export const STAMP = {
 
 /** その種類のラベル。知らない値は面談として扱う（API の record_type と同じ扱い） */
 export function stampLabels(type: RecordType | undefined): readonly string[] {
-  return type === "meeting" ? STAMP.labels.meeting : STAMP.labels.interview;
+  return type === "meeting" ? STAMP.labels.meeting : type === "visit" ? STAMP.labels.visit : STAMP.labels.interview;
 }
 
 /** mm → Word の twips（1440 twips = 1インチ = 25.4mm） */
