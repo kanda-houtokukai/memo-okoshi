@@ -22,6 +22,8 @@ export type Token = {
   /** 将来: 元メモの該当箇所への参照。P3時点ではAPIが返さず、連動はスコープ外（フックのみ） */
   ref?: string | null;
   resolved?: boolean;
+  /** 塗っていないのに出た〇〇を機械で黄にしたもの（P26・lib/oo-guard.ts）。押したときの一文を OO_TEXT にする。画面の中だけ */
+  oo?: boolean;
 };
 
 export type SpillItem = {

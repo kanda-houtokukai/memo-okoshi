@@ -305,7 +305,7 @@ test("Issue は同じ題が開いていれば立てない", async () => {
   assert.deepEqual(r, { opened: ["B"], skipped: ["A", "B"] });
 });
 
-test("見張りを通しで（Gemini と GitHub は偽物）: 評価用の鍵だけで呼び、Issue・混雑の記録・前回の一覧を残す", () => {
+test("見張りを通しで（Gemini と GitHub は偽物）: 評価用の鍵だけで呼び、Issue・混雑の記録・前回の一覧・返答を残す", async () => {
   const root = mkdtempSync(join(tmpdir(), "watch-run-"));
   const dir = join(root, "state");
   const log = join(root, "calls.jsonl");
@@ -346,6 +346,15 @@ test("見張りを通しで（Gemini と GitHub は偽物）: 評価用の鍵だ
   assert.ok(cg.includes("| gemini-3.6-flash | 緊急用 | 課金が要る | 429 |"));
   assert.ok(existsSync(join(dir, "eval")), "新しいモデルの評価結果も残す");
   assert.ok(!/test-eval|test-prod/.test(cg + JSON.stringify(st)), "鍵の値を記録に書かない");
+  // P26: 小さな変換の返答を outputs/ に残す（画像と鍵は残さない）
+  const { readdirSync } = await import("node:fs");
+  const outs = readdirSync(join(dir, "outputs"));
+  assert.equal(outs.length, 1);
+  const saved = readFileSync(join(dir, "outputs", outs[0]), "utf8");
+  const so = JSON.parse(saved);
+  assert.equal(so.case, "hard");
+  assert.ok(so.probes.find((p: any) => p.model === "gemini-3.5-flash-lite").output.sections, "変換できた返答が残る");
+  assert.ok(!/test-eval|test-prod|base64|data:image/.test(saved), "鍵と画像を残さない");
 
   // 翌日: 同じ題の Issue が開いていれば立てない・新しいモデルはもう新しくない
   writeFileSync(log, "");

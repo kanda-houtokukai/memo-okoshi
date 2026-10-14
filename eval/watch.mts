@@ -14,6 +14,7 @@
 //      - 新しい Flash 系のモデルが一覧に出た（評価キット eval/run.mts を 3件×1回 走らせ、結果を本文に付ける）
 //      ※ 緊急用のモデルの異常は Issue にしない（設計側の指示が試験済みだけ）。混雑の記録には残る
 //   4. 混雑の記録（congestion.md: 時刻・モデル・結果）に1行ずつ足し、state.json を書く
+//   5. 小さな変換の返答（記録の形にした JSON）を outputs/YYYY-MM-DD-HHMM.json に残す（P26。あとで採点を検められるように。画像と鍵は残さない）
 // 置き場所は GitHub の watch-log ブランチ（main とは別の、記録だけの枝。ワークフローがコミットする）。
 
 import { spawnSync } from "node:child_process";
@@ -52,6 +53,8 @@ export type Probe = {
   pass?: boolean;
   reasons?: string[];
   error?: string;
+  /** 変換できたときの返答（記録の形にしたもの・P26）。画像は入らない */
+  output?: unknown;
 };
 
 export type IssueSpec = { title: string; body: string };
@@ -193,7 +196,7 @@ async function probe(model: string, tier: Probe["tier"], listed: string[], key: 
   const data = finishConversion(r.text, c.record_type);
   if (!data) return { at, model, tier, result: "unreadable", status: 200, ms };
   const j = judgeRun(c, scoreRun(c, data));
-  return { at, model, tier, result: "ok", status: 200, ms, pass: j.pass, reasons: j.reasons };
+  return { at, model, tier, result: "ok", status: 200, ms, pass: j.pass, reasons: j.reasons, output: data };
 }
 
 /** 新しいモデルを評価キットで 3件×1回 測り、結果の表（md）を返す。評価キットも評価用の鍵だけを使う */
@@ -291,7 +294,15 @@ async function main() {
   writeFileSync(logPath, log + probes.map(congestionRow).join("\n") + "\n");
   const next: WatchState = { checkedAt: at, models: listed, busyDays };
   writeFileSync(statePath, JSON.stringify(next, null, 1) + "\n");
-  console.log(`${stateDir} に記録した（state.json・congestion.md）`);
+  // 返答を残す（P26）。鍵は返答に入らないが、念のため伏せる
+  mkdirSync(join(stateDir, "outputs"), { recursive: true });
+  // 名前は日本時間の秒まで（分までだと、同じ分に手で2回動かしたときに上書きになる。P25 の評価で踏んだ）
+  const outName = new Date(new Date(at).getTime() + 9 * 3600e3).toISOString().slice(0, 19).replace("T", "-").replace(/:/g, "");
+  writeFileSync(
+    join(stateDir, "outputs", `${outName}.json`),
+    maskKey(JSON.stringify({ at, case: WATCH_CASE, probes: probes.map(({ model, tier, result, status, pass, reasons, output }) => ({ model, tier, result, status, pass, reasons, output })) }, null, 1)) + "\n"
+  );
+  console.log(`${stateDir} に記録した（state.json・congestion.md・outputs/${outName}.json）`);
 }
 
 // テストが関数だけを読み込むときは動かさない（node eval/watch.mts で直に呼ばれたときだけ動く）

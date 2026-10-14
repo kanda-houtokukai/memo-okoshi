@@ -18,11 +18,13 @@
 //   本番のビルド（Vercel・`npm run build`）では "0" で、下の分岐ごとビルドの出力から消える（`tests/fixture.test.mts`）。
 //   以前は public/ に置いていたので、本番でもゲートの内側で配られ、?fixture=1 で開けた。
 //   撮影用に ?fixture=1&emergency=1 で「緊急用のモデルで読んだ」ときの確認画面を開ける（P23。これも撮影用のビルドだけ）。
+//   ?fixture=1&oo=1 で「〇〇の保険」が効いた確認画面を開ける（P26。撮影用のビルドだけ）。
 
 import { useEffect, useRef, useState } from "react";
 import { ITEM_LIBRARY, libraryFor, type RecordType } from "@/lib/items";
 import { fromApi, type ApiData, type RecordState } from "@/lib/record";
-import { exportMasked, filesToPages, releasePage, type PageItem } from "@/lib/pages";
+import { exportMasked, filesToPages, maskClusters, releasePage, type PageItem } from "@/lib/pages";
+import { guardOO } from "@/lib/oo-guard";
 import { moveBy, moveTo } from "@/lib/reorder";
 import type { MaskState } from "@/lib/mask";
 import { loadVocab } from "@/lib/vocab";
@@ -40,8 +42,11 @@ import type { Step } from "./components/StepHeader";
 /** 画面。ホームが起点で、そこから「メモをおこす」（intake→mask→review）と「面談用紙」へ分かれる */
 type Mode = "home" | "sheet" | "intake" | "mask" | "review";
 
-/** 変換API呼び出し（初回も再変換も同じ）。blobs は焼き込み後の画像だけ。type は記録の種類（P9） */
-async function callConvert(blobs: Blob[], itemIds: string[], type: RecordType): Promise<{ ok: true; data: ApiData } | { ok: false; error: string }> {
+/**
+ * 変換API呼び出し（初回も再変換も同じ）。blobs は焼き込み後の画像だけ。type は記録の種類（P9）。
+ * clusters は塗りのまとまりの数（P26・〇〇の保険）。**送らない**: 返答の〇〇と比べるためだけに、ここで受け取る。
+ */
+async function callConvert(blobs: Blob[], itemIds: string[], type: RecordType, clusters: number): Promise<{ ok: true; data: ApiData } | { ok: false; error: string }> {
   const fd = new FormData();
   blobs.forEach((b, i) => fd.append("images", b, `page-${i + 1}.jpg`));
   fd.append("items", JSON.stringify(itemIds));
@@ -53,7 +58,8 @@ async function callConvert(blobs: Blob[], itemIds: string[], type: RecordType): 
   //   生のモデル出力（raw）や HTTP の中身は出さない（読めない情報を見せない）。
   if (!json.ok) return { ok: false, error: String(json.error ?? "変換できませんでした。もう一度試してください。") };
   // P23: 緊急用のモデルで読んだら印を付ける（確認画面の上に注意を出すためだけ。保存も出力もしない）
-  return { ok: true, data: { ...(json.data as ApiData), emergency: json.tier === "emergency" } };
+  // P26: 塗りのまとまりより〇〇が多ければ、〇〇をすべて黄にする（lib/oo-guard.ts）
+  return { ok: true, data: guardOO({ ...(json.data as ApiData), emergency: json.tier === "emergency" }, clusters) };
 }
 
 export default function Page() {
@@ -71,6 +77,7 @@ export default function Page() {
   const [dlg, setDlg] = useState<DialogSpec | null>(null);
   const urls = useRef<string[]>([]);
   const blobs = useRef<Blob[]>([]); // 焼き込み後の画像（再変換に使う）
+  const clusters = useRef(0); // 塗りのまとまりの数（P26・〇〇の保険）。送らない・保存しない
   const { toast, msg, on } = useToast();
 
   useEffect(() => {
@@ -82,7 +89,21 @@ export default function Page() {
       import("@/lib/dev-fixture.json")
         .then((m) => {
           const f = m.default as unknown as ApiData & { pages?: MemoPage[] };
-          setRec(fromApi({ ...f, emergency: q.get("emergency") === "1" }, ITEM_LIBRARY, s.enabled, s.order));
+          // 撮影用（P26）: &oo=1 で、返答ににじみを〇〇と書いた2か所を差し込み、塗りのまとまり1つ（開発データのメモの塗り）と比べて黄にする
+          const data: ApiData =
+            q.get("oo") === "1"
+              ? guardOO(
+                  {
+                    ...f,
+                    sections: f.sections.map((sec) => ({
+                      ...sec,
+                      tokens: sec.tokens.map((t) => ({ ...t, s: t.s.replace("週3回", "週〇〇回").replace("9月の通院", "〇〇月の通院") })),
+                    })),
+                  },
+                  1
+                )
+              : f;
+          setRec(fromApi({ ...data, emergency: q.get("emergency") === "1" }, ITEM_LIBRARY, s.enabled, s.order));
           setMemoPages(f.pages ?? []);
           setMode("review");
         })
@@ -136,7 +157,8 @@ export default function Page() {
       const s = loadSettings(lib, type);
       const out: Blob[] = [];
       for (const p of pages) out.push(await exportMasked(p)); // ← 送るのは焼き込み後だけ
-      const r = await callConvert(out, s.order.filter((id) => s.enabled[id]), type);
+      const nClusters = pages.reduce((n, p) => n + maskClusters(p), 0); // 端末の中だけ（P26）
+      const r = await callConvert(out, s.order.filter((id) => s.enabled[id]), type, nClusters);
       if (!r.ok) {
         // 理由と再試行の導線は伏せる画面のエラー欄に出る（トーストは気づかせるだけ）
         setError(r.error);
@@ -144,6 +166,7 @@ export default function Page() {
         return;
       }
       blobs.current = out;
+      clusters.current = nClusters;
       urls.current.forEach((u) => URL.revokeObjectURL(u));
       urls.current = out.map((b) => URL.createObjectURL(b));
       setMemoPages(urls.current.map((src) => ({ src })));
@@ -161,7 +184,7 @@ export default function Page() {
   /** 追加した項目だけを埋める再変換（項目6）。焼き込み済み画像をそのまま再送する */
   const reconvert = async (itemIds: string[]): Promise<ApiData | null> => {
     if (blobs.current.length === 0) return null;
-    const r = await callConvert(blobs.current, itemIds, type);
+    const r = await callConvert(blobs.current, itemIds, type, clusters.current);
     if (!r.ok) {
       toast(r.error);
       return null;
@@ -174,6 +197,7 @@ export default function Page() {
     urls.current.forEach((u) => URL.revokeObjectURL(u));
     urls.current = [];
     blobs.current = [];
+    clusters.current = 0;
     setRec(null);
     setMemoPages([]);
     setError("");

@@ -419,7 +419,7 @@ test("黄・青・赤とも「そのまま確定」が主ボタン（赤は「�
     yellow.indexOf('className="pri"') < yellow.indexOf("candidatesFor"),
     "主ボタンは候補の一覧より前に置く"
   );
-  assert.ok(yellow.includes("onResolve(null, learn)"), "主ボタンは語を変えずに確定する");
+  assert.ok(yellow.includes("onResolve(null, token.oo ? false : learn)"), "主ボタンは語を変えずに確定する（〇〇の保険の黄は辞書に入れない・P26）");
   assert.ok(yellow.includes("candidatesFor(token)"), "候補は現在の語を外して出す");
   assert.ok(!yellow.includes("(token.cands ?? []).map"), "生の cands をそのまま並べない");
   assert.ok(yellow.includes('placeholder="自分で入力して直す"'), "自由入力は残す");

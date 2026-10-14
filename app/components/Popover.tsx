@@ -12,9 +12,12 @@
 //    ①そのまま確定（主ボタン）→ ②選び直す／書き直す → ③消す（青のみ）。
 //    黄には「読みは合っていた」を選ぶ道が無く、最も多い結末に出口が無かった。
 //    候補は `candidatesFor` が現在の語を外して返す（主ボタンと同じ語を二重に出さない）。
+//  - [DECISION 2026-10-14・設計側] 〇〇の保険で黄にした語（`token.oo`・P26）は、押したときに OO_TEXT の一文を出し、候補は出さない。
+//    確定・書き直しは既存の黄と同じ。「辞書に追加」は出さない（「〇〇」を事業所の言葉に入れないため。P26 の判断）。
 
 import { useState } from "react";
 import { candidatesFor, type Token } from "@/lib/record";
+import { OO_TEXT } from "@/lib/oo-guard";
 
 type Pos = { left: number; top: number };
 
@@ -59,7 +62,7 @@ export default function Popover(props: Props) {
   const submit = () => {
     const v = val.trim();
     if (!v) return;
-    onResolve(v, token.t === "y" ? learn : undefined);
+    onResolve(v, token.t === "y" && !token.oo ? learn : undefined);
   };
 
   return (
@@ -71,10 +74,11 @@ export default function Popover(props: Props) {
       {token.t === "y" && (
         <>
           <div className="pt y">読み取りに自信なし</div>
-          <button className="pri" onClick={() => onResolve(null, learn)}>
+          {token.oo && <div className="pd">{OO_TEXT}</div>}
+          <button className="pri" onClick={() => onResolve(null, token.oo ? false : learn)}>
             このままで確定する
           </button>
-          {candidatesFor(token).map((c, i) => (
+          {!token.oo && candidatesFor(token).map((c, i) => (
             <button key={i} onClick={() => onResolve(c, learn)}>
               {c}
             </button>
@@ -85,10 +89,12 @@ export default function Popover(props: Props) {
             onChange={(e) => setVal(e.target.value)}
           />
           <button onClick={submit}>直して確定</button>
-          <label className="pop-chk">
-            <input type="checkbox" checked={learn} onChange={(e) => setLearn(e.target.checked)} />
-            辞書に追加
-          </label>
+          {!token.oo && (
+            <label className="pop-chk">
+              <input type="checkbox" checked={learn} onChange={(e) => setLearn(e.target.checked)} />
+              辞書に追加
+            </label>
+          )}
         </>
       )}
 

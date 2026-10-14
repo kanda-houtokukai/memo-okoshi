@@ -116,3 +116,49 @@ export function drawSegment(
   ctx.stroke();
   ctx.restore();
 }
+
+/**
+ * 塗りの「まとまり」の数（P26・〇〇の保険）。grid は塗った升を 1 とする小さな格子（lib/pages.ts の maskClusters が作る）。
+ * 升どうしが縦・横・斜めで接していれば同じまとまり。radius 升ぶん太らせてから数える＝その幅までの隙間はつながっているとみなす。
+ * [DECISION 2026-10-14 P26] 数えるのは多めにつなぐ側に倒す: 1つの名前を何筆かで塗っても1つと数える。つなぎすぎて少なく数えると、
+ *   〇〇が「塗りより多い」と判じやすくなり黄が多めに付く（設計側: 多めの黄は許す・見逃しを避ける）。逆（分けすぎ）は見逃しにつながる。
+ */
+export function countClusters(grid: ArrayLike<number>, w: number, h: number, radius = 1): number {
+  const on = new Uint8Array(w * h);
+  for (let y = 0; y < h; y++)
+    for (let x = 0; x < w; x++) {
+      if (!grid[y * w + x]) continue;
+      for (let dy = -radius; dy <= radius; dy++)
+        for (let dx = -radius; dx <= radius; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx >= 0 && ny >= 0 && nx < w && ny < h) on[ny * w + nx] = 1;
+        }
+    }
+  const seen = new Uint8Array(w * h);
+  let n = 0;
+  const stack: number[] = [];
+  for (let i = 0; i < w * h; i++) {
+    if (!on[i] || seen[i]) continue;
+    n++;
+    seen[i] = 1;
+    stack.push(i);
+    while (stack.length) {
+      const j = stack.pop()!;
+      const x = j % w;
+      const y = (j - x) / w;
+      for (let dy = -1; dy <= 1; dy++)
+        for (let dx = -1; dx <= 1; dx++) {
+          const nx = x + dx;
+          const ny = y + dy;
+          if (nx < 0 || ny < 0 || nx >= w || ny >= h) continue;
+          const k = ny * w + nx;
+          if (on[k] && !seen[k]) {
+            seen[k] = 1;
+            stack.push(k);
+          }
+        }
+    }
+  }
+  return n;
+}

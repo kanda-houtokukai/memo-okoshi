@@ -3,7 +3,7 @@
 // 原則5: 元画像・元PDFは端末内に留める。API へ渡すのは exportMasked() の出力だけ。
 //        PDF のページ画像化も端末内（pdf.js を CDN から読み込んでブラウザ内で描画）。
 
-import { EMPTY_MASK, renderStrokes, type MaskState } from "./mask";
+import { EMPTY_MASK, countClusters, renderStrokes, type MaskState } from "./mask";
 
 /** 書き出し画像の最長辺（実機で調整が必要な値）。手書きの判読性と送信サイズの折り合い */
 export const MAX_SIDE = 2200;
@@ -175,6 +175,30 @@ export async function exportMasked(page: PageItem): Promise<Blob> {
   return new Promise<Blob>((res, rej) =>
     c.toBlob((b) => (b ? res(b) : rej(new Error("toBlob failed"))), "image/jpeg", JPEG_QUALITY)
   );
+}
+
+/** 塗りのまとまりを数える格子の長い辺の升の数（P26）。2200px の写真なら1升 約11px */
+export const CLUSTER_GRID = 200;
+
+/**
+ * このページの塗りのまとまりの数（P26・〇〇の保険）。焼き込み（exportMasked）と同じ renderStrokes で小さなキャンバスに描き、
+ * 不透明度が半分以上の升を「塗った升」として countClusters で数える（消しゴムで消した分も同じ描き方で引ける）。
+ * ⚠️ **この数は端末の中だけ**（送らない・保存しない。原則5）。変換の返答の〇〇と比べるためだけに使う。
+ */
+export function maskClusters(page: PageItem): number {
+  if (!page.mask.strokes.some((s) => !s.erase)) return 0;
+  const k = CLUSTER_GRID / Math.max(page.width, page.height);
+  const w = Math.max(1, Math.round(page.width * k));
+  const h = Math.max(1, Math.round(page.height * k));
+  const c = document.createElement("canvas");
+  c.width = w;
+  c.height = h;
+  const ctx = c.getContext("2d", { willReadFrequently: true })!;
+  renderStrokes(ctx, page.mask.strokes, k);
+  const px = ctx.getImageData(0, 0, w, h).data;
+  const grid = new Uint8Array(w * h);
+  for (let i = 0; i < w * h; i++) grid[i] = px[i * 4 + 3] >= 128 ? 1 : 0;
+  return countClusters(grid, w, h, 1);
 }
 
 export function releasePage(p: PageItem): void {

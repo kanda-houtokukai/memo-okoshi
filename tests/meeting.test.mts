@@ -273,7 +273,7 @@ test("変換API: 種類を受け取り、面談・会議とも人名の機械検
   assert.ok(page.includes("useState<RecordType>(\"interview\")"), "既定は面談");
   assert.ok(page.includes("fromApi(r.data, lib, s.enabled, s.order, type)") && page.includes("loadSettings(lib, type)"));
   // 種類は変換の最後（確認画面）まで同じ state で保たれ、再変換にも同じ種類を渡す
-  assert.ok(page.includes("callConvert(blobs.current, itemIds, type)"));
+  assert.ok(page.includes("callConvert(blobs.current, itemIds, type, clusters.current)")); // P26: 塗りのまとまりの数（送らない）を足した
 });
 
 test("確認画面: 人名の札は面談・会議とも出す（P15）。項目・保存の鍵・出力の題は種類に従う", () => {
