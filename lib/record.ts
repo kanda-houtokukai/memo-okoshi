@@ -44,7 +44,18 @@ export type RecordState = {
   insights: Insight[];
   /** これまでの変換（初回＋再変換）でAIに渡した項目 id。未変換の項目に「再変換」を出す判定に使う */
   converted?: string[];
+  /**
+   * 緊急用のモデルで読んだか（初回か再変換のどちらかで。P23）。確認画面の上に `EMERGENCY_TEXT` を出すためだけに使う。
+   * ⚠️ **保存しない・送らない**（原則5）。**転記用テキスト・Word・PDF に入れない**（原則1。recordEntries・buildOutputText はここを読まない）。
+   */
+  emergency?: boolean;
 };
+
+/**
+ * 緊急用のモデルで読んだときに、確認画面の上に出す一文（P23・設計側の文面）。閉じるボタンは付けない。記録が終われば（画面を離れれば）消える。
+ * 緊急時だけ出すので常時表示の注記ではない（原則4に触れない）。
+ */
+export const EMERGENCY_TEXT = "混雑のため、予備の読み取りを使いました。読み違いの印が付きにくいことがあります。元のメモとよく見比べてください。";
 
 /* ---------- API応答 → 状態 ---------- */
 
@@ -53,6 +64,8 @@ export type ApiData = {
   sections: { id: string; tokens: Token[] }[];
   spill: { text: string; suggest: string | null }[];
   insights: { text: string; why: string; refs: string[] }[];
+  /** 緊急用のモデルで読んだか（P23）。サーバーの data には無く、画面（callConvert）が応答の tier から付ける */
+  emergency?: boolean;
 };
 
 export function fromApi(
@@ -87,6 +100,7 @@ export function fromApi(
     spill: [...(data.spill ?? []).map((s) => ({ text: s.text, sug: s.suggest })), ...strays],
     insights: (data.insights ?? []).map((i) => ({ s: i.text, why: i.why, refs: i.refs ?? [] })),
     converted: data.sections.map((s) => s.id),
+    emergency: data.emergency === true,
   };
 }
 
@@ -131,6 +145,8 @@ export function mergeReconvert(state: RecordState, data: ApiData, lib: ItemDef[]
     spill,
     insights: (data.insights ?? []).map((i) => ({ s: i.text, why: i.why, refs: i.refs ?? [] })),
     converted: [...new Set([...(state.converted ?? []), ...data.sections.map((s) => s.id)])],
+    // 再変換だけが緊急用でも、記録の一部は予備で読んでいる。一度付いた印は記録が終わるまで外さない
+    emergency: state.emergency === true || data.emergency === true,
   };
 }
 

@@ -77,6 +77,8 @@ header{background:var(--surface);border-bottom:1px solid var(--line);position:st
 
 /* ---------- layout ---------- */
 .wrap{max-width:1200px;margin:0 auto;padding:16px 18px 100px;display:grid;grid-template-columns:5fr 6fr;gap:18px}
+/* 緊急用のモデルで読んだときの注意（P23）。両方の列にまたがる。黄は「読み取りの確かさ」の色で、赤（伏せ忘れ）は使わない */
+.emergency-note{grid-column:1/-1;margin:0;padding:10px 14px;border-radius:9px;background:#fbf3d9;border-left:4px solid var(--y-line);color:var(--y-ink);font-size:.86rem;line-height:1.65}
 .pane-h{display:flex;align-items:center;gap:10px;margin-bottom:8px;flex-wrap:wrap}
 .pane-h h2{font-family:var(--head);font-size:.8rem;letter-spacing:.16em;color:var(--sub);font-weight:700}
 .pane-h .note{font-size:.68rem;color:#a8a297}

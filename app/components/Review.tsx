@@ -10,6 +10,7 @@ import {
   activeIds,
   buildOutputText,
   counts,
+  EMERGENCY_TEXT,
   mergeReconvert,
   moveSection,
   moveSpillTo,
@@ -348,6 +349,13 @@ export default function Review({ initial, pages, onRestart, onStep, onHome, onRe
       />
 
       <div className="wrap">
+        {/* [DECISION 2026-10-14・設計側] 緊急用のモデルで読んだ記録だけ、確認画面の上に出す（P23）。閉じるボタンは付けない。
+            記録が終われば（この画面を離れれば）消える。赤は伏せ忘れの知らせ（原則3）なので使わない。 */}
+        {rec.emergency && (
+          <p className="emergency-note" role="status">
+            {EMERGENCY_TEXT}
+          </p>
+        )}
         <div className="mobile-tabs">
           <button className={mobileTab === "memo" ? "on" : ""} onClick={() => setMobileTab("memo")}>
             元メモ

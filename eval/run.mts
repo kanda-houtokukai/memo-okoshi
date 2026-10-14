@@ -1,7 +1,7 @@
 // 評価キット（P20）: モデルを同じ物差しで測る。Node の標準機能だけ（npm の依存なし）。
 //
 // 使い方（リポジトリの直下で）:
-//   node eval/run.mts                                   … 本番の優先リスト（lib/gemini.ts の PREFERRED）を、3件×3回
+//   node eval/run.mts                                   … 本番の試験済み＋緊急用（lib/gemini.ts の MODEL_TIERS）を、3件×3回
 //   node eval/run.mts --models gemini:gemini-3.7-flash --runs 2
 //   node eval/run.mts --models gemini:gemini-3.5-flash --cases hard --runs 1
 //   node eval/run.mts --dry                             … API を呼ばず、組み立て（プロンプト・画像・正解）だけ確かめる
@@ -13,18 +13,18 @@
 //   違うのは「優先リストの順に試す」ことだけ（評価はモデルを名指しする）。
 // [DECISION 2026-10-14] **無料枠を無理に使わない**: 失敗しても重ねて呼ばない（再試行しない）。そのモデルで 429（枠切れ）が出たら、
 //   そのモデルはそこで止める。503（混雑）が2回続いても止める。呼ぶ間は数秒空ける。
-// 「毎日の見張り」（次の指示）からも、このファイルを同じ引数で呼ぶ。
+// [DECISION 2026-10-14・設計側] **鍵は評価用（GEMINI_EVAL_API_KEY）だけ**。無い・本番の鍵と同じなら、1回も呼ばずに止まる（P23・eval/providers.ts の keyFor）。
+// 「毎日の見張り」（eval/watch.mts）は、新しい Flash 系のモデルが出たときにこのファイルを --runs 1 で呼ぶ。
 
 import { createHash } from "node:crypto";
 import { execSync } from "node:child_process";
-import { existsSync, mkdirSync, readFileSync, readdirSync, writeFileSync } from "node:fs";
+import { mkdirSync, writeFileSync } from "node:fs";
 import { join } from "node:path";
-import { buildPrompt } from "../lib/prompt.ts";
-import { itemsByIds, libraryFor } from "../lib/items.ts";
-import { PREFERRED } from "../lib/gemini.ts";
+import { ALL_TIER_MODELS } from "../lib/gemini.ts";
 import { finishConversion } from "../lib/convert-core.ts";
-import { parseModelSpec } from "./providers.ts";
-import { scoreRun, type EvalCase, type RunScore } from "./score.ts";
+import { keyFor, loadEnvLocal, parseModelSpec } from "./providers.ts";
+import { inputs, loadCases } from "./cases.ts";
+import { scoreRun, type RunScore } from "./score.ts";
 import { CRITERIA, judgeRun } from "./criteria.ts";
 
 /* ---------- 引数 ---------- */
@@ -33,7 +33,7 @@ const opt = (name: string, def: string) => {
   const i = args.indexOf(name);
   return i >= 0 && args[i + 1] ? args[i + 1] : def;
 };
-const MODELS = opt("--models", PREFERRED.map((m) => `gemini:${m}`).join(",")).split(",").filter(Boolean);
+const MODELS = opt("--models", ALL_TIER_MODELS.map((m) => `gemini:${m}`).join(",")).split(",").filter(Boolean);
 const RUNS = Number(opt("--runs", "3"));
 const CASES = opt("--cases", "").split(",").filter(Boolean);
 const OUT = opt("--out", "docs/eval");
@@ -41,33 +41,15 @@ const GAP_MS = Number(opt("--gap", "4000"));
 const DRY = args.includes("--dry");
 
 /* ---------- 鍵（.env.local。値は表示しない・結果にも書かない） ---------- */
-if (existsSync(".env.local")) {
-  for (const line of readFileSync(".env.local", "utf8").split("\n")) {
-    const m = line.match(/^\s*([A-Z0-9_]+)\s*=\s*(.*)\s*$/);
-    if (m && process.env[m[1]] === undefined) process.env[m[1]] = m[2].replace(/^["']|["']$/g, "");
-  }
-}
+loadEnvLocal();
 
 /* ---------- 正解 ---------- */
-const cases: EvalCase[] = readdirSync("eval/cases")
-  .filter((f) => f.endsWith(".json"))
-  .sort()
-  .map((f) => JSON.parse(readFileSync(join("eval/cases", f), "utf8")) as EvalCase)
-  .filter((c) => CASES.length === 0 || CASES.includes(c.id));
-if (cases.length === 0) throw new Error("評価するメモがありません");
+const cases = loadCases(CASES);
 
 /** 日本時間の時:分:秒（記録と表示用） */
 const jst = (iso: string) => new Date(new Date(iso).getTime() + 9 * 3600e3).toISOString().slice(11, 19);
 const sha = (s: string) => createHash("sha256").update(s).digest("hex").slice(0, 12);
 const sleep = (ms: number) => new Promise((r) => setTimeout(r, ms));
-
-function inputs(c: EvalCase) {
-  const items = itemsByIds(c.items, libraryFor(c.record_type));
-  if (items.length !== c.items.length) throw new Error(`${c.id}: 知らない項目 id がある`);
-  const prompt = buildPrompt(items, [], c.record_type);
-  const image = { mimeType: "image/jpeg", base64: readFileSync(c.image).toString("base64") };
-  return { prompt, image };
-}
 
 type RunRecord = {
   /** 呼んだ時刻（ISO・混雑の時間帯の目安にする） */
@@ -92,9 +74,22 @@ if (DRY) {
   }
   for (const m of MODELS) {
     const { provider, model } = parseModelSpec(m);
-    console.log(`${provider.id}:${model} 鍵 ${provider.keyEnv} ${process.env[provider.keyEnv] ? "あり" : "なし"}`);
+    const k = keyFor(provider);
+    console.log(`${provider.id}:${model} 鍵 ${provider.keyEnv} ${k.ok ? "あり" : k.missing ? "なし（呼べない）" : "本番の鍵と同じ（呼べない）"}`);
   }
   process.exit(0);
+}
+
+/* ---------- 鍵の確かめ（呼ぶ前に、全モデルぶんを一度に。本番の鍵では呼ばない） ---------- */
+const keys = new Map<string, string>();
+for (const spec of MODELS) {
+  const { provider } = parseModelSpec(spec);
+  const k = keyFor(provider);
+  if (!k.ok) {
+    console.error(k.message);
+    process.exit(2);
+  }
+  keys.set(spec, k.key);
 }
 
 /* ---------- 実行（回ごとに全メモ→次の回。呼ぶ間は空ける） ---------- */
@@ -105,8 +100,7 @@ const started = new Date();
 for (let run = 1; run <= RUNS; run++) {
   for (const spec of MODELS) {
     const { provider, model } = parseModelSpec(spec);
-    const key = process.env[provider.keyEnv];
-    if (!key) throw new Error(`${spec}: 鍵（${provider.keyEnv}）がありません`);
+    const key = keys.get(spec)!;
     for (const c of cases) {
       if (stopped.has(spec)) break;
       const { prompt, image } = inputs(c);

@@ -1,0 +1,75 @@
+# 毎日の見張り（P23）: Gemini の無料枠のモデルを、評価用の鍵で毎晩1回確かめる。中身は eval/watch.mts の先頭。
+# - 毎日 22:00（日本時間）= 13:00（UTC）。手で動かすときは Actions の画面の「Run workflow」。
+# - 鍵は secrets の GEMINI_EVAL_API_KEY（本番と別のプロジェクトの鍵）だけ。**未登録なら何もせず成功で終わる**（失敗の通知を出さない）。
+# - 記録（state.json・congestion.md・新しいモデルの評価結果）は watch-log ブランチに置く（main には書かない）。
+# - 異常は Issue で知らせる（同じ題の Issue が開いていれば立てない）。
+name: 毎日の見張り
+
+on:
+  schedule:
+    - cron: "0 13 * * *"
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  issues: write
+
+concurrency:
+  group: watch
+  cancel-in-progress: false
+
+jobs:
+  watch:
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    steps:
+      - name: 評価用の鍵があるか（無ければ以降は飛ばす）
+        id: key
+        env:
+          GEMINI_EVAL_API_KEY: ${{ secrets.GEMINI_EVAL_API_KEY }}
+        run: |
+          if [ -z "$GEMINI_EVAL_API_KEY" ]; then
+            echo "評価用の鍵（GEMINI_EVAL_API_KEY）が登録されていないので、何もせずに終わる。"
+            echo "has=0" >> "$GITHUB_OUTPUT"
+          else
+            echo "has=1" >> "$GITHUB_OUTPUT"
+          fi
+
+      - uses: actions/checkout@v4
+        if: steps.key.outputs.has == '1'
+
+      - uses: actions/setup-node@v4
+        if: steps.key.outputs.has == '1'
+        with:
+          node-version: 24
+
+      - name: 記録の置き場所（watch-log ブランチ）を開く
+        if: steps.key.outputs.has == '1'
+        run: |
+          git config --global user.name "github-actions[bot]"
+          git config --global user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          if git ls-remote --exit-code --heads origin watch-log > /dev/null; then
+            git fetch --depth=1 origin watch-log:watch-log
+            git worktree add watch-state watch-log
+          else
+            git worktree add --orphan -b watch-log watch-state
+          fi
+
+      - name: 見張る
+        if: steps.key.outputs.has == '1'
+        env:
+          GEMINI_EVAL_API_KEY: ${{ secrets.GEMINI_EVAL_API_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: node eval/watch.mts --state watch-state
+
+      - name: 記録を watch-log ブランチに残す
+        if: steps.key.outputs.has == '1'
+        working-directory: watch-state
+        run: |
+          git add -A
+          if git diff --cached --quiet; then
+            echo "記録に変化なし"
+          else
+            git commit -q -m "見張り $(TZ=Asia/Tokyo date '+%Y-%m-%d %H:%M')"
+            git push -q origin watch-log
+          fi

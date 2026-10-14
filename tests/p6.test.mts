@@ -3,7 +3,7 @@
 import { test } from "node:test";
 import assert from "node:assert/strict";
 import { readFileSync } from "node:fs";
-import { FAIL_TEXT, orderForTry, preferredOnly, reasonOf } from "../lib/gemini.ts";
+import { FAIL_TEXT, MODEL_TIERS, orderForTry, reasonOfKinds, tiersIn } from "../lib/gemini.ts";
 import { ITEM_LIBRARY } from "../lib/items.ts";
 import { buildOutputText, candidatesFor, counts, fromApi, mergeReconvert, pendingReconvertIds, recordEntries, resolveToken, saveEdit, toggleItem, type ApiData, type RecordState, type Token } from "../lib/record.ts";
 import { buildDocxParts, cleanText, extractText } from "../lib/docx.ts";
@@ -240,17 +240,15 @@ test("送信前の確認は必ず出る（抑制する設定を作らない）",
   assert.ok(dlg.indexOf('className="cancel"') < dlg.indexOf('className="go"'), "戻る側が左（既定の位置）");
 });
 
-test("試すのは優先リストの中だけ（枠切れでも他のモデルへ流さない・P7-d）", () => {
-  const ordered = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash"];
-  // 優先リストにあるものだけを、リストの順で返す。**一覧の残りは付けない**
-  assert.deepEqual(preferredOnly(ordered, ["gemini-3.5-flash", "gemini-3.6-flash"]), [
-    "gemini-3.5-flash",
-    "gemini-3.6-flash",
-  ]);
-  // 一覧に無い優先モデルは飛ばす（ハードコードではなく「優先順位」・耐更改の一覧取得は維持）
-  assert.deepEqual(preferredOnly(ordered, ["gemini-9.9-flash", "gemini-3.5-flash"]), ["gemini-3.5-flash"]);
-  // 優先が1つも一覧に無ければ空＝止まる（勝手に他のモデルへ流れない）
-  assert.deepEqual(preferredOnly(ordered, ["gemini-9.9-flash"]), []);
+test("試すのは2段（試験済み・緊急用）の中だけ（一覧の他のモデルへ流さない・P7-d → P23）", () => {
+  const ordered = ["gemini-3.8-flash", "gemini-3.7-flash", "gemini-3.6-flash", "gemini-3.5-flash", "gemini-3.5-flash-lite"];
+  const tiers = { tested: ["gemini-3.5-flash"], emergency: ["gemini-3.5-flash-lite", "gemini-3.6-flash"] };
+  // 2段にあるものだけを、定義の順で返す。**一覧の残りは付けない**
+  assert.deepEqual(tiersIn(ordered, tiers), tiers);
+  // 一覧に無いモデルは飛ばす（ハードコードではなく「段の中の順」・耐更改の一覧取得は維持）
+  assert.deepEqual(tiersIn(["gemini-3.6-flash"], tiers), { tested: [], emergency: ["gemini-3.6-flash"] });
+  // 1つも一覧に無ければ空＝止まる（勝手に他のモデルへ流れない）
+  assert.deepEqual(tiersIn(["gemini-9.9-flash"], tiers), { tested: [], emergency: [] });
   // 直近で成功したものを先に試すが、リストの外には出ない
   const list = ["gemini-3.5-flash", "gemini-3.6-flash"];
   assert.deepEqual(orderForTry(list, "gemini-3.6-flash"), ["gemini-3.6-flash", "gemini-3.5-flash"]);
@@ -262,20 +260,20 @@ test("枠切れ（429）で他のモデルへ流れない（実装の形を見�
   const src = readFileSync("lib/gemini.ts", "utf8");
   const body = src.slice(src.indexOf("export async function generateWithFallback"));
   assert.ok(!body.includes("orderCandidates("), "候補づくりを関数内でやり直さない");
-  assert.ok(body.includes("orderForTry(workingList"), "候補は優先リスト由来のものだけ");
-  assert.ok(src.includes("preferredOnly(orderCandidates("), "一覧取得は維持しつつ優先リストで絞る");
+  assert.ok(body.includes("tryTiers(workingTiers"), "候補は2段由来のものだけ");
+  assert.ok(src.includes("tiersIn(await listCandidates())"), "一覧取得は維持しつつ2段で絞る");
   assert.ok(!src.includes("withPreferred"), "一覧の残りを後ろに付ける旧実装が残っていない");
-  // 429 を「次のモデルを試す理由」にしない＝候補は最初から優先リストだけ、が担保
-  assert.ok(src.includes("優先モデルがすべて使えません"), "全滅時は正直に止める");
+  // 2段の外へは出ない＝候補は最初から2段だけ、が担保（緊急用へ回る条件は tests/p23.test.mts）
+  assert.ok(src.includes("試験済みも緊急用も使えません"), "全滅時は正直に止める");
 });
 
 test("429（枠切れ）と 503（混雑）で違う案内を出す（P7-d）", () => {
-  assert.equal(reasonOf([429]), "quota");
-  assert.equal(reasonOf([429, 429]), "quota");
-  assert.equal(reasonOf([503]), "busy");
-  assert.equal(reasonOf([429, 503]), "busy", "待てば直るかもしれない方を優先して伝える");
-  assert.equal(reasonOf([500]), "error");
-  assert.equal(reasonOf([]), "error");
+  assert.equal(reasonOfKinds(["quota"]), "quota");
+  assert.equal(reasonOfKinds(["quota", "quota"]), "quota");
+  assert.equal(reasonOfKinds(["busy"]), "busy");
+  assert.equal(reasonOfKinds(["quota", "busy"]), "busy", "待てば直るかもしれない方を優先して伝える");
+  assert.equal(reasonOfKinds(["error"]), "error");
+  assert.equal(reasonOfKinds([]), "error");
 
   // 3つとも違う文言で、枠切れは「明日」・混雑は「少し待って」と分かること
   const texts = [FAIL_TEXT.quota, FAIL_TEXT.busy, FAIL_TEXT.error];
@@ -310,21 +308,21 @@ test("変換に失敗しても入力は残り、その場で再試行できる�
   assert.ok(errBlock.includes("disabled={converting}"), "変換中は押せない");
 });
 
-test("優先モデルの先頭は台帳の決定どおり（P7-c: 読めない箇所を申告するモデルを上に置く）", () => {
+test("試験済みと緊急用は台帳の決定どおり（P7-c → P23: 試験済みは 3.5-flash だけ）", () => {
   // 速さで並べ替えられないように、いまの決定を機械で見張る。
-  // 変えるときは `docs/samples/dummy-memo-04-hard.png` で測り直し、台帳「P7-c の比較」を更新すること。
+  // 試験済みへ足すときは評価キット（eval/）で測り、合格してから設計側の決定を受けて足すこと。
+  assert.deepEqual([...MODEL_TIERS.tested], ["gemini-3.5-flash"]);
+  assert.deepEqual([...MODEL_TIERS.emergency], ["gemini-3.5-flash-lite", "gemini-3.6-flash"]);
   const src = readFileSync("lib/gemini.ts", "utf8");
-  const line = src.slice(src.indexOf("const PREFERRED"), src.indexOf("\n", src.indexOf("const PREFERRED")));
-  const list = [...line.matchAll(/"([^"]+)"/g)].map((m) => m[1]);
-  assert.deepEqual(list, ["gemini-3.5-flash", "gemini-3.6-flash"]);
   assert.ok(src.includes("[DECISION 2026-09-10]"), "並べ替えた理由がコード側にも残っている");
+  assert.ok(src.includes("[DECISION 2026-10-14・設計側]"), "2段に分けた決定がコード側にも残っている");
 });
 
 test("生成パラメータは構造化タスク向け（temperature 0）", () => {
   const src = readFileSync("lib/gemini.ts", "utf8");
   assert.ok(/temperature:\s*0\b/.test(src), "temperature は 0（決め打ちの復号）");
   assert.ok(/response_mime_type:\s*"application\/json"/.test(src), "JSONで受け取る");
-  assert.ok(src.includes("const PREFERRED"), "優先順位のリストを持つ");
+  assert.ok(src.includes("export const MODEL_TIERS"), "試験済み・緊急用のリストを1か所で持つ");
   assert.ok(!/model\s*=\s*"gemini-/.test(src), "モデル名の決め打ちはしない");
 });
 

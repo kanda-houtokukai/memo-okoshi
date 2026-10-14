@@ -120,8 +120,13 @@ test("合否の目安は eval/criteria.ts の1か所（作り話0・申告なし
 
 test("本番と同じプロンプトと読み取りの経路を使う（評価のための別の作りにしない）", () => {
   const run = readFileSync("eval/run.mts", "utf8");
-  assert.ok(run.includes('import { buildPrompt } from "../lib/prompt.ts"') && run.includes("buildPrompt(items, [], c.record_type)"));
+  // メモの組み立ては評価キットと見張りで共通（eval/cases.ts・P23）
+  const cases = readFileSync("eval/cases.ts", "utf8");
+  assert.ok(cases.includes('import { buildPrompt } from "../lib/prompt.ts"') && cases.includes("buildPrompt(items, [], c.record_type)"));
+  assert.ok(run.includes('import { inputs, loadCases } from "./cases.ts"'));
   assert.ok(run.includes('import { finishConversion } from "../lib/convert-core.ts"') && run.includes("finishConversion(r.text, c.record_type)"));
+  const watch = readFileSync("eval/watch.mts", "utf8");
+  assert.ok(watch.includes('import { inputs, loadCases } from "./cases.ts"') && watch.includes("finishConversion(r.text, c.record_type)"), "見張りも同じ経路");
   const prov = readFileSync("eval/providers.ts", "utf8");
   assert.ok(prov.includes('import { callModel, type CallResult, type ImagePart } from "../lib/gemini.ts"'));
   assert.ok(prov.includes("call: (m, p, i, k) => callModel(m, p, i, k)"));
@@ -129,16 +134,19 @@ test("本番と同じプロンプトと読み取りの経路を使う（評価�
   const route = readFileSync("app/api/convert/route.ts", "utf8");
   assert.ok(route.includes("finishConversion(result.text, type)"));
   const gem = readFileSync("lib/gemini.ts", "utf8");
+  const tiers = gem.slice(gem.indexOf("export async function tryTiers"), gem.indexOf("export async function generateWithFallback"));
+  assert.ok(tiers.includes("call: Caller = (m, p, i) => callModel(m, p, i)"), "本番の試す順も callModel を通る");
   const fallback = gem.slice(gem.indexOf("export async function generateWithFallback"));
-  assert.ok(fallback.includes("await callModel(model, prompt, images)"), "本番の試す順も callModel を通る");
+  assert.ok(fallback.includes("tryTiers(workingTiers, prompt, images)"), "本番は呼び方を差し替えない");
   // 後処理は本番の読み取りそのもの（壊れた JSON の救済と人名の機械検出）
   const d = finishConversion('```json\n{"sections":[{"id":"gaiyou","tokens":[{"t":"p","s":"同席：山田花子さん"}]}]}\n```', "interview");
   assert.ok(d && d.sections[0].tokens.some((t) => t.t === "r"));
 });
 
-test("提供元は「提供元:モデル名」で選ぶ。今回は Gemini（本番と同じ鍵）だけ", () => {
+test("提供元は「提供元:モデル名」で選ぶ。今回は Gemini（評価用の鍵・P23）だけ", () => {
   assert.deepEqual(Object.keys(PROVIDERS), ["gemini"]);
-  assert.equal(PROVIDERS.gemini.keyEnv, "GEMINI_API_KEY");
+  assert.equal(PROVIDERS.gemini.keyEnv, "GEMINI_EVAL_API_KEY", "本番の鍵（GEMINI_API_KEY）は評価に使わない");
+  assert.equal(PROVIDERS.gemini.prodKeyEnv, "GEMINI_API_KEY");
   assert.equal(parseModelSpec("gemini:gemini-3.5-flash").model, "gemini-3.5-flash");
   assert.equal(parseModelSpec("gemini-3.6-flash").provider.id, "gemini");
   assert.throws(() => parseModelSpec("anthropic:claude"), /知らない提供元/);
@@ -155,7 +163,7 @@ test("結果（docs/eval/）に画像と鍵を残さない・npm の依存を増
   }
   const pkg = JSON.parse(readFileSync("package.json", "utf8"));
   assert.deepEqual(Object.keys(pkg.dependencies).sort(), ["next", "react", "react-dom"]);
-  for (const f of ["eval/run.mts", "eval/score.ts", "eval/providers.ts", "eval/criteria.ts"]) {
+  for (const f of ["eval/run.mts", "eval/score.ts", "eval/providers.ts", "eval/criteria.ts", "eval/cases.ts", "eval/watch.mts"]) {
     const imports = [...readFileSync(f, "utf8").matchAll(/^import .* from "([^"]+)";$/gm)].map((m) => m[1]);
     assert.ok(imports.every((m) => m.startsWith("node:") || m.startsWith("./") || m.startsWith("../lib/")), `${f} が外のものを読む`);
   }

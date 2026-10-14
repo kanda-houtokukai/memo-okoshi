@@ -13,8 +13,9 @@ export const maxDuration = 120;
 //   items:  JSON文字列（選択された項目idの配列・表示順）
 //   record_type: "interview"（面談・既定）| "meeting"（会議）。項目ライブラリ・プロンプト・人名の扱いが変わる（P9）
 //   vocab:  JSON文字列（端末内の組織語彙。プロンプトに差し込むだけで保存しない）
-// 返却: { ok, model, tried, data } または { ok:false, reason, error }
-//   reason: "quota"（本日の上限）/ "busy"（混雑）/ "error"。error はそのまま画面に出す文言。
+// 返却: { ok, model, tried, tier, data } または { ok:false, reason, error }
+//   reason: "quota"（本日の上限）/ "busy"（混雑）/ "unavailable"（使えない）/ "error"。error はそのまま画面に出す文言。
+//   tier: "tested"（試験済み）/ "emergency"（緊急用・P23）。緊急用なら画面が記録に印を付け、確認画面の上に注意を出す。
 // [DECISION 2026-10-14] 返答の読み取り（JSON の救済）と人名の機械検出は lib/convert-core.ts へ移した（P20・評価キットと同じ経路にするため）。
 
 export async function POST(req: NextRequest) {
@@ -58,7 +59,7 @@ export async function POST(req: NextRequest) {
       // [DECISION 2026-09-10] 枠切れ（429）と混雑（503）で案内を変える。
       //   他のモデルへは流さないので、ここが「使えない」と正直に伝える唯一の場所になる。
       //   detail（生のエラー）は画面に出さない（利用者に読めない情報を見せない）。
-      const status = result.reason === "quota" ? 429 : result.reason === "busy" ? 503 : 502;
+      const status = result.reason === "quota" ? 429 : result.reason === "busy" ? 503 : 502; // unavailable・error は 502
       console.error("[convert] 変換できず:", result.reason, result.error, result.tried);
       return NextResponse.json(
         { ok: false, reason: result.reason, error: FAIL_TEXT[result.reason], tried: result.tried },
@@ -75,7 +76,7 @@ export async function POST(req: NextRequest) {
       );
     }
 
-    return NextResponse.json({ ok: true, model: result.model, tried: result.tried, data });
+    return NextResponse.json({ ok: true, model: result.model, tried: result.tried, tier: result.tier, data });
   } catch (e) {
     console.error("[convert] 想定外の失敗:", e);
     return NextResponse.json({ ok: false, reason: "error", error: FAIL_TEXT.error }, { status: 500 });

@@ -6,15 +6,29 @@ Gemini の無料枠のモデルは予告なく入れ替わる。新しいモデ�
 ## 使い方（リポジトリの直下で・Node の標準機能だけ）
 
 ```
-node eval/run.mts                                  # 本番の優先リスト（lib/gemini.ts の PREFERRED）を 3件×3回
+node eval/run.mts                                  # 本番の試験済み＋緊急用（lib/gemini.ts の MODEL_TIERS）を 3件×3回
 node eval/run.mts --models gemini:gemini-3.7-flash --runs 2
 node eval/run.mts --cases hard --runs 1            # 1件だけ
 node eval/run.mts --dry                            # API を呼ばずに組み立てだけ確かめる
 ```
 
-- 鍵は `.env.local` の `GEMINI_API_KEY`（本番と同じ鍵・無料枠を使う。1日20回/モデル）。値は表示も保存もしない。
+- 鍵は `.env.local` の **`GEMINI_EVAL_API_KEY`（評価用・本番と別のプロジェクトで作った鍵）だけ**（P23）。値は表示も保存もしない。
+  - 無い・本番の鍵（`GEMINI_API_KEY`）と同じ値なら、1回も呼ばずに止まる（P22 で評価が本番の1日の枠を使い切ったため）。
+  - ⚠️ 無料枠の上限は**プロジェクトごと**（2026-10-14 は約10回/モデル/日。失敗した呼び出しも数える）。本番と同じプロジェクトの鍵は、値が違っても本番の枠を食う。
+  - 置き方: Google AI Studio で**新しいプロジェクト**を選んで鍵を作り、`.env.local` に `GEMINI_EVAL_API_KEY=…` の1行を足す（値はコミットしない）。
 - 失敗しても再試行しない。429（枠切れ）が出たらそのモデルは止める。503（混雑）が2回続いても止める。
 - 結果は `docs/eval/YYYY-MM-DD-HHMM.md`（表）と `.json`（各回の採点と変換の結果）。画像と鍵は残さない。
+
+## 毎日の見張り（P23・`eval/watch.mts`）
+
+GitHub Actions（`.github/workflows/watch.yml`）が**毎日 22:00（日本時間）に1回**動く。手で動かすときは Actions の画面の「Run workflow」。
+
+- 鍵は GitHub の secrets の `GEMINI_EVAL_API_KEY` だけ。**未登録なら何もせず成功で終わる**（失敗の通知を出さない）。
+- 評価用の鍵でモデルの一覧を引いて前回と比べ、試験済み・緊急用の各モデルで評価用のメモ1件（`hard`）を1回だけ変換する。
+- Issue を立てる（同じ題が開いていれば立てない）: 試験済みが一覧から消えた／課金が要る／使えない／変換に失敗した／3晩続けて混雑／新しい Flash 系のモデルが出た（評価キットを 3件×1回 走らせた表を付ける）。
+- 記録は `watch-log` ブランチ（main とは別の、記録だけの枝）: `state.json`（前回の一覧・続けて混雑した日数）・`congestion.md`（時刻・モデル・結果）・`eval/`（新しいモデルの評価結果）。
+- 手元で: `node eval/watch.mts --state <置き場所>`（GitHub の変数が無ければ Issue は立てず、題を表示するだけ）。
+- ⚠️ 公開リポジトリの定期実行は、リポジトリに60日間動きが無いと GitHub が止める（Actions の画面から再開できる）。
 
 ## 何を測るか
 

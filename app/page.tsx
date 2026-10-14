@@ -17,6 +17,7 @@
 //   `process.env.DEV_FIXTURE` が "1" になり（next.config.mjs がビルド時に埋め込む）、開発データ（lib/dev-fixture.json）もそのときだけ組み込む。
 //   本番のビルド（Vercel・`npm run build`）では "0" で、下の分岐ごとビルドの出力から消える（`tests/fixture.test.mts`）。
 //   以前は public/ に置いていたので、本番でもゲートの内側で配られ、?fixture=1 で開けた。
+//   撮影用に ?fixture=1&emergency=1 で「緊急用のモデルで読んだ」ときの確認画面を開ける（P23。これも撮影用のビルドだけ）。
 
 import { useEffect, useRef, useState } from "react";
 import { ITEM_LIBRARY, libraryFor, type RecordType } from "@/lib/items";
@@ -51,7 +52,8 @@ async function callConvert(blobs: Blob[], itemIds: string[], type: RecordType): 
   // [DECISION 2026-09-10] 画面に出すのはAPIが返した**利用者向けの文言だけ**。
   //   生のモデル出力（raw）や HTTP の中身は出さない（読めない情報を見せない）。
   if (!json.ok) return { ok: false, error: String(json.error ?? "変換できませんでした。もう一度試してください。") };
-  return { ok: true, data: json.data as ApiData };
+  // P23: 緊急用のモデルで読んだら印を付ける（確認画面の上に注意を出すためだけ。保存も出力もしない）
+  return { ok: true, data: { ...(json.data as ApiData), emergency: json.tier === "emergency" } };
 }
 
 export default function Page() {
@@ -74,12 +76,13 @@ export default function Page() {
   useEffect(() => {
     // ⚠️ 条件はビルド時に "1" か "0" の文字に置き換わる。"0" のビルドでは分岐の中（import を含む）ごと出力に入らない
     if (process.env.DEV_FIXTURE === "1") {
-      if (new URLSearchParams(window.location.search).get("fixture") !== "1") return;
+      const q = new URLSearchParams(window.location.search);
+      if (q.get("fixture") !== "1") return;
       const s = loadSettings(ITEM_LIBRARY);
       import("@/lib/dev-fixture.json")
         .then((m) => {
           const f = m.default as unknown as ApiData & { pages?: MemoPage[] };
-          setRec(fromApi(f, ITEM_LIBRARY, s.enabled, s.order));
+          setRec(fromApi({ ...f, emergency: q.get("emergency") === "1" }, ITEM_LIBRARY, s.enabled, s.order));
           setMemoPages(f.pages ?? []);
           setMode("review");
         })
