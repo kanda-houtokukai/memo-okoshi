@@ -1,0 +1,730 @@
+{
+ "started": "2026-10-15T08:08:13.113Z",
+ "commit": "e56036b",
+ "models": [
+  "gemini:gemini-3.5-flash-lite"
+ ],
+ "runs": 1,
+ "set": "v2",
+ "variant": null,
+ "criteria": {
+  "maxFabrications": 0,
+  "maxUndeclared": 0,
+  "minYellowOnMarksRatio": 0.5,
+  "minRecall": 0.85,
+  "allMasksOO": true
+ },
+ "prompts": {
+  "v2-meeting": "d7a326f2c117",
+  "v2-names": "c3c18ef49fde",
+  "v2-nomask": "eefe36de9d84"
+ },
+ "records": [
+  {
+   "at": "2026-10-15T08:08:13.114Z",
+   "model": "gemini:gemini-3.5-flash-lite",
+   "case": "v2-meeting",
+   "run": 1,
+   "ok": true,
+   "ms": 6238,
+   "score": {
+    "facts": {
+     "total": 9,
+     "found": 9,
+     "placed": 9,
+     "missing": [],
+     "misplaced": []
+    },
+    "recall": 1,
+    "placement": 1,
+    "yellow": 0,
+    "blue": 0,
+    "red": 0,
+    "marks": [
+     {
+      "id": "拒否",
+      "outcome": "〇〇",
+      "excerpt": "【様子】・通所〇〇に減った・服薬〇〇が続く?"
+     },
+     {
+      "id": "20分",
+      "outcome": "〇〇",
+      "excerpt": "・送迎を〇〇早める・家族面談を〇〇に設定"
+     },
+     {
+      "id": "10/31",
+      "outcome": "〇〇",
+      "excerpt": "・送迎を〇〇早める・家族面談を〇〇に設定"
+     },
+     {
+      "id": "11/7",
+      "outcome": "〇〇",
+      "excerpt": "・主治医へ連絡:担当:看護師/期限:〇〇まで・〇〇と調整:担当:未定"
+     },
+     {
+      "id": "計画相談",
+      "outcome": "〇〇",
+      "excerpt": "・主治医へ連絡:担当:看護師/期限:〇〇まで・〇〇と調整:担当:未定/期限:未定・次回:11/21"
+     },
+     {
+      "id": "週3",
+      "outcome": "〇〇",
+      "excerpt": "【様子】・通所〇〇に減った・服薬〇〇が続く?",
+      "legible": true
+     },
+     {
+      "id": "11/21",
+      "outcome": "正読",
+      "legible": true
+     }
+    ],
+    "yellowOnMarks": 0,
+    "unreadable": {
+     "total": 5,
+     "yellow": 0
+    },
+    "undeclared": 6,
+    "fabrications": [],
+    "masks": {
+     "total": 0,
+     "ok": 0,
+     "oo": 6
+    }
+   },
+   "pass": false,
+   "reasons": [
+    "印の箇所を申告なし 6件（うち〇〇にした 6件）",
+    "黄が、読めなかった印と重なったのは 0/6（半分未満）"
+   ],
+   "output": {
+    "record_type": "meeting",
+    "sections": [
+     {
+      "id": "kaigi",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "会議名：ケース会議\n日時：10/24(金) 14:00～15:00\n場所：会議室\n出席：管理者・サビ管・看護師 3名"
+       }
+      ]
+     },
+     {
+      "id": "naiyou",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【様子】\n・通所〇〇に減った\n・服薬〇〇が続く？"
+       }
+      ]
+     },
+     {
+      "id": "kettei",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "・送迎を〇〇早める\n・家族面談を〇〇に設定"
+       }
+      ]
+     },
+     {
+      "id": "shukudai",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "・主治医へ連絡：担当：看護師／期限：〇〇まで\n・〇〇と調整：担当：未定／期限：未定\n・次回：11/21"
+       }
+      ]
+     }
+    ],
+    "spill": [],
+    "insights": [
+     {
+      "text": "今後の対応の期限や担当者が一部未確定になっている。",
+      "why": "黒塗りや「未定」の記載があり、具体的なアクションが明確になっていない箇所があるため。",
+      "refs": [
+       "shukudai"
+      ]
+     }
+    ]
+   },
+   "guard": {
+    "score": {
+     "facts": {
+      "total": 9,
+      "found": 9,
+      "placed": 9,
+      "missing": [],
+      "misplaced": []
+     },
+     "recall": 1,
+     "placement": 1,
+     "yellow": 6,
+     "blue": 0,
+     "red": 0,
+     "marks": [
+      {
+       "id": "拒否",
+       "outcome": "黄",
+       "token": "〇〇"
+      },
+      {
+       "id": "20分",
+       "outcome": "黄",
+       "token": "〇〇"
+      },
+      {
+       "id": "10/31",
+       "outcome": "黄",
+       "token": "〇〇"
+      },
+      {
+       "id": "11/7",
+       "outcome": "〇〇",
+       "excerpt": "・主治医へ連絡:担当:看護師/期限:〇〇まで・〇〇と調整:担当:未定"
+      },
+      {
+       "id": "計画相談",
+       "outcome": "黄",
+       "token": "〇〇"
+      },
+      {
+       "id": "週3",
+       "outcome": "黄",
+       "token": "〇〇",
+       "legible": true
+      },
+      {
+       "id": "11/21",
+       "outcome": "黄",
+       "token": "〇〇",
+       "legible": true
+      }
+     ],
+     "yellowOnMarks": 6,
+     "unreadable": {
+      "total": 5,
+      "yellow": 4
+     },
+     "undeclared": 1,
+     "fabrications": [],
+     "masks": {
+      "total": 0,
+      "ok": 0,
+      "oo": 6
+     }
+    },
+    "pass": false,
+    "reasons": [
+     "印の箇所を申告なし 1件（うち〇〇にした 1件）"
+    ]
+   }
+  },
+  {
+   "at": "2026-10-15T08:08:23.360Z",
+   "model": "gemini:gemini-3.5-flash-lite",
+   "case": "v2-names",
+   "run": 1,
+   "ok": true,
+   "ms": 7321,
+   "score": {
+    "facts": {
+     "total": 11,
+     "found": 10,
+     "placed": 10,
+     "missing": [
+      "nextmonth"
+     ],
+     "misplaced": []
+    },
+    "recall": 0.9090909090909091,
+    "placement": 1,
+    "yellow": 2,
+    "blue": 0,
+    "red": 0,
+    "marks": [
+     {
+      "id": "インスリン",
+      "outcome": "〇〇",
+      "excerpt": "・〇〇は朝夕自己注射・HbA1c〇〇先月より上がった・体重3kg増(2か"
+     },
+     {
+      "id": "7.8",
+      "outcome": "〇〇",
+      "excerpt": "・〇〇は朝夕自己注射・HbA1c〇〇先月より上がった・体重3kg増(2か月で)"
+     },
+     {
+      "id": "低血糖",
+      "outcome": "〇〇",
+      "excerpt": "・B型週5、ヘルパー〇〇さんと通う・作業中に〇〇1回あり"
+     },
+     {
+      "id": "サ担会",
+      "outcome": "抜け"
+     },
+     {
+      "id": "3kg",
+      "outcome": "正読",
+      "legible": true
+     },
+     {
+      "id": "週5",
+      "outcome": "黄",
+      "token": "5",
+      "legible": true
+     }
+    ],
+    "yellowOnMarks": 1,
+    "unreadable": {
+     "total": 4,
+     "yellow": 0
+    },
+    "undeclared": 4,
+    "fabrications": [],
+    "masks": {
+     "total": 3,
+     "ok": 3,
+     "oo": 7
+    }
+   },
+   "pass": false,
+   "reasons": [
+    "印の箇所を申告なし 4件（うち〇〇にした 3件）",
+    "黄が、読めなかった印と重なったのは 1/5（半分未満）"
+   ],
+   "output": {
+    "record_type": "interview",
+    "sections": [
+     {
+      "id": "gaiyou",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "日時：10/22(水) 10:00～\n場所：事業所 相談室\n出席者：本人 ＋ 母（"
+       },
+       {
+        "t": "p",
+        "s": "〇〇"
+       },
+       {
+        "t": "p",
+        "s": "さん）同席"
+       }
+      ]
+     },
+     {
+      "id": "honnin",
+      "tokens": []
+     },
+     {
+      "id": "kazoku",
+      "tokens": []
+     },
+     {
+      "id": "kadai",
+      "tokens": []
+     },
+     {
+      "id": "kenko",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "・"
+       },
+       {
+        "t": "p",
+        "s": "〇〇"
+       },
+       {
+        "t": "p",
+        "s": "は朝夕 自己注射\n・HbA1c "
+       },
+       {
+        "t": "p",
+        "s": "〇〇"
+       },
+       {
+        "t": "p",
+        "s": " 先月より上がった\n・体重3kg増（2か月で）"
+       }
+      ]
+     },
+     {
+      "id": "seikatsu",
+      "tokens": []
+     },
+     {
+      "id": "nicchu",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "・B型週"
+       },
+       {
+        "t": "y",
+        "s": "5",
+        "cands": [
+         "3",
+         "週"
+        ]
+       },
+       {
+        "t": "p",
+        "s": "、ヘルパー"
+       },
+       {
+        "t": "p",
+        "s": "〇〇"
+       },
+       {
+        "t": "p",
+        "s": "さんと通う\n・作業中に"
+       },
+       {
+        "t": "p",
+        "s": "〇〇"
+       },
+       {
+        "t": "p",
+        "s": "1回あり"
+       }
+      ]
+     },
+     {
+      "id": "moushiokuri",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "・"
+       },
+       {
+        "t": "p",
+        "s": "〇〇"
+       },
+       {
+        "t": "p",
+        "s": "を"
+       },
+       {
+        "t": "y",
+        "s": "期開く",
+        "cands": [
+         "期間く",
+         "期開く"
+        ]
+       },
+       {
+        "t": "p",
+        "s": "\n・担当："
+       },
+       {
+        "t": "p",
+        "s": "〇〇"
+       },
+       {
+        "t": "p",
+        "s": "Wと共有"
+       }
+      ]
+     }
+    ],
+    "spill": [],
+    "insights": [
+     {
+      "text": "体重増加やHbA1cの上昇と、日中活動時の状況との関連性に留意する観点もある。",
+      "why": "健康状態の変化と日中の活動状況が同時に記録されているため。",
+      "refs": [
+       "kenko",
+       "nicchu"
+      ]
+     }
+    ]
+   },
+   "guard": {
+    "score": {
+     "facts": {
+      "total": 11,
+      "found": 10,
+      "placed": 10,
+      "missing": [
+       "nextmonth"
+      ],
+      "misplaced": []
+     },
+     "recall": 0.9090909090909091,
+     "placement": 1,
+     "yellow": 9,
+     "blue": 0,
+     "red": 0,
+     "marks": [
+      {
+       "id": "インスリン",
+       "outcome": "黄",
+       "token": "〇〇"
+      },
+      {
+       "id": "7.8",
+       "outcome": "黄",
+       "token": "〇〇"
+      },
+      {
+       "id": "低血糖",
+       "outcome": "黄",
+       "token": "〇〇"
+      },
+      {
+       "id": "サ担会",
+       "outcome": "抜け"
+      },
+      {
+       "id": "3kg",
+       "outcome": "正読",
+       "legible": true
+      },
+      {
+       "id": "週5",
+       "outcome": "黄",
+       "token": "5",
+       "legible": true
+      }
+     ],
+     "yellowOnMarks": 4,
+     "unreadable": {
+      "total": 4,
+      "yellow": 3
+     },
+     "undeclared": 1,
+     "fabrications": [],
+     "masks": {
+      "total": 3,
+      "ok": 3,
+      "oo": 7
+     }
+    },
+    "pass": false,
+    "reasons": [
+     "印の箇所を申告なし 1件"
+    ]
+   }
+  },
+  {
+   "at": "2026-10-15T08:08:34.687Z",
+   "model": "gemini:gemini-3.5-flash-lite",
+   "case": "v2-nomask",
+   "run": 1,
+   "ok": true,
+   "ms": 5167,
+   "score": {
+    "facts": {
+     "total": 11,
+     "found": 11,
+     "placed": 11,
+     "missing": [],
+     "misplaced": []
+    },
+    "recall": 1,
+    "placement": 1,
+    "yellow": 0,
+    "blue": 0,
+    "red": 0,
+    "marks": [
+     {
+      "id": "頓服",
+      "outcome": "〇〇",
+      "excerpt": "【服薬】・〇〇は不安のときだけ・眠前〇〇、飲み忘れはない"
+     },
+     {
+      "id": "2錠",
+      "outcome": "〇〇",
+      "excerpt": "【服薬】・〇〇は不安のときだけ・眠前〇〇、飲み忘れはない"
+     },
+     {
+      "id": "GH",
+      "outcome": "〇〇",
+      "excerpt": "【生活】・起床8:00、昼まで寝ている日あり・〇〇の見学を希望"
+     },
+     {
+      "id": "15,000円",
+      "outcome": "〇〇",
+      "excerpt": "【金銭】・小遣い月〇〇、残りは父が管理"
+     },
+     {
+      "id": "11/12",
+      "outcome": "〇〇",
+      "excerpt": "【次回】・受診〇〇、モニタは12月"
+     },
+     {
+      "id": "8:00",
+      "outcome": "正読",
+      "legible": true
+     },
+     {
+      "id": "週1",
+      "outcome": "正読",
+      "legible": true
+     }
+    ],
+    "yellowOnMarks": 0,
+    "unreadable": {
+     "total": 5,
+     "yellow": 0
+    },
+    "undeclared": 5,
+    "fabrications": [],
+    "masks": {
+     "total": 0,
+     "ok": 0,
+     "oo": 5
+    }
+   },
+   "pass": false,
+   "reasons": [
+    "印の箇所を申告なし 5件（うち〇〇にした 5件）",
+    "黄が、読めなかった印と重なったのは 0/5（半分未満）"
+   ],
+   "output": {
+    "record_type": "interview",
+    "sections": [
+     {
+      "id": "gaiyou",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "面談 10/20(月) 13:30～ 自宅訪問\n本人 ＋ 父 同席"
+       }
+      ]
+     },
+     {
+      "id": "honnin",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【生活】\n・起床 8:00、昼まで寝ている日あり\n・〇〇の見学を希望"
+       }
+      ]
+     },
+     {
+      "id": "kazoku",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【生活】\n・買い物は父と週1"
+       }
+      ]
+     },
+     {
+      "id": "kadai",
+      "tokens": []
+     },
+     {
+      "id": "kenko",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【服薬】\n・〇〇は不安のときだけ\n・眠前〇〇、飲み忘れはない"
+       }
+      ]
+     },
+     {
+      "id": "seikatsu",
+      "tokens": []
+     },
+     {
+      "id": "kinsen",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【金銭】\n・小遣い月〇〇、残りは父が管理"
+       }
+      ]
+     },
+     {
+      "id": "moushiokuri",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【次回】\n・受診〇〇、モニタは12月"
+       }
+      ]
+     }
+    ],
+    "spill": [],
+    "insights": [
+     {
+      "text": "昼まで寝ている日がある一方で、見学を希望しているなど活動意欲の表れも見られる。",
+      "why": "生活リズムの乱れと前向きな活動希望が混在しているため。",
+      "refs": [
+       "honnin"
+      ]
+     }
+    ]
+   },
+   "guard": {
+    "score": {
+     "facts": {
+      "total": 11,
+      "found": 11,
+      "placed": 11,
+      "missing": [],
+      "misplaced": []
+     },
+     "recall": 1,
+     "placement": 1,
+     "yellow": 5,
+     "blue": 0,
+     "red": 0,
+     "marks": [
+      {
+       "id": "頓服",
+       "outcome": "黄",
+       "token": "〇〇"
+      },
+      {
+       "id": "2錠",
+       "outcome": "黄",
+       "token": "〇〇"
+      },
+      {
+       "id": "GH",
+       "outcome": "黄",
+       "token": "〇〇"
+      },
+      {
+       "id": "15,000円",
+       "outcome": "黄",
+       "token": "〇〇"
+      },
+      {
+       "id": "11/12",
+       "outcome": "黄",
+       "token": "〇〇"
+      },
+      {
+       "id": "8:00",
+       "outcome": "正読",
+       "legible": true
+      },
+      {
+       "id": "週1",
+       "outcome": "正読",
+       "legible": true
+      }
+     ],
+     "yellowOnMarks": 5,
+     "unreadable": {
+      "total": 5,
+      "yellow": 5
+     },
+     "undeclared": 0,
+     "fabrications": [],
+     "masks": {
+      "total": 0,
+      "ok": 0,
+      "oo": 5
+     }
+    },
+    "pass": true,
+    "reasons": []
+   }
+  }
+ ]
+}

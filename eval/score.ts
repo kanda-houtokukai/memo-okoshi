@@ -116,7 +116,15 @@ function wordBlue(t: Tok, m: Mark): boolean {
 }
 
 /** 黄（または青）のトークンを印に割り当てる。答えの語が入っているものを先に、残りは前後の語に近いものへ。1つの印に1つまで */
-function assign(segs: Seg[], marks: Mark[], kind: "y" | "b", taken: Map<string, string>, ok: (t: Tok, m: Mark) => boolean = () => true): void {
+function assign(
+  segs: Seg[],
+  marks: Mark[],
+  kind: "y" | "b",
+  taken: Map<string, string>,
+  ok: (t: Tok, m: Mark) => boolean = () => true,
+  /** 前後の語との距離で割り当ててよい印（答えを含むトークンの割り当てには使わない） */
+  nearOk: (m: Mark) => boolean = () => true
+): void {
   const toks = segs.flatMap((seg) => seg.toks.filter((t) => t.t === kind).map((t) => ({ seg, t })));
   const used = new Set<Tok>();
   for (const { t } of toks) {
@@ -131,7 +139,7 @@ function assign(segs: Seg[], marks: Mark[], kind: "y" | "b", taken: Map<string, 
     let best: Mark | null = null;
     let bestD = Infinity;
     for (const m of marks) {
-      if (taken.has(m.id) || !ok(t, m)) continue;
+      if (taken.has(m.id) || !ok(t, m) || !nearOk(m)) continue;
       const d = distance(seg, t, m);
       if (d <= NEAR && d < bestD) {
         best = m;
@@ -204,8 +212,6 @@ export function scoreRun(c: EvalCase, out: Converted): RunScore {
   }
   const all = segs.flatMap((s) => s.toks);
   // 印（読みにくくした箇所）。判定の順は 黄 → 正読 → 青 → 〇〇 → 申告なし → 抜け（P25 で 正読 を 青 の前にした）
-  const yTaken = new Map<string, string>();
-  assign(segs, marksAll, "y", yTaken);
   /** 正読を見る文: 黄と語の大きさの青は伏せる（それは申告であって、読んで確定した字ではない）。文まるごとの青は残す */
   const plain = segs.map((seg) => ({
     ...seg,
@@ -220,6 +226,10 @@ export function scoreRun(c: EvalCase, out: Converted): RunScore {
         positions(seg.text, cx).some((p) => hasAny(seg.text.slice(Math.max(0, p - NEAR), p + norm(cx).length + NEAR), m.answer))
       )
     );
+  // [DECISION 2026-10-15 P26] 前後の語との距離で黄を割り当てるのは、正しく読めていない印だけ。P26 で、保険で黄にした「〇〇と調整」の〇〇が
+  //   正しく読めている「次回：11/21」の近くにあり、黄を 11/21 に取られて、本当に黄の向く「11/7」が〇〇のまま残っていた。答えを含む黄は今までどおり。
+  const yTaken = new Map<string, string>();
+  assign(segs, marksAll, "y", yTaken, undefined, (m) => !readOk(m));
   const correct = new Set(marksAll.filter((m) => !yTaken.has(m.id) && readOk(m)).map((m) => m.id));
   const bTaken = new Map<string, string>();
   assign(

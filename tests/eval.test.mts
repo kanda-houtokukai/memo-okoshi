@@ -57,6 +57,21 @@ test("v2 のメモ（P26）は3件: 本当に読めない箇所を各4か所以�
   assert.deepEqual(loadCases().map((c) => c.id), ["hard", "names", "symbols"]);
 });
 
+test("採点（P26）: 前後の語との距離で黄を割り当てるのは、正しく読めていない印だけ（近くの正読の印に黄を取られない）", async () => {
+  const { loadCases } = await import("../eval/cases.ts");
+  const c = loadCases(["v2-meeting"], "v2")[0];
+  const s = scoreRun(c, {
+    record_type: "meeting",
+    sections: [{ id: "shukudai", tokens: [{ t: "p", s: "・主治医へ連絡：看護師／期限：" }, { t: "y", s: "〇〇" }, { t: "p", s: "まで\n・" }, { t: "y", s: "〇〇" }, { t: "p", s: "と調整：担当未定\n・次回：11/21" }] }],
+    spill: [],
+    insights: [],
+  });
+  const o = Object.fromEntries(s.marks.map((m) => [m.id, m.outcome]));
+  assert.equal(o["11/7"], "黄");
+  assert.equal(o["計画相談"], "黄");
+  assert.equal(o["11/21"], "正読", "正しく読めた印は黄を取らない");
+});
+
 test("評価のメモは3件: 名前を塗った1件・記号（→↑↓？！）の1件を含み、どれにも読みにくくした箇所（印）がある", () => {
   assert.equal(cases.length, 3);
   assert.ok(cases.some((c) => c.masks.length > 0 && c.maskedNames.length > 0), "名前を塗ったメモがない");
