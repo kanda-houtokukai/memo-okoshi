@@ -1,0 +1,116 @@
+{
+ "at": "2026-10-22T17:53:01.306Z",
+ "case": "hard",
+ "probes": [
+  {
+   "model": "gemini-3.5-flash",
+   "tier": "tested",
+   "result": "busy",
+   "status": 503
+  },
+  {
+   "model": "gemini-3.5-flash-lite",
+   "tier": "emergency",
+   "result": "ok",
+   "status": 200,
+   "pass": false,
+   "reasons": [
+    "印の箇所を申告なし 2件",
+    "黄が、読めなかった印と重なったのは 0/2（半分未満）"
+   ],
+   "output": {
+    "record_type": "interview",
+    "sections": [
+     {
+      "id": "gaiyou",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "モニタリング 9/12(木) 14:00～ 自宅訪問\n・本人 ＋ 姉同席"
+       }
+      ]
+     },
+     {
+      "id": "honnin",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【生活】\n・起床7:00頃、朝食は食べたり食べなかったり\n・部屋の片づけが苦手→ヘルパーと一緒に月2回"
+       }
+      ]
+     },
+     {
+      "id": "kazoku",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【困りごと】\n・姉「本人に任せると使いすぎる」"
+       }
+      ]
+     },
+     {
+      "id": "kadai",
+      "tokens": []
+     },
+     {
+      "id": "kenko",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【服薬】\n・服薬は自己管理、飲み忘れ週1～2\n・訪問から声かけをもっている"
+       }
+      ]
+     },
+     {
+      "id": "seikatsu",
+      "tokens": []
+     },
+     {
+      "id": "nicchu",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【就労】\n・週3でB型作業所(送迎あり)\n・工賃は月12,000円くらい\n・「もう少し増やしたい」との発言"
+       }
+      ]
+     },
+     {
+      "id": "kinsen",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【困りごと】\n・金銭管理、月末に苦しくなる"
+       }
+      ]
+     },
+     {
+      "id": "moushiokuri",
+      "tokens": [
+       {
+        "t": "p",
+        "s": "【就労】\n・サビ管と個計の見直しを10月に予定\n【次回】\n・ケース会10/3、モニタは11月"
+       }
+      ]
+     }
+    ],
+    "spill": [],
+    "insights": [
+     {
+      "text": "服薬の飲み忘れと月末の金銭窮迫が同時に起きているため、生活リズムや支出の管理体制を包括的に見直す観点もある。",
+      "why": "生活上の複数の管理課題が連動している可能性があるため。",
+      "refs": [
+       "kenko",
+       "kinsen"
+      ]
+     }
+    ]
+   }
+  },
+  {
+   "model": "gemini-3.6-flash",
+   "tier": "emergency",
+   "result": "busy",
+   "status": 503
+  }
+ ]
+}
