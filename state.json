@@ -1,5 +1,5 @@
 {
- "checkedAt": "2026-10-31T17:32:49.071Z",
+ "checkedAt": "2026-11-01T18:17:25.496Z",
  "models": [
   "gemini-4-argon",
   "gemini-3.8-flash",
@@ -26,7 +26,7 @@
   "gemini-robotics-er-2-preview"
  ],
  "busyDays": {
-  "gemini-3.5-flash": 0,
+  "gemini-3.5-flash": 1,
   "gemini-3.5-flash-lite": 0,
   "gemini-3.6-flash": 0
  }
