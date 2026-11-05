@@ -1,0 +1,34 @@
+{
+ "started": "2026-11-05T20:30:39.617Z",
+ "commit": "3b3d848",
+ "models": [
+  "gemini:gemini-omni-1.2-flash"
+ ],
+ "runs": 1,
+ "set": "v1",
+ "variant": null,
+ "criteria": {
+  "maxFabrications": 0,
+  "maxUndeclared": 0,
+  "minYellowOnMarksRatio": 0.5,
+  "minRecall": 0.85,
+  "allMasksOO": true
+ },
+ "prompts": {
+  "hard": "5539e4127ade",
+  "names": "c3c18ef49fde",
+  "symbols": "d7a326f2c117"
+ },
+ "records": [
+  {
+   "at": "2026-11-05T20:30:39.617Z",
+   "model": "gemini:gemini-omni-1.2-flash",
+   "case": "hard",
+   "run": 1,
+   "ok": false,
+   "ms": 324,
+   "status": 429,
+   "error": "HTTP 429 (gemini-omni-1.2-flash): {\n  \"error\": {\n    \"code\": 429,\n    \"message\": \"You exceeded your current quota, please check your plan and billing details. For more information on this error, head to: https://ai.google.dev/gemini-api/docs/rate-limits. To monitor your current usage, head to: https"
+  }
+ ]
+}
