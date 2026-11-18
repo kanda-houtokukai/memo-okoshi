@@ -1,0 +1,24 @@
+{
+ "at": "2026-11-18T21:08:55.431Z",
+ "case": "hard",
+ "probes": [
+  {
+   "model": "gemini-3.5-flash",
+   "tier": "tested",
+   "result": "busy",
+   "status": 503
+  },
+  {
+   "model": "gemini-3.5-flash-lite",
+   "tier": "emergency",
+   "result": "busy",
+   "status": 503
+  },
+  {
+   "model": "gemini-3.6-flash",
+   "tier": "emergency",
+   "result": "busy",
+   "status": 503
+  }
+ ]
+}
